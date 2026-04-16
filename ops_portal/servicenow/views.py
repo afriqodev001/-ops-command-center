@@ -1,6 +1,6 @@
 import json
-import subprocess
 import time
+import urllib.request
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -16,16 +16,21 @@ from core.browser.registry import load_session, clear_session, all_sessions
 _INTEGRATION = 'servicenow'
 
 
-def _is_pid_running(pid) -> bool:
-    """Non-blocking Windows PID check via tasklist."""
-    if not pid:
+def _is_browser_alive(port) -> bool:
+    """Liveness probe for the Edge CDP endpoint.
+
+    Preferred over a PID check because the PID we stash at launch is often a
+    launcher/wrapper that exits immediately; the real Edge window then runs
+    under a child PID we never saw. What actually matters for automation is
+    whether the CDP port still responds, so treat that as truth.
+    """
+    if not port:
         return False
     try:
-        result = subprocess.run(
-            ['tasklist', '/FI', f'PID eq {pid}', '/NH', '/FO', 'CSV'],
-            capture_output=True, text=True, timeout=3,
-        )
-        return str(pid) in result.stdout
+        with urllib.request.urlopen(
+            f'http://127.0.0.1:{port}/json/version', timeout=1.5
+        ) as resp:
+            return getattr(resp, 'status', 200) == 200
     except Exception:
         return False
 
@@ -70,14 +75,16 @@ def _build_session_context():
         }
 
     pid = session.get('pid')
+    port = session.get('debug_port')
     last_used = session.get('last_used')
     last_used_ago = _format_age(time.time() - last_used) if last_used else 'unknown'
-    process_alive = _is_pid_running(pid)
+    browser_alive = _is_browser_alive(port)
 
-    if process_alive:
+    if browser_alive:
         status = 'active'
         status_label = 'Connected'
-    elif pid:
+    elif port or pid:
+        # We have a record of a session that isn't reachable right now.
         status = 'disconnected'
         status_label = 'Browser offline'
     else:
@@ -90,9 +97,9 @@ def _build_session_context():
         'user_key': user_key,
         'session': session,
         'pid': pid,
-        'port': session.get('debug_port'),
+        'port': port,
         'last_used_ago': last_used_ago,
-        'process_alive': process_alive,
+        'process_alive': browser_alive,   # kept key for backward compat
     }
 
 
