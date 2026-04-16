@@ -315,12 +315,103 @@ def _changes_source(request):
     return [] if _is_live(request) else DEMO_CHANGES
 
 
+def _unwrap_record(response):
+    """Drill past common wrappers from ServiceNow/task responses to the flat record dict."""
+    if not response or not isinstance(response, dict):
+        return None
+    if response.get('error'):
+        return None
+    # Looks like a flat record already
+    if 'number' in response or 'sys_id' in response:
+        return response
+    # Common wrappers returned by our task helpers
+    for key in ('record', 'result'):
+        inner = response.get(key)
+        if isinstance(inner, dict):
+            return _unwrap_record(inner)
+        if isinstance(inner, list) and inner:
+            return _unwrap_record(inner[0])
+    return None
+
+
+def _adapt_live_incident(rec):
+    """Shape a live ServiceNow incident record to the dict our templates expect."""
+    if not rec:
+        return None
+    state_display = str(rec.get('state', '') or '')
+    priority     = str(rec.get('priority', '') or '')
+    return {
+        'sys_id':            rec.get('sys_id', ''),
+        'number':            rec.get('number', ''),
+        'short_description': rec.get('short_description', ''),
+        'priority':          priority,
+        'priority_label':    f'P{priority}' if priority else '',
+        'state':             state_display,
+        'state_code':        state_display.lower().replace(' ', '_'),
+        'assignment_group':  rec.get('assignment_group', ''),
+        'assigned_to':       rec.get('assigned_to', ''),
+        'opened':            rec.get('opened_at', '') or rec.get('sys_created_on', ''),
+        'age':               rec.get('sys_updated_on', '') or '',
+        'sla_warning':       False,
+        'cmdb_ci':           rec.get('cmdb_ci', ''),
+        'opened_by':         rec.get('opened_by', ''),
+        'work_notes':        [], 'tasks': [], 'attachments': [],
+    }
+
+
+def _adapt_live_change(rec):
+    """Shape a live ServiceNow change record to the dict our templates expect."""
+    if not rec:
+        return None
+    state_display = str(rec.get('state', '') or '')
+    return {
+        'sys_id':            rec.get('sys_id', ''),
+        'number':            rec.get('number', ''),
+        'short_description': rec.get('short_description', ''),
+        'type':              rec.get('type', '') or 'Normal',
+        'state':             state_display,
+        'state_code':        state_display.lower().replace(' ', '_'),
+        'risk':              rec.get('risk', ''),
+        'assignment_group':  rec.get('assignment_group', ''),
+        'assigned_to':       rec.get('assigned_to', ''),
+        'scheduled':         rec.get('start_date', ''),
+        'cmdb_ci':           rec.get('cmdb_ci', ''),
+        'opened_by':         rec.get('opened_by', ''),
+        'ctasks':            [],          # filled by a separate call if/when we wire CTASKs
+        'ctask_closed':      0,
+        'ctask_pct':         0,
+        'work_notes':        [], 'attachments': [],
+    }
+
+
 def _get_incident_modal(request, number):
-    return None if _is_live(request) else _get_incident(number)
+    if not _is_live(request):
+        return _get_incident(number)
+    # Live mode — run the task synchronously in-process via .apply()
+    try:
+        from .tasks import incident_get_by_field_task
+        resp = incident_get_by_field_task.apply(args=[{
+            'field':         'number',
+            'value':         number,
+            'display_value': True,
+        }]).result
+        return _adapt_live_incident(_unwrap_record(resp))
+    except Exception:
+        return None
 
 
 def _get_change_modal(request, number):
-    return None if _is_live(request) else _get_change(number)
+    if not _is_live(request):
+        return _get_change(number)
+    try:
+        from .tasks import changes_get_by_number_task
+        resp = changes_get_by_number_task.apply(args=[{
+            'number':        number,
+            'display_value': True,
+        }]).result
+        return _adapt_live_change(_unwrap_record(resp))
+    except Exception:
+        return None
 
 
 def _parse_numbers(raw):
