@@ -60,6 +60,10 @@ ops_portal/servicenow/standard_change_templates.json
 ops_portal/servicenow/search_presets.json
 ops_portal/servicenow/user_preferences.json
 
+# ─── Personal notes (keep local) ────────────────────────────
+GIT_CHEATSHEET.md
+*.local.md
+
 # ─── IDEs / editors ─────────────────────────────────────────
 .vscode/
 .idea/
