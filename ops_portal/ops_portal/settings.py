@@ -18,6 +18,17 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ------------------------------------------------------------
+# Load .env (repo root) if python-dotenv is available.
+# Must happen BEFORE any os.environ.get() call below.
+# ------------------------------------------------------------
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR.parent / '.env')
+except ImportError:
+    # python-dotenv not installed — fall back to vars already in the shell
+    pass
+
 
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name)

@@ -104,8 +104,9 @@
   <div class="flex flex-wrap items-center gap-2">
     {% if status == 'active' %}
     <form hx-post="/servicenow/session/connect/"
-          hx-target="#session-widget"
-          hx-swap="outerHTML"
+          hx-target="#session-widget-container"
+          hx-swap="innerHTML"
+          hx-disabled-elt="find button"
           class="contents">
       {% csrf_token %}
       <button type="submit"
@@ -118,8 +119,9 @@
       </button>
     </form>
     <form hx-post="/servicenow/session/disconnect/"
-          hx-target="#session-widget"
-          hx-swap="outerHTML"
+          hx-target="#session-widget-container"
+          hx-swap="innerHTML"
+          hx-disabled-elt="find button"
           class="contents">
       {% csrf_token %}
       <button type="submit"
@@ -134,8 +136,9 @@
 
     {% else %}
     <form hx-post="/servicenow/session/connect/"
-          hx-target="#session-widget"
-          hx-swap="outerHTML"
+          hx-target="#session-widget-container"
+          hx-swap="innerHTML"
+          hx-disabled-elt="find button"
           class="contents">
       {% csrf_token %}
       <button type="submit"
@@ -150,8 +153,9 @@
 
     {% if session %}
     <form hx-post="/servicenow/session/disconnect/"
-          hx-target="#session-widget"
-          hx-swap="outerHTML"
+          hx-target="#session-widget-container"
+          hx-swap="innerHTML"
+          hx-disabled-elt="find button"
           class="contents">
       {% csrf_token %}
       <button type="submit"
