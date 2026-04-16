@@ -325,16 +325,16 @@
 
       {% if request.session.data_mode == 'live' %}
       <!-- Live-mode banner — visible only while the user has toggled to Live -->
-      <div class="bg-warn/10 border-b border-warn/25 px-6 py-2 flex items-center gap-2.5 flex-shrink-0">
-        <svg class="w-4 h-4 text-warn flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="bg-ok/5 border-b border-ok/20 px-6 py-2 flex items-center gap-2.5 flex-shrink-0">
+        <svg class="w-4 h-4 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
-        <p class="text-xs text-warn leading-snug">
-          <strong>Live mode active.</strong>
-          ServiceNow API calls are not yet wired into read pages, so lists and details will appear empty.
-          Write actions (bulk create, create-from-template) already hit the real API when a session is connected.
-          Click the <strong>Mode</strong> chip to return to Demo.
+        <p class="text-xs text-ok leading-snug">
+          <strong>Live mode.</strong>
+          Read pages hit the real ServiceNow Table API via your attached browser session.
+          Requires a connected session — check the pill on the right.
+          Click the <strong>Mode</strong> chip to switch back to Demo.
         </p>
       </div>
       {% endif %}

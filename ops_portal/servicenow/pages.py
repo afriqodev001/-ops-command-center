@@ -414,6 +414,136 @@ def _get_change_modal(request, number):
         return None
 
 
+# ─── Live fetch — list-oriented helpers ──────────────────────────
+
+def _unwrap_list(response):
+    """Peel wrappers off a list-shaped task response, returning [] on any error."""
+    if not response or not isinstance(response, dict):
+        return []
+    if response.get('error'):
+        return []
+    for key in ('records', 'result'):
+        inner = response.get(key)
+        if isinstance(inner, list):
+            return inner
+    return []
+
+
+def _live_list(table: str, query: str, fields: str, limit: int):
+    """Run table_list_task synchronously and return [] on any error.
+    Kept as a thin, error-suppressing wrapper so call-sites stay readable."""
+    try:
+        from .tasks import table_list_task
+        resp = table_list_task.apply(args=[{
+            'table':         table,
+            'query':         query,
+            'fields':        fields,
+            'limit':         limit,
+            'display_value': True,
+        }]).result
+        return _unwrap_list(resp)
+    except Exception:
+        return []
+
+
+# Minimal fieldsets the templates need. Keep to what's actually rendered
+# so we don't waste bytes on ServiceNow's huge default row.
+_INCIDENT_LIST_FIELDS = (
+    'sys_id,number,short_description,priority,state,assignment_group,'
+    'assigned_to,opened_at,sys_updated_on,cmdb_ci,opened_by'
+)
+_CHANGE_LIST_FIELDS = (
+    'sys_id,number,short_description,type,state,risk,assignment_group,'
+    'assigned_to,start_date,end_date,sys_updated_on,cmdb_ci,opened_by'
+)
+
+
+# Best-effort state-code → encoded-query mapping. Instance-specific —
+# tweak to match your own ServiceNow state choices.
+_INCIDENT_STATE_QUERY = {
+    'open':        'stateIN1,2,3',   # New / In Progress / On Hold
+    'in_progress': 'state=2',
+    'resolved':    'state=6',
+}
+_CHANGE_STATE_QUERY = {
+    'scheduled': 'state=-2',
+    'implement': 'state=-1',
+    'review':    'state=0',
+    'approved':  'state=-3',
+}
+
+
+def _days_clause(days: str, date_field: str) -> str:
+    """Return an encoded-query clause for 'last N days' using gs.daysAgoStart."""
+    if not days or days == 'all':
+        return ''
+    try:
+        n = int(days)
+    except (TypeError, ValueError):
+        return ''
+    return f'{date_field}>=javascript:gs.daysAgoStart({n})'
+
+
+def _build_incident_list_query(priority, state_code, search, days) -> str:
+    parts = []
+    if priority:
+        parts.append(f'priority={priority}')
+    clause = _INCIDENT_STATE_QUERY.get(state_code)
+    if clause:
+        parts.append(clause)
+    if search:
+        parts.append(f'short_descriptionLIKE{search}^ORnumberLIKE{search}')
+    d = _days_clause(days, 'opened_at')
+    if d:
+        parts.append(d)
+    parts.append('ORDERBYDESCopened_at')
+    return '^'.join(parts)
+
+
+def _build_change_list_query(state_code, search, days) -> str:
+    parts = []
+    clause = _CHANGE_STATE_QUERY.get(state_code)
+    if clause:
+        parts.append(clause)
+    if search:
+        parts.append(f'short_descriptionLIKE{search}^ORnumberLIKE{search}')
+    d = _days_clause(days, 'start_date')
+    if d:
+        parts.append(d)
+    parts.append('ORDERBYDESCsys_updated_on')
+    return '^'.join(parts)
+
+
+def _build_incident_search_query(ci, requested_by, group, days) -> str:
+    parts = []
+    if ci:
+        parts.append(f'cmdb_ci.nameLIKE{ci}')
+    if requested_by:
+        parts.append(f'opened_by.nameLIKE{requested_by}')
+    if group:
+        parts.append(f'assignment_group.nameLIKE{group}')
+    d = _days_clause(days, 'opened_at')
+    if d:
+        parts.append(d)
+    parts.append('ORDERBYDESCopened_at')
+    return '^'.join(parts)
+
+
+def _build_change_search_query(ci, requested_by, group, days) -> str:
+    parts = []
+    if ci:
+        parts.append(f'cmdb_ci.nameLIKE{ci}')
+    if requested_by:
+        parts.append(f'opened_by.nameLIKE{requested_by}')
+    if group:
+        parts.append(f'assignment_group.nameLIKE{group}')
+    d = _days_clause(days, 'start_date')
+    if d:
+        parts.append(d)
+    parts.append('ORDERBYDESCsys_updated_on')
+    return '^'.join(parts)
+
+
 def _parse_numbers(raw):
     """Split a free-text block of record numbers into a clean list."""
     import re
@@ -435,14 +565,42 @@ def _annotate_ctask_pct(changes):
 
 
 def dashboard(request):
-    incidents_src = _incidents_source(request)
-    changes_src = _changes_source(request)
-    recent_incidents = [i for i in incidents_src if i["state_code"] != "resolved"][:4]
+    if _is_live(request):
+        from django.conf import settings as dj_settings
+        inc_table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
+        chg_table = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
+
+        # Active slices — bounded so dashboard stays snappy on large instances.
+        inc_raw = _live_list(
+            inc_table,
+            'active=true^ORDERBYDESCsys_updated_on',
+            _INCIDENT_LIST_FIELDS,
+            50,
+        )
+        chg_raw = _live_list(
+            chg_table,
+            'active=true^ORDERBYstart_date',
+            _CHANGE_LIST_FIELDS,
+            25,
+        )
+        incidents_src = [_adapt_live_incident(r) for r in inc_raw if r]
+        changes_src   = [_adapt_live_change(r)   for r in chg_raw if r]
+
+        stats = {
+            'open_p1':         sum(1 for i in incidents_src if i.get('priority') == '1'),
+            'open_p2':         sum(1 for i in incidents_src if i.get('priority') == '2'),
+            'open_incidents':  len(incidents_src),
+            'pending_changes': len(changes_src),
+            'implementing':    sum(1 for c in changes_src if c.get('state_code') == 'implement'),
+            'awaiting_review': sum(1 for c in changes_src if c.get('state_code') == 'review'),
+        }
+    else:
+        incidents_src = _incidents_source(request)
+        changes_src = _changes_source(request)
+        stats = DEMO_STATS
+
+    recent_incidents = [i for i in incidents_src if i.get('state_code') != 'resolved'][:4]
     todays_changes = _annotate_ctask_pct(list(changes_src[:3]))
-    stats = DEMO_STATS if not _is_live(request) else {
-        'open_p1': 0, 'open_p2': 0, 'open_incidents': 0,
-        'pending_changes': 0, 'implementing': 0, 'awaiting_review': 0,
-    }
     return render(request, 'core/index.html', {
         'stats': stats,
         'recent_incidents': recent_incidents,
@@ -456,16 +614,26 @@ def incidents_list(request):
     search = request.GET.get('q', '').lower()
     days = request.GET.get('days', DEFAULT_DAYS)
 
-    incidents = _filter_by_days(_incidents_source(request), '_opened_dt', days)
-    if priority_filter:
-        incidents = [i for i in incidents if i['priority'] == priority_filter]
-    if state_filter:
-        incidents = [i for i in incidents if i['state_code'] == state_filter]
-    if search:
-        incidents = [i for i in incidents if search in i['short_description'].lower() or search in i['number'].lower()]
-
-    matched = len(incidents)
-    incidents = incidents[:DEFAULT_LIST_LIMIT]
+    if _is_live(request):
+        # Live mode — push the filters into a SN encoded query.
+        # We fetch limit+1 to detect truncation cheaply.
+        from django.conf import settings as dj_settings
+        table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
+        query = _build_incident_list_query(priority_filter, state_filter, search, days)
+        raw = _live_list(table, query, _INCIDENT_LIST_FIELDS, DEFAULT_LIST_LIMIT + 1)
+        incidents = [_adapt_live_incident(r) for r in raw if r]
+        matched = len(incidents)                      # we only know what we fetched
+        incidents = incidents[:DEFAULT_LIST_LIMIT]
+    else:
+        incidents = _filter_by_days(_incidents_source(request), '_opened_dt', days)
+        if priority_filter:
+            incidents = [i for i in incidents if i['priority'] == priority_filter]
+        if state_filter:
+            incidents = [i for i in incidents if i['state_code'] == state_filter]
+        if search:
+            incidents = [i for i in incidents if search in i['short_description'].lower() or search in i['number'].lower()]
+        matched = len(incidents)
+        incidents = incidents[:DEFAULT_LIST_LIMIT]
 
     return render(request, 'servicenow/incidents.html', {
         'incidents':       incidents,
@@ -494,14 +662,22 @@ def changes_list(request):
     search = request.GET.get('q', '').lower()
     days = request.GET.get('days', DEFAULT_DAYS)
 
-    changes = _filter_by_days(_changes_source(request), '_scheduled_dt', days)
-    if state_filter:
-        changes = [c for c in changes if c['state_code'] == state_filter]
-    if search:
-        changes = [c for c in changes if search in c['short_description'].lower() or search in c['number'].lower()]
-
-    matched = len(changes)
-    changes = changes[:DEFAULT_LIST_LIMIT]
+    if _is_live(request):
+        from django.conf import settings as dj_settings
+        table = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
+        query = _build_change_list_query(state_filter, search, days)
+        raw = _live_list(table, query, _CHANGE_LIST_FIELDS, DEFAULT_LIST_LIMIT + 1)
+        changes = [_adapt_live_change(r) for r in raw if r]
+        matched = len(changes)
+        changes = changes[:DEFAULT_LIST_LIMIT]
+    else:
+        changes = _filter_by_days(_changes_source(request), '_scheduled_dt', days)
+        if state_filter:
+            changes = [c for c in changes if c['state_code'] == state_filter]
+        if search:
+            changes = [c for c in changes if search in c['short_description'].lower() or search in c['number'].lower()]
+        matched = len(changes)
+        changes = changes[:DEFAULT_LIST_LIMIT]
     changes = _annotate_ctask_pct(list(changes))
 
     return render(request, 'servicenow/changes.html', {
@@ -861,7 +1037,18 @@ def _run_preset_for_display(preset_name, params=None, request=None):
     live = bool(request and _is_live(request))
 
     if live:
-        raw_results = []
+        # Run the preset through its Celery task body synchronously.
+        # presets_run_task internally calls render_preset + list_records,
+        # so it respects user overrides and parameters exactly like demo.
+        try:
+            from .tasks import presets_run_task
+            resp = presets_run_task.apply(args=[{
+                'preset': preset_name,
+                'params': params,
+            }]).result
+            raw_results = _unwrap_list(resp)
+        except Exception:
+            raw_results = []
     elif domain == 'incident':
         raw_results = _preset_demo_incidents(preset_name, params)
     elif domain == 'change':
@@ -876,6 +1063,10 @@ def _run_preset_for_display(preset_name, params=None, request=None):
     }
 
     def get_field(record, field):
+        # Live records use the raw SN field names directly — the FIELD_MAP
+        # is only for the demo-data shape (priority_label, age, scheduled, …).
+        if live:
+            return record.get(field, '—') or '—'
         mapping = FIELD_MAP.get(field)
         if mapping is None:
             return record.get(field, '—') or '—'
@@ -1257,17 +1448,35 @@ def search_records(request):
     if request.method == 'POST':
         searched = True
         if domain == 'change':
-            base = _filter_by_days(_changes_source(request), '_scheduled_dt', days)
-            results = _filter_records(base, ci, requested_by, assignment_group)
-            matched = len(results)
-            results = results[:DEFAULT_LIST_LIMIT]
+            if _is_live(request):
+                from django.conf import settings as dj_settings
+                table = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
+                query = _build_change_search_query(ci, requested_by, assignment_group, days)
+                raw = _live_list(table, query, _CHANGE_LIST_FIELDS, DEFAULT_LIST_LIMIT + 1)
+                results = [_adapt_live_change(r) for r in raw if r]
+                matched = len(results)
+                results = results[:DEFAULT_LIST_LIMIT]
+            else:
+                base = _filter_by_days(_changes_source(request), '_scheduled_dt', days)
+                results = _filter_records(base, ci, requested_by, assignment_group)
+                matched = len(results)
+                results = results[:DEFAULT_LIST_LIMIT]
             results = _annotate_ctask_pct(list(results))
         else:
             domain = 'incident'
-            base = _filter_by_days(_incidents_source(request), '_opened_dt', days)
-            results = _filter_records(base, ci, requested_by, assignment_group)
-            matched = len(results)
-            results = results[:DEFAULT_LIST_LIMIT]
+            if _is_live(request):
+                from django.conf import settings as dj_settings
+                table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
+                query = _build_incident_search_query(ci, requested_by, assignment_group, days)
+                raw = _live_list(table, query, _INCIDENT_LIST_FIELDS, DEFAULT_LIST_LIMIT + 1)
+                results = [_adapt_live_incident(r) for r in raw if r]
+                matched = len(results)
+                results = results[:DEFAULT_LIST_LIMIT]
+            else:
+                base = _filter_by_days(_incidents_source(request), '_opened_dt', days)
+                results = _filter_records(base, ci, requested_by, assignment_group)
+                matched = len(results)
+                results = results[:DEFAULT_LIST_LIMIT]
 
     ctx = {
         'domain':           domain,
