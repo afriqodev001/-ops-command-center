@@ -315,6 +315,19 @@ def _changes_source(request):
     return [] if _is_live(request) else DEMO_CHANGES
 
 
+def _sla_is_at_risk(sla_due_display: str) -> bool:
+    """Cheap heuristic — mark SLA at-risk if the display value suggests breach.
+
+    ServiceNow's sla_due display varies by instance (duration string, timestamp,
+    'Breached'). We only light the warning when the display value strongly
+    signals a problem; anything ambiguous stays unhighlighted.
+    """
+    if not sla_due_display:
+        return False
+    s = str(sla_due_display).lower().strip()
+    return 'breach' in s or s.startswith('-') or s == '0' or s.startswith('0 ')
+
+
 def _unwrap_record(response):
     """Drill past common wrappers from ServiceNow/task responses to the flat record dict."""
     if not response or not isinstance(response, dict):
@@ -340,6 +353,7 @@ def _adapt_live_incident(rec):
         return None
     state_display = str(rec.get('state', '') or '')
     priority     = str(rec.get('priority', '') or '')
+    sla_due      = str(rec.get('sla_due', '') or '')
     return {
         'sys_id':            rec.get('sys_id', ''),
         'number':            rec.get('number', ''),
@@ -352,10 +366,15 @@ def _adapt_live_incident(rec):
         'assigned_to':       rec.get('assigned_to', ''),
         'opened':            rec.get('opened_at', '') or rec.get('sys_created_on', ''),
         'age':               rec.get('sys_updated_on', '') or '',
-        'sla_warning':       False,
+        'sla_due':           sla_due,
+        'sla_warning':       _sla_is_at_risk(sla_due),
         'cmdb_ci':           rec.get('cmdb_ci', ''),
         'opened_by':         rec.get('opened_by', ''),
-        'work_notes':        [], 'tasks': [], 'attachments': [],
+        # Parse work_notes inline; _enrich_incident_live can refresh via a
+        # dedicated journal query if we add one later.
+        'work_notes':        _parse_sn_journal(rec.get('work_notes', '')),
+        '_raw_work_notes':   rec.get('work_notes', '') or '',
+        'tasks':             [], 'attachments': [],
     }
 
 
@@ -377,10 +396,12 @@ def _adapt_live_change(rec):
         'scheduled':         rec.get('start_date', ''),
         'cmdb_ci':           rec.get('cmdb_ci', ''),
         'opened_by':         rec.get('opened_by', ''),
-        'ctasks':            [],          # filled by a separate call if/when we wire CTASKs
+        'ctasks':            [],          # populated by _enrich_change_live on detail pages
         'ctask_closed':      0,
         'ctask_pct':         0,
-        'work_notes':        [], 'attachments': [],
+        'work_notes':        _parse_sn_journal(rec.get('work_notes', '')),
+        '_raw_work_notes':   rec.get('work_notes', '') or '',
+        'attachments':       [],
     }
 
 
@@ -450,7 +471,7 @@ def _live_list(table: str, query: str, fields: str, limit: int):
 # so we don't waste bytes on ServiceNow's huge default row.
 _INCIDENT_LIST_FIELDS = (
     'sys_id,number,short_description,priority,state,assignment_group,'
-    'assigned_to,opened_at,sys_updated_on,cmdb_ci,opened_by'
+    'assigned_to,opened_at,sys_updated_on,cmdb_ci,opened_by,sla_due'
 )
 _CHANGE_LIST_FIELDS = (
     'sys_id,number,short_description,type,state,risk,assignment_group,'
@@ -542,6 +563,150 @@ def _build_change_search_query(ci, requested_by, group, days) -> str:
         parts.append(d)
     parts.append('ORDERBYDESCsys_updated_on')
     return '^'.join(parts)
+
+
+# ─── Live enrichment — sub-resources for detail pages ────────────
+
+def _parse_sn_journal(raw) -> list:
+    """Split a ServiceNow journal string (work_notes / comments) into entries.
+
+    Shape expected by templates: [{'at': <time>, 'by': <user>, 'text': <body>}, …]
+    ServiceNow's display_value for journal fields is typically a blob like:
+        2024-01-15 14:32:00 - John Doe (Work notes)
+        The note text here
+        can span multiple lines.
+
+        2024-01-15 13:00:00 - Jane Smith (Work notes)
+        ...
+
+    Falls back to emitting a single entry with just the raw text if the header
+    can't be parsed — better than dropping the note entirely.
+    """
+    if not raw or not isinstance(raw, str):
+        return []
+    import re
+    entries = []
+    for block in re.split(r'\n\s*\n', raw.strip()):
+        block = block.strip()
+        if not block:
+            continue
+        first, _, rest = block.partition('\n')
+        m = re.match(r'^(\S.*?)\s*-\s*(.*?)\s*\(.*?\)\s*$', first)
+        if m:
+            entries.append({
+                'at':   m.group(1).strip(),
+                'by':   m.group(2).strip(),
+                'text': rest.strip(),
+            })
+        else:
+            entries.append({'at': '', 'by': '', 'text': block})
+    return entries
+
+
+def _adapt_live_ctask(rec) -> dict:
+    return {
+        'sys_id':      rec.get('sys_id', ''),
+        'number':      rec.get('number', ''),
+        'description': rec.get('short_description', '') or rec.get('description', ''),
+        'state':       str(rec.get('state', '') or ''),
+        'assigned_to': rec.get('assigned_to', '') or '',
+    }
+
+
+def _adapt_live_incident_task(rec) -> dict:
+    """Child incident_task records (shown on incident detail page)."""
+    return {
+        'sys_id':      rec.get('sys_id', ''),
+        'number':      rec.get('number', ''),
+        'description': rec.get('short_description', '') or '',
+        'state':       str(rec.get('state', '') or ''),
+        'assigned_to': rec.get('assigned_to', '') or '',
+    }
+
+
+def _adapt_live_attachment(rec) -> dict:
+    """Translate SN sys_attachment fields to the template's attachment shape."""
+    size = rec.get('size_bytes', '') or rec.get('size', '')
+    try:
+        n = int(size)
+        if n >= 1024 * 1024:
+            size_str = f'{n / (1024 * 1024):.1f} MB'
+        elif n >= 1024:
+            size_str = f'{n / 1024:.0f} KB'
+        else:
+            size_str = f'{n} B'
+    except (ValueError, TypeError):
+        size_str = str(size or '')
+    return {
+        'sys_id':        rec.get('sys_id', ''),
+        'name':          rec.get('file_name', '') or rec.get('name', ''),
+        'size':          size_str,
+        'by':            rec.get('sys_created_by', '') or rec.get('by', ''),
+        'at':            rec.get('sys_created_on', '') or rec.get('at', ''),
+        'download_link': rec.get('download_link', ''),
+    }
+
+
+def _live_attachments_for(table_name: str, sys_id: str) -> list:
+    if not sys_id:
+        return []
+    try:
+        from .tasks import attachments_list_task
+        resp = attachments_list_task.apply(args=[{
+            'table_name':   table_name,
+            'table_sys_id': sys_id,
+        }]).result
+        return [_adapt_live_attachment(r) for r in _unwrap_list(resp) if r]
+    except Exception:
+        return []
+
+
+def _live_ctasks_for(change_sys_id: str) -> list:
+    if not change_sys_id:
+        return []
+    try:
+        from .tasks import ctasks_list_for_change_task
+        resp = ctasks_list_for_change_task.apply(args=[{
+            'change_sys_id': change_sys_id,
+        }]).result
+        return [_adapt_live_ctask(r) for r in _unwrap_list(resp) if r]
+    except Exception:
+        return []
+
+
+def _live_incident_tasks_for(incident_sys_id: str) -> list:
+    """Child incident_task records — no dedicated task, so use table_list_task."""
+    if not incident_sys_id:
+        return []
+    from django.conf import settings as dj_settings
+    table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TASK_TABLE', 'incident_task')
+    fields = getattr(dj_settings, 'SERVICENOW_INCIDENT_TASK_FIELDS',
+                     'sys_id,number,short_description,state,assigned_to')
+    raw = _live_list(table, f'parent={incident_sys_id}', fields, 100)
+    return [_adapt_live_incident_task(r) for r in raw if r]
+
+
+def _enrich_change_live(change: dict) -> None:
+    """Populate ctasks, attachments, and parsed work_notes on a live change."""
+    if not change or not change.get('sys_id'):
+        return
+    sys_id = change['sys_id']
+    change['ctasks'] = _live_ctasks_for(sys_id)
+    change['attachments'] = _live_attachments_for('change_request', sys_id)
+    # work_notes may have come through on the record itself; parse if so
+    raw_notes = change.get('_raw_work_notes') or ''
+    change['work_notes'] = _parse_sn_journal(raw_notes)
+
+
+def _enrich_incident_live(incident: dict) -> None:
+    """Populate tasks, attachments, and parsed work_notes on a live incident."""
+    if not incident or not incident.get('sys_id'):
+        return
+    sys_id = incident['sys_id']
+    incident['tasks'] = _live_incident_tasks_for(sys_id)
+    incident['attachments'] = _live_attachments_for('incident', sys_id)
+    raw_notes = incident.get('_raw_work_notes') or ''
+    incident['work_notes'] = _parse_sn_journal(raw_notes)
 
 
 def _parse_numbers(raw):
@@ -654,6 +819,8 @@ def incident_detail(request, number):
     if not incident:
         from django.http import Http404
         raise Http404
+    if _is_live(request):
+        _enrich_incident_live(incident)
     return render(request, 'servicenow/incident_detail.html', {'incident': incident})
 
 
@@ -698,7 +865,9 @@ def change_detail(request, number):
     if not change:
         from django.http import Http404
         raise Http404
-    closed = sum(1 for t in change['ctasks'] if t['state'] == 'Closed Complete')
+    if _is_live(request):
+        _enrich_change_live(change)
+    closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
     total = len(change['ctasks'])
     pct = int((closed / total) * 100) if total else 0
     return render(request, 'servicenow/change_detail.html', {
@@ -787,8 +956,10 @@ def change_briefing(request, number):
     if not change:
         from django.http import Http404
         raise Http404
+    if _is_live(request):
+        _enrich_change_live(change)
 
-    closed = sum(1 for t in change['ctasks'] if t['state'] == 'Closed Complete')
+    closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
     total = len(change['ctasks'])
     pct = int((closed / total) * 100) if total else 0
     prompt = _build_briefing_prompt(change, closed, total, pct)
@@ -817,6 +988,8 @@ def change_briefing_generate(request, number):
     if not change:
         from django.http import Http404
         raise Http404
+    if _is_live(request):
+        _enrich_change_live(change)
 
     # ── Placeholder until AI is wired in ──────────────────────
     # To integrate: POST the prompt to Claude / OpenAI and stream
@@ -940,8 +1113,10 @@ def bulk_change_review_item(request):
             'not_found': True,
             'number': number,
         })
+    if _is_live(request):
+        _enrich_change_live(change)
 
-    closed = sum(1 for t in change['ctasks'] if t['state'] == 'Closed Complete')
+    closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
     total = len(change['ctasks'])
     pct = int((closed / total) * 100) if total else 0
     review = _heuristic_review(change, pct, closed, total)
