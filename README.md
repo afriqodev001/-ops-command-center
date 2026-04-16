@@ -70,8 +70,14 @@ In a second terminal:
 
 ```bash
 cd ops_portal
-celery -A ops_portal worker -l info
+celery -A ops_portal worker -P solo -l info
 ```
+
+The `-P solo` flag runs the worker in a single process. It's the recommended
+pool on Windows — the default prefork pool relies on `fork()` and frequently
+hits "access denied" errors in corporate environments where AV/EDR blocks
+child-process spawning. `solo` handles one task at a time, which is fine
+for this app since most tasks drive an interactive browser anyway.
 
 The filesystem broker writes under `celery_data/` (git-ignored).
 
