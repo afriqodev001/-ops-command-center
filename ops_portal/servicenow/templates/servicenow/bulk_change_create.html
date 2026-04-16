@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+{% block title %}Bulk Create Changes — Ops Center{% endblock %}
+{% block page_title %}Bulk Create Changes{% endblock %}
+{% block page_subtitle %}Paste rows or upload CSV to create multiple change records{% endblock %}
+
+{% block header_actions %}
+<button type="button"
+        @click="document.getElementById('bulk-templates-modal').showModal()"
+        class="btn-ghost text-xs gap-1.5">
+  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 6h16M4 10h16M4 14h10M4 18h10"/>
+  </svg>
+  Standard templates
+</button>
+{% endblock %}
+
+{% block content %}
+<div x-data="bulkChangePage()" class="flex flex-col gap-5 h-full overflow-y-auto">
+
+  <!-- ═ INPUT PANEL ═════════════════════════════════════════════ -->
+  <div class="glass-card p-5">
+    <div class="flex items-center gap-2 mb-3">
+      <button type="button" @click="inputMode = 'paste'"
+              :class="inputMode === 'paste' ? 'tab-active' : 'tab-inactive'"
+              class="text-xs">Paste</button>
+      <button type="button" @click="inputMode = 'csv'"
+              :class="inputMode === 'csv' ? 'tab-active' : 'tab-inactive'"
+              class="text-xs">CSV upload</button>
+      <span class="ml-auto text-[10px] text-ink-muted">
+        Required headers: <code class="text-brand-light">type, short_description, assignment_group, start_date, end_date</code>
+      </span>
+    </div>
+
+    <form id="bulk-input-form"
+          hx-post="/servicenow/changes/bulk-create/preview/"
+          hx-target="#bulk-preview"
+          hx-swap="innerHTML"
+          hx-indicator="#bulk-parse-spinner"
+          hx-encoding="multipart/form-data">
+      {% csrf_token %}
+
+      <div x-show="inputMode === 'paste'">
+        <textarea name="pasted" rows="8"
+                  placeholder="type,short_description,assignment_group,start_date,end_date,template_key&#10;normal,DB index rebuild,Database Ops,2026-04-20 22:00,2026-04-20 23:00,&#10;standard,SSL cert renewal,Security,2026-04-21 10:00,2026-04-21 11:00,ssl_renewal&#10;emergency,DNS hotfix,Network Ops,2026-04-19 15:00,2026-04-19 16:00,"
+                  class="input-dark text-xs font-mono resize-none"></textarea>
+        <p class="text-[10px] text-ink-muted mt-1">Tab-separated (from Excel paste) or comma-separated.</p>
+      </div>
+
+      <div x-show="inputMode === 'csv'">
+        <label class="flex items-center gap-3 p-4 rounded-lg border border-dashed border-edge bg-surface-3 hover:border-brand/40 cursor-pointer transition-colors">
+          <svg class="w-5 h-5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <span class="text-xs text-ink-secondary">
+            <span x-text="csvFileName || 'Choose a CSV file'"></span>
+          </span>
+          <input type="file" name="csv_file" accept=".csv,text/csv"
+                 @change="csvFileName = $event.target.files[0]?.name || ''"
+                 class="hidden">
+        </label>
+      </div>
+
+      <div class="flex items-center gap-3 mt-3">
+        <button type="submit" class="btn-primary text-xs px-4 py-2">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Parse &amp; validate
+        </button>
+        <div id="bulk-parse-spinner" class="htmx-indicator flex items-center gap-2 text-xs text-ink-muted">
+          <div class="w-3.5 h-3.5 border-2 border-brand/30 border-t-brand rounded-full animate-spin"></div>
+          Parsing…
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ═ PREVIEW PANEL ═══════════════════════════════════════════ -->
+  <div id="bulk-preview"></div>
+
+  <!-- ═ RUN DETAILS PANEL ══════════════════════════════════════ -->
+  <div x-show="items.length > 0" class="glass-card p-5">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div>
+        <h2 class="text-sm font-semibold text-ink-primary">Run details</h2>
+        <p class="text-[11px] text-ink-muted" x-text="runStatusText"></p>
+      </div>
+      <div class="flex items-center gap-2 text-[10px]">
+        <span class="px-2 py-0.5 rounded bg-ok/10 text-ok border border-ok/20 font-semibold tabular-nums">
+          <span x-text="successCount"></span> success
+        </span>
+        <span class="px-2 py-0.5 rounded bg-danger/10 text-danger border border-danger/20 font-semibold tabular-nums">
+          <span x-text="failureCount"></span> failed
+        </span>
+        <span class="px-2 py-0.5 rounded bg-warn/10 text-warn border border-warn/20 font-semibold tabular-nums">
+          <span x-text="pendingCount"></span> pending
+        </span>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto border border-edge rounded-xl">
+      <table class="w-full text-xs">
+        <thead class="bg-surface-3 border-b border-edge">
+          <tr>
+            <th class="th">#</th>
+            <th class="th">Type</th>
+            <th class="th">Short description</th>
+            <th class="th">Status</th>
+            <th class="th">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="item in items" :key="item.row_index">
+            <tr class="table-row">
+              <td class="td font-mono text-ink-muted tabular-nums" x-text="item.row_index + 1"></td>
+              <td class="td">
+                <span class="badge"
+                      :class="{
+                        'badge-info': item.kind === 'normal',
+                        'badge-p1':   item.kind === 'emergency',
+                        'badge-ok':   item.kind === 'standard',
+                        'badge-muted': item.kind === 'invalid'
+                      }"
+                      x-text="item.kind"></span>
+              </td>
+              <td class="td text-ink-primary max-w-sm truncate" :title="item.short_description" x-text="item.short_description"></td>
+              <td class="td">
+                <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold"
+                      :class="{
+                        'text-warn':   item.status === 'pending' || item.status === 'open',
+                        'text-ok':     item.status === 'success',
+                        'text-danger': item.status === 'error'
+                      }">
+                  <span x-show="item.status === 'pending' || item.status === 'open'"
+                        class="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+                  <span x-text="statusLabel(item)"></span>
+                </span>
+              </td>
+              <td class="td">
+                <template x-if="item.kind === 'standard' && item.url && item.status === 'pending'">
+                  <a :href="item.url" target="_blank"
+                     class="text-[11px] text-brand-light hover:text-brand font-mono truncate inline-block max-w-xs"
+                     x-text="item.url"></a>
+                </template>
+                <template x-if="item.result_number">
+                  <a :href="'/servicenow/changes/' + item.result_number + '/'"
+                     class="text-[11px] text-brand-light hover:text-brand font-mono" x-text="item.result_number"></a>
+                </template>
+                <template x-if="item.error">
+                  <span class="text-[11px] text-danger" x-text="item.error"></span>
+                </template>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═ ALPINE STATE ══════════════════════════════════════════════ -->
+<script>
+function _defineBulkChangePage() {
+  Alpine.data('bulkChangePage', () => ({
+    inputMode: 'paste',
+    csvFileName: '',
+    items: [],
+    running: false,
+    runStatusText: '',
+
+    get successCount() { return this.items.filter(i => i.status === 'success').length; },
+    get failureCount() { return this.items.filter(i => i.status === 'error').length; },
+    get pendingCount() { return this.items.filter(i => i.status === 'pending' || i.status === 'open').length; },
+
+    statusLabel(item) {
+      if (item.status === 'pending') return item.kind === 'standard' ? 'Queued' : 'Creating…';
+      if (item.status === 'open')    return 'Tab open — save in ServiceNow';
+      if (item.status === 'success') return 'Created';
+      if (item.status === 'error')   return 'Failed';
+      return '—';
+    },
+
+    _csrf() {
+      const el = document.querySelector('#bulk-input-form input[name="csrfmiddlewaretoken"]');
+      return el ? el.value : '';
+    },
+
+    async submitBulk() {
+      if (this.running) return;
+      const blob = document.getElementById('bulk-change-rows-json');
+      if (!blob) return;
+      const rows = JSON.parse(blob.textContent).map(r => r.raw || {
+        type: r.type, short_description: r.short_description,
+        assignment_group: r.assignment_group, start_date: r.start_date,
+        end_date: r.end_date, template_key: r.template_key,
+        risk: r.risk, description: r.description,
+      });
+
+      this.running = true;
+      this.runStatusText = 'Submitting…';
+
+      const resp = await fetch('/servicenow/changes/bulk-create/submit/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this._csrf() },
+        body: JSON.stringify({ rows }),
+      });
+      const data = await resp.json();
+
+      // Seed items: valid rows get 'pending', invalid get 'error'
+      this.items = data.items.map(it => ({
+        ...it,
+        status: it.error ? 'error' : 'pending',
+        result_number: null,
+      }));
+
+      // Normal/emergency tasks poll in parallel; standards open sequentially.
+      await Promise.all([
+        this._runAllTaskPolls(),
+        this._runStandardSequentially(),
+      ]);
+
+      this.running = false;
+      this.runStatusText = 'Run complete.';
+    },
+
+    async _runAllTaskPolls() {
+      const polls = this.items
+        .filter(i => (i.kind === 'normal' || i.kind === 'emergency') && i.task_id)
+        .map(i => this._pollTask(i));
+      await Promise.all(polls);
+    },
+
+    async _pollTask(item) {
+      const maxAttempts = 60; // ~2 minutes at 2s intervals
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          const resp = await fetch(`/tasks/${item.task_id}/result/`);
+          const data = await resp.json();
+          if (!data.ready) continue;
+
+          if (data.state === 'FAILURE') {
+            item.status = 'error';
+            item.error  = data.error || 'task failed';
+          } else {
+            const result = data.result || {};
+            if (result.error) {
+              item.status = 'error';
+              item.error  = result.detail || result.error;
+            } else {
+              item.status = 'success';
+              const rec = (result.result && result.result.record) || result.record || result;
+              item.result_number = rec.number || rec.sys_id || '';
+            }
+          }
+          return;
+        } catch (e) {
+          item.status = 'error';
+          item.error  = 'polling failed';
+          return;
+        }
+      }
+      item.status = 'error';
+      item.error  = 'task timed out';
+    },
+
+    async _runStandardSequentially() {
+      const standards = this.items.filter(i => i.kind === 'standard' && i.status === 'pending');
+      for (const item of standards) {
+        if (!item.url) {
+          item.status = 'error';
+          item.error  = 'no template URL — add one in Standard templates';
+          continue;
+        }
+        this.runStatusText = `Opening standard change ${item.row_index + 1}…`;
+        const popup = window.open(item.url, '_blank');
+        if (!popup) {
+          item.status = 'error';
+          item.error  = 'popup blocked — allow popups for this site and retry';
+          continue;
+        }
+        item.status = 'open';
+        await this._waitForClose(popup);
+        item.status = 'success';
+        // small pause before opening the next tab
+        await new Promise(r => setTimeout(r, 600));
+      }
+    },
+
+    _waitForClose(popup) {
+      return new Promise(resolve => {
+        const iv = setInterval(() => {
+          if (popup.closed) { clearInterval(iv); resolve(); }
+        }, 500);
+      });
+    },
+  }));
+}
+if (window.Alpine) _defineBulkChangePage();
+else document.addEventListener('alpine:init', _defineBulkChangePage);
+</script>
+{% endblock %}
+
+{% block modals %}
+<!-- ═══ Standard templates manager ═══════════════════════════════ -->
+<dialog id="bulk-templates-modal"
+        class="bg-transparent p-0 m-auto w-full max-w-xl backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+  <div class="glass-card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-base font-semibold text-ink-primary">Standard change templates</h2>
+        <p class="text-xs text-ink-muted mt-0.5">URLs that open pre-configured standard changes in ServiceNow</p>
+      </div>
+      <button onclick="document.getElementById('bulk-templates-modal').close()"
+              class="p-1.5 rounded-lg hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Add/edit form -->
+    <form hx-post="/servicenow/changes/bulk-create/templates/save/"
+          hx-target="#template-errors"
+          hx-swap="innerHTML"
+          hx-on::after-request="if (event.detail.xhr.getResponseHeader('HX-Retarget')) { this.reset(); document.getElementById('template-errors').innerHTML = ''; }"
+          class="space-y-3 pb-4 mb-4 border-b border-edge">
+      {% csrf_token %}
+      <div id="template-errors"></div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label">Key <span class="text-danger">*</span></label>
+          <input type="text" name="key" required
+                 placeholder="e.g. ssl_renewal"
+                 class="input-dark text-xs font-mono">
+          <p class="text-[10px] text-ink-muted mt-1">Used in the CSV template_key column</p>
+        </div>
+        <div>
+          <label class="label">Label <span class="text-danger">*</span></label>
+          <input type="text" name="label" required
+                 placeholder="e.g. SSL certificate renewal"
+                 class="input-dark text-xs">
+        </div>
+      </div>
+      <div>
+        <label class="label">ServiceNow URL <span class="text-danger">*</span></label>
+        <input type="url" name="url" required
+               placeholder="https://instance.service-now.com/nav_to.do?uri=change_request.do?sys_id=-1&amp;sysparm_template=..."
+               class="input-dark text-xs font-mono">
+      </div>
+      <button type="submit" class="btn-primary text-xs px-4 py-2">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add template
+      </button>
+    </form>
+
+    <!-- List -->
+    <div>
+      <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Saved templates</p>
+      <div id="template-list">
+        {% include 'servicenow/partials/bulk_change_template_list.html' with templates=templates %}
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<script>
+// Backdrop click to close the templates modal
+function _bindBulkTemplatesModalBackdrop() {
+  const m = document.getElementById('bulk-templates-modal');
+  if (m && !m._backdropBound) {
+    m.addEventListener('click', e => { if (e.target === m) m.close(); });
+    m._backdropBound = true;
+  }
+}
+document.addEventListener('DOMContentLoaded', _bindBulkTemplatesModalBackdrop);
+document.addEventListener('htmx:afterSettle', _bindBulkTemplatesModalBackdrop);
+</script>
+{% endblock %}

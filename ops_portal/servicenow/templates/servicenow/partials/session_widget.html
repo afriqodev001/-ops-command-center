@@ -1,0 +1,81 @@
+{% if status == 'active' %}
+<div class="rounded-lg px-3 py-2.5 bg-ok/10 border border-ok/20 flex items-center gap-2.5">
+  <span class="w-2 h-2 rounded-full bg-ok animate-pulse flex-shrink-0"></span>
+  <div class="flex-1 min-w-0">
+    <p class="text-xs font-semibold text-ok leading-none">Connected</p>
+    <p class="text-[11px] text-ink-muted mt-0.5 truncate">ServiceNow · port {{ port }}</p>
+  </div>
+  <button onclick="document.getElementById('session-modal').showModal()"
+          class="text-[11px] text-ink-muted hover:text-ink-primary transition-colors flex-shrink-0 px-1.5 py-0.5 rounded hover:bg-white/10">
+    Manage
+  </button>
+</div>
+<p class="text-[10px] text-ink-muted px-1 opacity-70 mt-1">Last active {{ last_used_ago }}</p>
+
+{% elif status == 'disconnected' %}
+<div class="rounded-lg px-3 py-2.5 bg-warn/10 border border-warn/20 flex items-center gap-2.5">
+  <span class="w-2 h-2 rounded-full bg-warn flex-shrink-0"></span>
+  <div class="flex-1 min-w-0">
+    <p class="text-xs font-semibold text-warn leading-none">Browser offline</p>
+    <p class="text-[11px] text-ink-muted mt-0.5">Last seen {{ last_used_ago }}</p>
+  </div>
+</div>
+<form hx-post="/servicenow/session/connect/"
+      hx-target="#session-widget-container"
+      hx-swap="innerHTML"
+      class="mt-1.5">
+  {% csrf_token %}
+  <button type="submit" class="w-full btn-ghost text-xs py-1.5 justify-center border border-edge hover:border-brand/40">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+    </svg>
+    Reconnect Browser
+  </button>
+</form>
+
+{% elif status == 'pending' %}
+<div class="rounded-lg px-3 py-2.5 bg-surface-4 border border-edge flex items-center gap-2.5">
+  <span class="w-2 h-2 rounded-full bg-info flex-shrink-0"></span>
+  <div class="flex-1 min-w-0">
+    <p class="text-xs font-semibold text-ink-primary leading-none">Session ready</p>
+    <p class="text-[11px] text-ink-muted mt-0.5">Browser not launched</p>
+  </div>
+</div>
+<form hx-post="/servicenow/session/connect/"
+      hx-target="#session-widget-container"
+      hx-swap="innerHTML"
+      class="mt-1.5">
+  {% csrf_token %}
+  <button type="submit" class="w-full btn-primary text-xs py-1.5 justify-center">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+    </svg>
+    Launch Browser
+  </button>
+</form>
+
+{% else %}
+<div class="rounded-lg px-3 py-2.5 bg-danger/10 border border-danger/20 flex items-center gap-2.5">
+  <span class="w-2 h-2 rounded-full bg-danger flex-shrink-0"></span>
+  <div class="flex-1 min-w-0">
+    <p class="text-xs font-semibold text-danger leading-none">No session</p>
+    <p class="text-[11px] text-ink-muted mt-0.5">Operations will fail</p>
+  </div>
+  <button onclick="document.getElementById('session-modal').showModal()"
+          class="text-[11px] text-ink-muted hover:text-danger transition-colors flex-shrink-0 px-1.5 py-0.5 rounded hover:bg-danger/10">
+    Setup
+  </button>
+</div>
+<form hx-post="/servicenow/session/connect/"
+      hx-target="#session-widget-container"
+      hx-swap="innerHTML"
+      class="mt-1.5">
+  {% csrf_token %}
+  <button type="submit" class="w-full btn-primary text-xs py-1.5 justify-center">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+    </svg>
+    Connect ServiceNow
+  </button>
+</form>
+{% endif %}

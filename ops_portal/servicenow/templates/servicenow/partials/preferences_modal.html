@@ -1,0 +1,121 @@
+<div class="space-y-5">
+
+  <!-- Identity -->
+  <section>
+    <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Identity</p>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="p-3 rounded-lg bg-surface-3 border border-edge">
+        <p class="text-[10px] text-ink-muted mb-1">Local OS user</p>
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-brand-subtle border border-brand/30 flex items-center justify-center text-[10px] font-bold text-brand-light flex-shrink-0">{{ os_user.initials }}</span>
+          <span class="text-xs font-medium text-ink-primary truncate">{{ os_user.name }}</span>
+        </div>
+      </div>
+      <div class="p-3 rounded-lg bg-surface-3 border border-edge">
+        <p class="text-[10px] text-ink-muted mb-1">ServiceNow session</p>
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full flex-shrink-0
+            {% if sn_session.status == 'active' %}bg-ok animate-pulse
+            {% elif sn_session.status == 'pending' %}bg-info
+            {% elif sn_session.status == 'disconnected' %}bg-warn
+            {% else %}bg-danger{% endif %}"></span>
+          <span class="text-xs font-medium text-ink-primary truncate">{{ sn_session.user_key }}</span>
+          <span class="text-[10px] text-ink-muted">{{ sn_session.status_label }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data mode -->
+  <section>
+    <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Data mode</p>
+    <div class="p-3 rounded-lg bg-surface-3 border border-edge space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-ink-primary">Current session</p>
+          <p class="text-[10px] text-ink-muted">Use the chip in the top bar to flip on-the-fly.</p>
+        </div>
+        <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold
+          {% if current_mode == 'live' %}text-ok{% else %}text-warn{% endif %}">
+          <span class="w-1.5 h-1.5 rounded-full flex-shrink-0
+            {% if current_mode == 'live' %}bg-ok animate-pulse{% else %}bg-warn{% endif %}"></span>
+          {{ current_mode|title }}
+        </span>
+      </div>
+
+      <form hx-post="/servicenow/preferences/save/"
+            hx-target="#preferences-modal-body"
+            hx-swap="innerHTML"
+            class="flex items-end gap-3 pt-2 border-t border-edge">
+        {% csrf_token %}
+        <div class="flex-1">
+          <label class="label">Default on next Django session</label>
+          <select name="default_data_mode" class="select-dark w-full text-xs">
+            <option value="demo" {% if prefs.default_data_mode == 'demo' %}selected{% endif %}>Demo</option>
+            <option value="live" {% if prefs.default_data_mode == 'live' %}selected{% endif %}>Live</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary text-xs px-4 py-2">Save default</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Local stores -->
+  <section>
+    <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Local stores</p>
+    <ul class="space-y-1.5">
+
+      <li class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-3 border border-edge">
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-medium text-ink-primary">Query presets</p>
+          <p class="text-[10px] text-ink-muted font-mono">user_presets.json · {{ query_preset_count }} entr{{ query_preset_count|pluralize:"y,ies" }}</p>
+        </div>
+        <form hx-post="/servicenow/preferences/reset/"
+              hx-target="#preferences-modal-body"
+              hx-swap="innerHTML"
+              hx-confirm="Clear all user-defined query presets? Built-ins will return."
+              class="flex-shrink-0">
+          {% csrf_token %}
+          <input type="hidden" name="store" value="query_presets">
+          <button type="submit" class="btn-ghost text-xs text-danger hover:bg-danger/10"
+                  {% if not query_preset_count %}disabled{% endif %}>Reset</button>
+        </form>
+      </li>
+
+      <li class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-3 border border-edge">
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-medium text-ink-primary">Creation templates</p>
+          <p class="text-[10px] text-ink-muted font-mono">creation_templates.json · {{ creation_template_count }} entr{{ creation_template_count|pluralize:"y,ies" }}</p>
+        </div>
+        <form hx-post="/servicenow/preferences/reset/"
+              hx-target="#preferences-modal-body"
+              hx-swap="innerHTML"
+              hx-confirm="Clear all creation templates (all 4 kinds)?"
+              class="flex-shrink-0">
+          {% csrf_token %}
+          <input type="hidden" name="store" value="creation_templates">
+          <button type="submit" class="btn-ghost text-xs text-danger hover:bg-danger/10"
+                  {% if not creation_template_count %}disabled{% endif %}>Reset</button>
+        </form>
+      </li>
+
+      <li class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-3 border border-edge">
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-medium text-ink-primary">Search presets</p>
+          <p class="text-[10px] text-ink-muted font-mono">search_presets.json · {{ search_preset_count }} entr{{ search_preset_count|pluralize:"y,ies" }}</p>
+        </div>
+        <form hx-post="/servicenow/preferences/reset/"
+              hx-target="#preferences-modal-body"
+              hx-swap="innerHTML"
+              hx-confirm="Clear all saved search presets?"
+              class="flex-shrink-0">
+          {% csrf_token %}
+          <input type="hidden" name="store" value="search_presets">
+          <button type="submit" class="btn-ghost text-xs text-danger hover:bg-danger/10"
+                  {% if not search_preset_count %}disabled{% endif %}>Reset</button>
+        </form>
+      </li>
+    </ul>
+  </section>
+
+</div>

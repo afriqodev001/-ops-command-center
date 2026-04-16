@@ -1,0 +1,58 @@
+{% if total == 0 %}
+<p class="text-xs text-ink-muted text-center py-6">No templates yet — add one above.</p>
+{% else %}
+
+{% for kind, label, entries in sections %}
+  {% if entries %}
+  <div class="mb-5">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">{{ label }}</span>
+      <span class="text-[10px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge font-semibold tabular-nums">
+        {{ entries|length }}
+      </span>
+    </div>
+
+    <ul class="space-y-1.5">
+      {% for key, tpl in entries.items %}
+      <li class="flex items-start gap-2 p-2.5 rounded-lg bg-surface-3 border border-edge">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-5 border border-edge text-ink-secondary">{{ key }}</span>
+            <span class="text-xs font-medium text-ink-primary truncate">{{ tpl.label }}</span>
+          </div>
+          {% if tpl.url %}
+          <p class="text-[10px] text-ink-muted font-mono truncate mt-0.5" title="{{ tpl.url }}">{{ tpl.url }}</p>
+          {% endif %}
+          {% if tpl.fields %}
+          <div class="flex flex-wrap gap-1 mt-1.5">
+            {% for fk, fv in tpl.fields.items %}
+              {% if fv %}
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-4 border border-edge text-ink-secondary">
+                {{ fk }}=<span class="text-brand-light">{{ fv|truncatechars:40 }}</span>
+              </span>
+              {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        <form hx-post="/servicenow/templates/delete/"
+              hx-target="#creation-template-list"
+              hx-swap="innerHTML"
+              class="flex-shrink-0">
+          {% csrf_token %}
+          <input type="hidden" name="key" value="{{ key }}">
+          <button type="submit" title="Delete template"
+                  class="p-1.5 rounded hover:bg-danger/10 text-ink-muted hover:text-danger transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+{% endfor %}
+{% endif %}

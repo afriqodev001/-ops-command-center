@@ -1,0 +1,106 @@
+<!-- Create Change Modal -->
+<div x-data="{ open: false, submitting: false }"
+     @open-create-change.window="open = true"
+     x-show="open"
+     x-cloak>
+
+  <div class="modal-overlay" @click.self="open = false">
+    <div class="modal-panel max-w-lg">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="text-base font-semibold text-ink-primary">New Change Request</h2>
+          <p class="text-xs text-ink-muted mt-0.5">Creates a new ServiceNow change record</p>
+        </div>
+        <button @click="open = false"
+                class="p-1.5 rounded-lg hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Form -->
+      <form @submit.prevent="submitting = true; $dispatch('show-toast', { message: 'Change request submitted — task queued', type: 'success' }); open = false; submitting = false"
+            class="space-y-4">
+
+        <!-- Short description -->
+        <div>
+          <label class="label">Short Description *</label>
+          <input type="text" name="short_description" required
+                 placeholder="Brief summary of the change…"
+                 class="input-dark" />
+        </div>
+
+        <!-- Type + Risk row -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Change Type</label>
+            <select name="type" class="select-dark w-full">
+              <option value="normal" selected>Normal</option>
+              <option value="standard">Standard</option>
+              <option value="emergency">Emergency</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Risk</label>
+            <select name="risk" class="select-dark w-full">
+              <option value="low">Low</option>
+              <option value="moderate" selected>Moderate</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Assignment group -->
+        <div>
+          <label class="label">Assignment Group</label>
+          <select name="assignment_group" class="select-dark w-full">
+            <option value="">— Unassigned —</option>
+            <option value="platform">Platform</option>
+            <option value="database_ops">Database Ops</option>
+            <option value="infrastructure">Infrastructure</option>
+            <option value="network_ops">Network Ops</option>
+            <option value="security">Security</option>
+          </select>
+        </div>
+
+        <!-- Scheduled start + end -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Scheduled Start</label>
+            <input type="datetime-local" name="start_date" class="input-dark" />
+          </div>
+          <div>
+            <label class="label">Scheduled End</label>
+            <input type="datetime-local" name="end_date" class="input-dark" />
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label class="label">Description</label>
+          <textarea name="description" rows="3"
+                    placeholder="Detailed plan, scope, rollback procedure…"
+                    class="input-dark resize-none"></textarea>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-edge">
+          <button type="button" @click="open = false" class="btn-ghost">Cancel</button>
+          <button type="submit" class="btn-primary" :disabled="submitting">
+            <svg x-show="submitting" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+            <span x-text="submitting ? 'Creating…' : 'Create Change'"></span>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+</div>

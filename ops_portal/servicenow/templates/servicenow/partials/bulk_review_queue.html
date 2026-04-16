@@ -1,0 +1,61 @@
+{% if not searched %}
+<!-- Empty state -->
+<div class="glass-card px-5 py-14 text-center">
+  <div class="w-12 h-12 rounded-xl bg-surface-4 border border-edge flex items-center justify-center mx-auto mb-3">
+    <svg class="w-6 h-6 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-3 7l2 2 4-4"/>
+    </svg>
+  </div>
+  <p class="text-sm text-ink-muted">Enter CHG numbers above to start a bulk review</p>
+  <p class="text-xs text-ink-muted mt-1 opacity-60">Each change is assessed individually for approval readiness</p>
+</div>
+
+{% else %}
+
+<!-- Header bar -->
+<div class="flex flex-wrap items-center gap-3 mb-4">
+  <p class="text-sm font-semibold text-ink-primary">
+    Reviewing {{ total }} change{{ total|pluralize }}
+  </p>
+  {% if not_found %}
+  <span class="badge bg-danger/15 text-danger border border-danger/20">
+    {{ not_found|length }} not found: {{ not_found|join:", " }}
+  </span>
+  {% endif %}
+  <span class="text-xs text-ink-muted ml-auto">Results appear as each review completes</span>
+</div>
+
+<!-- One pending card per change — fires HTMX on load, staggered by delay -->
+<div class="space-y-4" id="review-cards">
+  {% for item in items %}
+  <div hx-post="/servicenow/changes/bulk-review/item/"
+       hx-trigger="load delay:{{ item.delay_ms }}ms"
+       hx-swap="outerHTML"
+       hx-vals='{"number": "{{ item.number }}"}'
+       hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+    <!-- Skeleton loader shown while waiting -->
+    <div class="glass-card p-5 animate-pulse">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-5 h-5 rounded-full bg-surface-5"></div>
+        <div class="h-3 bg-surface-5 rounded w-28"></div>
+        <div class="h-5 bg-surface-5 rounded-md w-16 ml-2"></div>
+        <div class="h-5 bg-surface-5 rounded-md w-20 ml-1"></div>
+        <div class="h-5 bg-surface-5 rounded-full w-24 ml-auto"></div>
+      </div>
+      <div class="h-4 bg-surface-5 rounded w-3/4 mb-3"></div>
+      <div class="h-2 bg-surface-5 rounded w-full mb-1.5"></div>
+      <div class="h-2 bg-surface-5 rounded w-2/3"></div>
+      <div class="flex items-center gap-2 mt-4">
+        <div class="h-3 bg-surface-5 rounded w-16"></div>
+        <span class="text-xs text-ink-muted font-mono">{{ item.number }}</span>
+        <div class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse ml-1"></div>
+        <span class="text-[11px] text-ink-muted">Reviewing…</span>
+      </div>
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+
+{% endif %}

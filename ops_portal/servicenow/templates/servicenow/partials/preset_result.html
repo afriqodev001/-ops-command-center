@@ -1,0 +1,128 @@
+{% if error %}
+<div class="glass-card p-5 border-danger/20 flex items-start gap-3">
+  <svg class="w-5 h-5 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <div>
+    <p class="text-sm font-semibold text-danger">Error</p>
+    <p class="text-xs text-ink-muted mt-0.5">{{ error }}</p>
+  </div>
+</div>
+
+{% else %}
+{# ── Query preview (collapsible) ── #}
+<div x-data="{ open: false }" class="glass-card overflow-hidden">
+  <button type="button"
+          @click="open = !open"
+          class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/5 transition-colors">
+    <div class="flex items-center gap-2.5">
+      <svg class="w-3.5 h-3.5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+      </svg>
+      <span class="text-xs font-semibold text-ink-secondary">Query preview</span>
+      <span class="text-[11px] font-mono text-ink-muted">{{ rendered.table }}</span>
+    </div>
+    <svg class="w-3.5 h-3.5 text-ink-muted transition-transform duration-150"
+         :class="open ? 'rotate-180' : ''"
+         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+    </svg>
+  </button>
+  <div x-show="open" x-collapse class="border-t border-edge">
+    <dl class="px-4 py-3 space-y-1.5 text-[11px] font-mono">
+      <div class="flex gap-3"><dt class="text-ink-muted w-12 flex-shrink-0">table</dt><dd class="text-brand-light">{{ rendered.table }}</dd></div>
+      <div class="flex gap-3"><dt class="text-ink-muted w-12 flex-shrink-0">query</dt><dd class="text-ink-primary break-all">{{ rendered.query }}</dd></div>
+      <div class="flex gap-3"><dt class="text-ink-muted w-12 flex-shrink-0">limit</dt><dd class="text-ink-secondary">{{ rendered.limit }}</dd></div>
+      <div class="flex gap-3"><dt class="text-ink-muted w-12 flex-shrink-0">fields</dt><dd class="text-ink-secondary">{{ rendered.fields }}</dd></div>
+    </dl>
+  </div>
+</div>
+
+{# ── Results ── #}
+{% if rows %}
+<div class="glass-card overflow-hidden">
+  <div class="flex items-center justify-between px-4 py-3 border-b border-edge-subtle">
+    <p class="text-xs font-semibold text-ink-secondary">
+      {{ total }} result{{ total|pluralize }}
+      <span class="font-normal text-ink-muted ml-1">— {{ preset_name }}</span>
+    </p>
+    {% if is_demo %}
+    <span class="text-[10px] px-2 py-0.5 rounded bg-surface-5 border border-edge text-ink-muted">Demo data</span>
+    {% endif %}
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full">
+      <thead class="bg-surface-3/50">
+        <tr>
+          {% for col, label in display_cols %}
+          <th class="th whitespace-nowrap">{{ label }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-edge-subtle">
+        {% for row in rows %}
+        <tr class="table-row">
+          {% for cell in row %}
+          <td class="td">
+            {% if cell.col == 'number' %}
+              {% if cell.number_val %}
+                {% if cell.number_val|slice:":3" == 'INC' %}
+                <a href="/servicenow/incidents/{{ cell.number_val }}/"
+                   class="font-mono text-brand-light hover:text-brand transition-colors text-xs">{{ cell.number_val }}</a>
+                {% elif cell.number_val|slice:":3" == 'CHG' %}
+                <a href="/servicenow/changes/{{ cell.number_val }}/"
+                   class="font-mono text-brand-light hover:text-brand transition-colors text-xs">{{ cell.number_val }}</a>
+                {% else %}
+                <span class="font-mono text-xs">{{ cell.number_val }}</span>
+                {% endif %}
+              {% else %}—{% endif %}
+
+            {% elif cell.col == 'priority' %}
+              {% if cell.val == 'P1' %}<span class="badge badge-p1">P1</span>
+              {% elif cell.val == 'P2' %}<span class="badge badge-p2">P2</span>
+              {% elif cell.val == 'P3' %}<span class="badge badge-p3">P3</span>
+              {% else %}<span class="badge badge-muted">{{ cell.val|default:'—' }}</span>
+              {% endif %}
+
+            {% elif cell.col == 'risk' %}
+              {% if cell.val == 'High' or cell.val == 'Critical' %}<span class="badge badge-p1">{{ cell.val }}</span>
+              {% elif cell.val == 'Moderate' %}<span class="badge badge-warn">{{ cell.val }}</span>
+              {% else %}<span class="badge badge-muted">{{ cell.val|default:'—' }}</span>
+              {% endif %}
+
+            {% elif cell.col == 'state' %}
+              <span class="badge badge-muted">{{ cell.val|default:'—' }}</span>
+
+            {% elif cell.col == 'short_description' %}
+              <span class="text-ink-primary text-xs max-w-xs truncate block" title="{{ cell.val }}">{{ cell.val|default:'—' }}</span>
+
+            {% else %}
+              <span class="text-ink-muted text-xs">{{ cell.val|default:'—' }}</span>
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="glass-card p-8 text-center">
+  <svg class="w-10 h-10 text-ink-muted mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <p class="text-sm font-medium text-ink-primary mb-1">No results</p>
+  <p class="text-xs text-ink-muted leading-relaxed">
+    The preset ran successfully but returned no matching records in the demo dataset.<br>
+    In a live environment this query would run against ServiceNow.
+  </p>
+</div>
+{% endif %}
+
+{% endif %}

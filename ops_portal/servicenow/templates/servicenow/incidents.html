@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block page_title %}Incidents{% endblock %}
+{% block page_subtitle %}ServiceNow · {{ total }} record{{ total|pluralize }}{% endblock %}
+
+{% block header_actions %}
+  <button type="button"
+          @click="$dispatch('open-from-template', { kind: 'incident' })"
+          class="btn-ghost text-xs gap-1.5">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+    </svg>
+    New from template
+  </button>
+  <button class="btn-primary" @click="$dispatch('open-create-incident')">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    New Incident
+  </button>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4 animate-fade-in"
+     x-data="{ selected: [] }">
+
+  <!-- Filters -->
+  <form method="get" class="glass-card px-4 py-3 flex flex-wrap items-center gap-3">
+    <div class="flex-1 min-w-[200px] relative">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <input type="text" name="q" value="{{ search }}" placeholder="Search incidents…"
+             class="input-dark pl-9" />
+    </div>
+
+    <select name="priority" class="select-dark">
+      <option value="">All Priorities</option>
+      <option value="1" {% if priority_filter == "1" %}selected{% endif %}>P1 – Critical</option>
+      <option value="2" {% if priority_filter == "2" %}selected{% endif %}>P2 – High</option>
+      <option value="3" {% if priority_filter == "3" %}selected{% endif %}>P3 – Moderate</option>
+      <option value="4" {% if priority_filter == "4" %}selected{% endif %}>P4 – Low</option>
+    </select>
+
+    <select name="state" class="select-dark">
+      <option value="">All States</option>
+      <option value="open"        {% if state_filter == "open" %}selected{% endif %}>Open</option>
+      <option value="in_progress" {% if state_filter == "in_progress" %}selected{% endif %}>In Progress</option>
+      <option value="resolved"    {% if state_filter == "resolved" %}selected{% endif %}>Resolved</option>
+    </select>
+
+    <select name="days" class="select-dark" title="Time range — filters by opened date">
+      {% for val, label in time_ranges %}
+      <option value="{{ val }}" {% if days == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit" class="btn-primary">Filter</button>
+    {% if search or priority_filter or state_filter or days != '30' %}
+    <a href="/servicenow/incidents/" class="btn-ghost">Clear</a>
+    {% endif %}
+  </form>
+
+  <!-- Result-count banner -->
+  <div class="flex items-center gap-2 text-[11px] text-ink-muted px-1">
+    <span>
+      Showing <span class="tabular-nums text-ink-secondary">{{ total }}</span>
+      {% if truncated %}
+        of <span class="tabular-nums text-warn">{{ matched }}</span> matches
+        — capped at {{ limit }}. Narrow filters or shorten the time range.
+      {% else %}
+        match{{ total|pluralize:"es" }}.
+      {% endif %}
+    </span>
+  </div>
+
+  <!-- Table -->
+  <div class="glass-card overflow-x-auto">
+    <table class="w-full">
+      <thead class="border-b border-edge">
+        <tr>
+          <th class="th w-8">
+            <input type="checkbox" class="rounded bg-surface-4 border-edge text-brand"
+                   @change="selected = $event.target.checked ? {{ incidents|length }} : []" />
+          </th>
+          <th class="th">Number</th>
+          <th class="th">Description</th>
+          <th class="th">Priority</th>
+          <th class="th">State</th>
+          <th class="th">Group / Assignee</th>
+          <th class="th">Age</th>
+          <th class="th w-28">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-edge-subtle">
+        {% for inc in incidents %}
+        <tr class="table-row">
+          <td class="td">
+            <input type="checkbox" class="rounded bg-surface-4 border-edge text-brand" />
+          </td>
+          <td class="td">
+            <a href="/servicenow/incidents/{{ inc.number }}/"
+               class="font-mono text-brand-light hover:text-brand hover:underline text-xs font-medium">
+              {{ inc.number }}
+            </a>
+          </td>
+          <td class="td max-w-xs">
+            <a href="/servicenow/incidents/{{ inc.number }}/"
+               class="text-ink-primary hover:text-white font-medium leading-snug line-clamp-2 transition-colors">
+              {{ inc.short_description }}
+            </a>
+            {% if inc.sla_warning %}
+            <span class="text-[10px] text-danger font-medium">⚠ SLA at risk</span>
+            {% endif %}
+          </td>
+          <td class="td">
+            {% if inc.priority == "1" %}<span class="badge-p1">P1</span>
+            {% elif inc.priority == "2" %}<span class="badge-p2">P2</span>
+            {% elif inc.priority == "3" %}<span class="badge-p3">P3</span>
+            {% else %}<span class="badge-p4">P4</span>{% endif %}
+          </td>
+          <td class="td">
+            {% if inc.state_code == "in_progress" %}<span class="badge badge-info">In Progress</span>
+            {% elif inc.state_code == "resolved" %}<span class="badge badge-ok">Resolved</span>
+            {% elif inc.state_code == "open" %}<span class="badge badge-muted">Open</span>
+            {% else %}<span class="badge badge-muted">{{ inc.state }}</span>{% endif %}
+          </td>
+          <td class="td">
+            <p class="text-ink-primary text-xs">{{ inc.assignment_group }}</p>
+            <p class="text-ink-muted text-xs">{{ inc.assigned_to|default:"Unassigned" }}</p>
+          </td>
+          <td class="td">
+            <span class="text-xs {% if inc.sla_warning %}text-danger font-semibold{% else %}text-ink-muted{% endif %}">
+              {{ inc.age }}
+            </span>
+          </td>
+          <td class="td">
+            <div class="flex items-center gap-1"
+                 x-data="{ open: false }">
+              <a href="/servicenow/incidents/{{ inc.number }}/"
+                 class="p-1.5 rounded hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors" title="View">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </a>
+              <div class="relative">
+                <button @click="open = !open"
+                        class="p-1.5 rounded hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors" title="More actions">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/>
+                  </svg>
+                </button>
+                <div x-show="open" x-cloak @click.outside="open = false"
+                     class="absolute right-0 mt-1 w-44 bg-surface-3 border border-edge rounded-lg py-1 z-30 shadow-card animate-fade-in">
+                  <a href="/servicenow/incidents/{{ inc.number }}/"
+                     class="flex items-center gap-2 px-3 py-2 text-xs text-ink-primary hover:bg-surface-5 transition-colors">
+                    Add work note
+                  </a>
+                  <a href="/servicenow/incidents/{{ inc.number }}/"
+                     class="flex items-center gap-2 px-3 py-2 text-xs text-ink-primary hover:bg-surface-5 transition-colors">
+                    Reassign
+                  </a>
+                  <div class="border-t border-edge my-1"></div>
+                  <a href="/servicenow/incidents/{{ inc.number }}/"
+                     class="flex items-center gap-2 px-3 py-2 text-xs text-danger hover:bg-danger/20 transition-colors">
+                    Close incident
+                  </a>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" class="px-4 py-16 text-center">
+            <p class="text-ink-muted text-sm">No incidents match your filters.</p>
+            <a href="/servicenow/incidents/" class="text-brand-light text-sm hover:underline mt-1 inline-block">Clear filters</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+  {% include "servicenow/partials/create_incident_modal.html" %}
+{% endblock %}

@@ -1,0 +1,55 @@
+{% if fatal_error %}
+<div class="flex items-start gap-2.5 rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5">
+  <svg class="w-4 h-4 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <p class="text-xs text-danger">{{ fatal_error }}</p>
+</div>
+{% else %}
+<div class="space-y-2">
+  <div class="flex items-center gap-2 flex-wrap">
+    <span class="text-[10px] px-2 py-1 rounded bg-surface-5 text-ink-secondary border border-edge font-medium">
+      {{ total }} entr{{ total|pluralize:"y,ies" }}
+    </span>
+    {% if success_count %}
+    <span class="text-[10px] px-2 py-1 rounded bg-ok/10 text-ok border border-ok/20 font-semibold tabular-nums">
+      {{ success_count }} saved
+    </span>
+    {% endif %}
+    {% if errors %}
+    <span class="text-[10px] px-2 py-1 rounded bg-danger/10 text-danger border border-danger/20 font-semibold tabular-nums">
+      {{ errors|length }} skipped
+    </span>
+    {% endif %}
+  </div>
+
+  {% if saved_names %}
+  <div class="p-3 rounded-lg bg-ok/5 border border-ok/20">
+    <p class="text-[10px] font-bold text-ok uppercase tracking-wider mb-1.5">Saved</p>
+    <div class="flex flex-wrap gap-1.5">
+      {% for n in saved_names %}
+      <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-4 border border-edge text-ink-secondary">{{ n }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if errors %}
+  <div class="p-3 rounded-lg bg-danger/5 border border-danger/20">
+    <p class="text-[10px] font-bold text-danger uppercase tracking-wider mb-1.5">Skipped</p>
+    <ul class="text-[11px] text-danger space-y-0.5">
+      {% for e in errors %}<li>• {{ e }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if success_count %}
+  <button type="button"
+          onclick="window.location.href = '/servicenow/presets/';"
+          class="btn-primary text-xs px-3 py-2 mt-2">
+    Reload presets page
+  </button>
+  {% endif %}
+</div>
+{% endif %}

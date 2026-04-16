@@ -1,0 +1,177 @@
+"""
+Bulk change parser + validator.
+
+Accepts either pasted text or uploaded CSV content, normalises to a list of
+row dicts keyed by our canonical field names, and runs per-row validation.
+
+Canonical columns (header row required, case-insensitive, order-free):
+    type, short_description, assignment_group, start_date, end_date
+Optional:
+    template_key, risk, description
+
+Delimiter is auto-detected (tab or comma). Rows with all-empty cells are skipped.
+"""
+
+from __future__ import annotations
+from typing import Dict, Any, List, Tuple
+from datetime import datetime
+import csv
+import io
+
+
+VALID_TYPES = ('normal', 'emergency', 'standard')
+REQUIRED_FIELDS = ('type', 'short_description', 'assignment_group', 'start_date', 'end_date')
+OPTIONAL_FIELDS = ('template_key', 'risk', 'description')
+ALL_FIELDS = REQUIRED_FIELDS + OPTIONAL_FIELDS
+
+_DATE_FORMATS = (
+    '%Y-%m-%d %H:%M:%S',
+    '%Y-%m-%d %H:%M',
+    '%Y-%m-%dT%H:%M:%S',
+    '%Y-%m-%dT%H:%M',
+    '%Y-%m-%d',
+    '%d/%m/%Y %H:%M',
+    '%m/%d/%Y %H:%M',
+)
+
+
+def _parse_date(raw: str):
+    raw = (raw or '').strip()
+    if not raw:
+        return None
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(raw, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _detect_delimiter(sample: str) -> str:
+    # Prefer tab if present (Excel paste), else comma.
+    first_line = sample.splitlines()[0] if sample else ''
+    return '\t' if '\t' in first_line else ','
+
+
+def parse_text(raw_text: str) -> List[Dict[str, str]]:
+    """Parse pasted CSV/TSV text into a list of row dicts."""
+    raw_text = (raw_text or '').strip()
+    if not raw_text:
+        return []
+    delim = _detect_delimiter(raw_text)
+    reader = csv.DictReader(io.StringIO(raw_text), delimiter=delim)
+    return _normalise_rows(reader)
+
+
+def parse_csv_file(file_obj) -> List[Dict[str, str]]:
+    """Parse a Django UploadedFile containing CSV data."""
+    data = file_obj.read()
+    if isinstance(data, bytes):
+        # utf-8-sig strips the BOM Excel likes to include
+        data = data.decode('utf-8-sig', errors='replace')
+    return parse_text(data)
+
+
+def _normalise_rows(reader) -> List[Dict[str, str]]:
+    rows: List[Dict[str, str]] = []
+    for raw in reader:
+        if not raw:
+            continue
+        normalised = {}
+        for k, v in raw.items():
+            if k is None:
+                continue
+            key = k.strip().lower().replace(' ', '_')
+            if key in ALL_FIELDS:
+                normalised[key] = (v or '').strip()
+        # Skip fully-empty rows
+        if not any(normalised.values()):
+            continue
+        rows.append(normalised)
+    return rows
+
+
+def validate_rows(
+    rows: List[Dict[str, str]],
+    known_template_keys: List[str] | None = None,
+) -> List[Dict[str, Any]]:
+    """
+    Return a list of per-row dicts enriched with 'errors', 'warnings', 'is_valid',
+    and parsed datetime fields.
+    """
+    known_template_keys = known_template_keys or []
+    results = []
+
+    for idx, row in enumerate(rows):
+        errors: List[str] = []
+        warnings: List[str] = []
+
+        change_type = (row.get('type') or '').strip().lower()
+        if not change_type:
+            errors.append('type is required')
+        elif change_type not in VALID_TYPES:
+            errors.append(f"type must be one of {', '.join(VALID_TYPES)}")
+
+        short_desc = (row.get('short_description') or '').strip()
+        if not short_desc:
+            errors.append('short_description is required')
+        elif len(short_desc) > 160:
+            errors.append(f'short_description too long ({len(short_desc)} > 160)')
+
+        if not (row.get('assignment_group') or '').strip():
+            errors.append('assignment_group is required')
+
+        start_dt = _parse_date(row.get('start_date', ''))
+        if not row.get('start_date'):
+            errors.append('start_date is required')
+        elif start_dt is None:
+            errors.append(f"start_date '{row.get('start_date')}' not recognised")
+
+        end_dt = _parse_date(row.get('end_date', ''))
+        if not row.get('end_date'):
+            errors.append('end_date is required')
+        elif end_dt is None:
+            errors.append(f"end_date '{row.get('end_date')}' not recognised")
+
+        if start_dt and end_dt and end_dt <= start_dt:
+            errors.append('end_date must be after start_date')
+
+        template_key = (row.get('template_key') or '').strip()
+        if change_type == 'standard':
+            if not template_key:
+                warnings.append('standard change has no template_key — a blank ServiceNow form will open')
+            elif known_template_keys and template_key not in known_template_keys:
+                warnings.append(f"template_key '{template_key}' is not in the saved templates")
+        elif template_key:
+            warnings.append('template_key is only used for standard changes — will be ignored')
+
+        results.append({
+            'row_index': idx,
+            'raw': row,
+            'type': change_type,
+            'short_description': short_desc,
+            'assignment_group': (row.get('assignment_group') or '').strip(),
+            'start_date': row.get('start_date', ''),
+            'end_date': row.get('end_date', ''),
+            'start_dt': start_dt,
+            'end_dt': end_dt,
+            'template_key': template_key,
+            'risk': (row.get('risk') or '').strip(),
+            'description': (row.get('description') or '').strip(),
+            'errors': errors,
+            'warnings': warnings,
+            'is_valid': not errors,
+        })
+    return results
+
+
+def summarise(validated: List[Dict[str, Any]]) -> Dict[str, int]:
+    return {
+        'total': len(validated),
+        'valid': sum(1 for r in validated if r['is_valid']),
+        'invalid': sum(1 for r in validated if not r['is_valid']),
+        'warnings': sum(1 for r in validated if r['warnings']),
+        'normal': sum(1 for r in validated if r['type'] == 'normal' and r['is_valid']),
+        'emergency': sum(1 for r in validated if r['type'] == 'emergency' and r['is_valid']),
+        'standard': sum(1 for r in validated if r['type'] == 'standard' and r['is_valid']),
+    }

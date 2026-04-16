@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block title %}Templates — Ops Center{% endblock %}
+{% block page_title %}Templates{% endblock %}
+{% block page_subtitle %}Reusable payloads for creating records from the list pages{% endblock %}
+
+{% block content %}
+<div class="flex gap-5 h-full overflow-y-auto" x-data="templateManager()">
+
+  <!-- LEFT — list -->
+  <div class="w-96 flex-shrink-0 flex flex-col gap-3">
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs font-semibold text-ink-primary">Saved templates</p>
+        <span class="text-[10px] px-2 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge font-semibold tabular-nums">
+          {{ total }}
+        </span>
+      </div>
+      <div id="creation-template-list">
+        {% include 'servicenow/partials/creation_template_list.html' %}
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT — editor -->
+  <div class="flex-1 min-w-0 glass-card p-5">
+
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-sm font-semibold text-ink-primary">New template</h2>
+        <p class="text-xs text-ink-muted mt-0.5">Pre-fill fields used when creating records of this kind</p>
+      </div>
+    </div>
+
+    <form hx-post="/servicenow/templates/save/"
+          hx-target="#creation-template-errors"
+          hx-swap="innerHTML"
+          hx-on::after-request="if (event.detail.xhr.getResponseHeader('HX-Retarget')) { this.reset(); kindChoice='standard_change'; document.getElementById('creation-template-errors').innerHTML=''; }"
+          class="space-y-4">
+      {% csrf_token %}
+
+      <div id="creation-template-errors"></div>
+
+      <!-- Kind selector -->
+      <div>
+        <label class="label">Kind <span class="text-danger">*</span></label>
+        <div class="flex flex-wrap gap-2">
+          {% for k in valid_kinds %}
+          <label class="cursor-pointer">
+            <input type="radio" name="kind" value="{{ k }}" class="peer sr-only"
+                   x-model="kindChoice"
+                   {% if forloop.first %}checked{% endif %}>
+            <span class="tab-inactive peer-checked:tab-active text-xs">{{ k|cut:"_"|title }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label">Key <span class="text-danger">*</span></label>
+          <input type="text" name="key" required
+                 placeholder="e.g. db_patching"
+                 class="input-dark text-xs font-mono">
+          <p class="text-[10px] text-ink-muted mt-1">Lowercase letters, digits, underscores</p>
+        </div>
+        <div>
+          <label class="label">Label <span class="text-danger">*</span></label>
+          <input type="text" name="label" required
+                 placeholder="e.g. Monthly database patching"
+                 class="input-dark text-xs">
+        </div>
+      </div>
+
+      <!-- Standard change URL -->
+      <div x-show="kindChoice === 'standard_change'">
+        <label class="label">ServiceNow URL <span class="text-danger">*</span></label>
+        <input type="url" name="url"
+               placeholder="https://instance.service-now.com/nav_to.do?uri=change_request.do?sys_id=-1&amp;sysparm_template=..."
+               class="input-dark text-xs font-mono">
+        <p class="text-[10px] text-ink-muted mt-1">When used, opens this URL in a new tab with fields pre-filled.</p>
+      </div>
+
+      <!-- Per-kind field inputs -->
+      <div x-show="kindChoice === 'normal_change' || kindChoice === 'emergency_change'" class="space-y-3">
+        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Default fields</p>
+        <div>
+          <label class="label">Short description</label>
+          <input type="text" name="short_description" class="input-dark text-xs">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Assignment group</label>
+            <input type="text" name="assignment_group" class="input-dark text-xs">
+          </div>
+          <div>
+            <label class="label">Risk</label>
+            <input type="text" name="risk" placeholder="low, moderate, high"
+                   class="input-dark text-xs">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Start date</label>
+            <input type="text" name="start_date" placeholder="2026-05-01 22:00"
+                   class="input-dark text-xs font-mono">
+          </div>
+          <div>
+            <label class="label">End date</label>
+            <input type="text" name="end_date" placeholder="2026-05-01 23:00"
+                   class="input-dark text-xs font-mono">
+          </div>
+        </div>
+        <div>
+          <label class="label">Description</label>
+          <textarea name="description" rows="3" class="input-dark text-xs resize-none"></textarea>
+        </div>
+      </div>
+
+      <div x-show="kindChoice === 'incident'" class="space-y-3">
+        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Default fields</p>
+        <div>
+          <label class="label">Short description</label>
+          <input type="text" name="short_description" class="input-dark text-xs">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Assignment group</label>
+            <input type="text" name="assignment_group" class="input-dark text-xs">
+          </div>
+          <div>
+            <label class="label">Priority</label>
+            <select name="priority" class="select-dark w-full text-xs">
+              <option value="">—</option>
+              <option value="1">1 (Critical)</option>
+              <option value="2">2 (High)</option>
+              <option value="3">3 (Moderate)</option>
+              <option value="4">4 (Low)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="label">Category</label>
+          <input type="text" name="category" class="input-dark text-xs">
+        </div>
+        <div>
+          <label class="label">Description</label>
+          <textarea name="description" rows="3" class="input-dark text-xs resize-none"></textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 pt-2 border-t border-edge">
+        <button type="submit" class="btn-primary text-xs px-4 py-2">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Save template
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<script>
+function _defineTemplateManager() {
+  Alpine.data('templateManager', () => ({
+    kindChoice: 'standard_change',
+  }));
+}
+if (window.Alpine) _defineTemplateManager();
+else document.addEventListener('alpine:init', _defineTemplateManager);
+</script>
+{% endblock %}

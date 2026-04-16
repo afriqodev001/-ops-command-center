@@ -1,0 +1,648 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#18181B" />
+  <title>{% block title %}Ops Command Center{% endblock %}</title>
+
+  <!-- Tailwind Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Segoe UI', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand:    { DEFAULT: '#8251EE', hover: '#9366F5', light: '#A37EF5', subtle: 'rgba(130,81,238,0.15)' },
+            surface:  { 1: 'hsl(240,6%,10%)', 2: 'hsl(240,5%,12%)', 3: 'hsl(240,5%,14%)', 4: 'hsl(240,4%,18%)', 5: 'hsl(240,4%,22%)', 6: 'hsl(240,4%,26%)' },
+            ink:      { primary: '#FFFFFF', secondary: '#A1A1AA', muted: '#71717A' },
+            edge:     { subtle: 'hsla(0,0%,100%,0.06)', DEFAULT: 'hsla(0,0%,100%,0.10)', strong: 'hsla(0,0%,100%,0.18)' },
+            ok:       '#10B981',
+            warn:     '#F59E0B',
+            danger:   '#EF4444',
+            info:     '#3B82F6',
+          },
+          boxShadow: { glow: '0 0 24px rgba(130,81,238,0.25)', card: '0 4px 24px rgba(0,0,0,0.4)' },
+          animation: { 'fade-in': 'fadeIn .2s ease-out', 'slide-up': 'slideUp .25s ease-out' },
+          keyframes: {
+            fadeIn:  { from: { opacity: 0 }, to: { opacity: 1 } },
+            slideUp: { from: { opacity: 0, transform: 'translateY(8px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
+          },
+        },
+      },
+    }
+  </script>
+
+  <!-- Glass + utility classes -->
+  <style type="text/tailwindcss">
+    [x-cloak] { display: none !important; }
+
+    @layer components {
+      .glass        { @apply backdrop-blur-md bg-white/5 border border-edge; }
+      .glass-card   { @apply backdrop-blur-md bg-white/[.04] border border-edge rounded-xl shadow-card; }
+      .glass-panel  { @apply backdrop-blur-lg bg-black/40 border border-edge-subtle; }
+
+      .btn-primary  { @apply bg-brand hover:bg-brand-hover active:scale-[.97] text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 inline-flex items-center gap-2; }
+      .btn-ghost    { @apply text-ink-secondary hover:text-ink-primary hover:bg-white/5 active:scale-[.97] px-3 py-2 rounded-lg text-sm transition-all duration-150 inline-flex items-center gap-2; }
+      .btn-danger   { @apply bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 inline-flex items-center gap-2; }
+
+      .badge        { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold; }
+      .badge-p1     { @apply badge bg-danger/15 text-danger border border-danger/20; }
+      .badge-p2     { @apply badge bg-warn/15 text-warn border border-warn/20; }
+      .badge-p3     { @apply badge bg-yellow-500/15 text-yellow-400 border border-yellow-500/20; }
+      .badge-p4     { @apply badge bg-surface-5 text-ink-muted border border-edge; }
+      .badge-ok     { @apply badge bg-ok/15 text-ok border border-ok/20; }
+      .badge-info   { @apply badge bg-info/15 text-info border border-info/20; }
+      .badge-warn   { @apply badge bg-warn/15 text-warn border border-warn/20; }
+      .badge-muted  { @apply badge bg-surface-5 text-ink-muted border border-edge; }
+
+      .input-dark   { @apply w-full bg-surface-4 border border-edge text-ink-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/50 placeholder-ink-muted transition-colors; }
+      .select-dark  { @apply bg-surface-4 border border-edge text-ink-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/50 cursor-pointer transition-colors; }
+      .label        { @apply block text-xs font-medium text-ink-muted mb-1.5 uppercase tracking-wider; }
+
+      .nav-item     { @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink-secondary hover:text-ink-primary hover:bg-white/5 transition-all duration-150 cursor-pointer; }
+      .nav-item-active { @apply nav-item bg-brand-subtle text-brand-light border border-brand/20; }
+
+      .table-row    { @apply border-b border-edge-subtle hover:bg-white/[.02] transition-colors duration-100; }
+      .th           { @apply px-4 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider; }
+      .td           { @apply px-4 py-3 text-sm text-ink-secondary; }
+
+      .stat-card    { @apply glass-card p-5 flex flex-col gap-1; }
+
+      .tab          { @apply px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 cursor-pointer; }
+      .tab-active   { @apply tab bg-brand-subtle text-brand-light; }
+      .tab-inactive { @apply tab text-ink-muted hover:text-ink-primary hover:bg-white/5; }
+
+      .modal-overlay { @apply fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4; }
+      .modal-panel   { @apply glass-card w-full max-w-lg p-6 animate-slide-up; }
+
+      .pulse-dot    { @apply w-2 h-2 rounded-full animate-pulse; }
+    }
+
+    ::-webkit-scrollbar       { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: hsl(240,5%,12%); }
+    ::-webkit-scrollbar-thumb { background: hsl(240,4%,26%); border-radius: 9999px; }
+  </style>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+  <!-- Alpine.js collapse plugin (must load before Alpine core) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body class="bg-surface-1 text-ink-primary font-sans antialiased h-full"
+      x-data="{ sidebarOpen: true }"
+      hx-boost="true">
+
+  <!-- HTMX loading bar -->
+  <div id="htmx-indicator"
+       class="fixed top-0 left-0 right-0 h-0.5 bg-brand z-[100] opacity-0 transition-opacity duration-200"
+       style="display:none"></div>
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+    <aside class="w-60 flex-shrink-0 bg-surface-2 border-r border-edge flex flex-col overflow-y-auto">
+
+      <!-- Logo -->
+      <div class="flex items-center gap-3 px-4 py-5 border-b border-edge">
+        <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shadow-glow flex-shrink-0">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-ink-primary leading-none">Ops Center</p>
+          <p class="text-xs text-ink-muted mt-0.5">Command & Control</p>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="flex-1 px-3 py-4 space-y-0.5">
+
+        <!-- Dashboard -->
+        <a href="/" class="{% if request.path == '/' %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+          </svg>
+          Dashboard
+        </a>
+
+        <!-- ServiceNow section -->
+        <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-ink-muted uppercase tracking-wider">ServiceNow</p>
+
+        <a href="/servicenow/incidents/"
+           class="{% if '/servicenow/incidents' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          Incidents
+          <span class="ml-auto badge badge-p1 text-[10px]">3</span>
+        </a>
+
+        <a href="/servicenow/changes/"
+           class="{% if '/servicenow/changes' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+          </svg>
+          Changes
+          <span class="ml-auto badge badge-warn text-[10px]">2</span>
+        </a>
+
+        <a href="/servicenow/lookup/"
+           class="{% if '/servicenow/lookup' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          Fetch by number
+        </a>
+
+        <a href="/servicenow/search/"
+           class="{% if '/servicenow/search' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m-1.5 5l2.5-2.5m0 0a3.5 3.5 0 10-5-5 3.5 3.5 0 005 5z"/>
+          </svg>
+          Search
+        </a>
+
+        <a href="/servicenow/changes/bulk-review/"
+           class="{% if 'bulk-review' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-3 7l2 2 4-4"/>
+          </svg>
+          Bulk Review
+        </a>
+
+        <a href="/servicenow/changes/bulk-create/"
+           class="{% if 'bulk-create' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 4v16m8-8H4"/>
+          </svg>
+          Bulk Create
+        </a>
+
+        <a href="/servicenow/presets/"
+           class="{% if '/servicenow/presets' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 6h16M4 12h8m-8 6h16"/>
+          </svg>
+          Presets
+        </a>
+
+        <a href="/servicenow/templates/"
+           class="{% if '/servicenow/templates' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+          </svg>
+          Templates
+        </a>
+
+        <!-- Placeholder future integrations -->
+        <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-ink-muted uppercase tracking-wider">Coming Soon</p>
+
+        <div class="nav-item opacity-40 cursor-not-allowed">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          Grafana
+        </div>
+
+        <div class="nav-item opacity-40 cursor-not-allowed">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          Harness
+        </div>
+      </nav>
+
+      <!-- Session status widget + user footer -->
+      <div class="border-t border-edge pt-3 space-y-2">
+
+        <!-- HTMX-polled session widget — wrapper never moves, content refreshes -->
+        <div id="session-widget-container"
+             class="px-3 pb-1"
+             hx-get="/servicenow/session/widget/"
+             hx-trigger="load, every 20s"
+             hx-swap="innerHTML">
+          <!-- skeleton shown until first poll returns -->
+          <div class="h-9 bg-surface-4 rounded-lg animate-pulse"></div>
+        </div>
+
+        <!-- User identity -->
+        <button type="button"
+                onclick="document.getElementById('preferences-modal').showModal()"
+                class="w-full flex items-center gap-2.5 px-4 py-2 border-t border-edge text-left hover:bg-white/5 transition-colors"
+                title="Open preferences">
+          <span class="w-7 h-7 rounded-full bg-brand-subtle border border-brand/30 flex items-center justify-center text-xs font-bold text-brand-light flex-shrink-0">{{ os_user.initials }}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs font-medium text-ink-primary truncate">{{ os_user.name }}</span>
+            <span class="block text-[11px] text-ink-muted truncate">Preferences &amp; local stores</span>
+          </span>
+          <svg class="w-3.5 h-3.5 flex-shrink-0 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </button>
+
+      </div>
+    </aside>
+
+    <!-- ═══════════════════ MAIN ═══════════════════ -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+      <!-- Top bar -->
+      <header class="flex-shrink-0 bg-surface-2/60 backdrop-blur-sm border-b border-edge px-6 py-3 flex items-center justify-between">
+        <div>
+          <h1 class="text-base font-semibold text-ink-primary">{% block page_title %}Dashboard{% endblock %}</h1>
+          <p class="text-xs text-ink-muted">{% block page_subtitle %}Ops Command Center{% endblock %}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          {% block header_actions %}{% endblock %}
+
+          <!-- Data mode chip — toggles demo ↔ live for this Django session -->
+          {% with mode=request.session.data_mode|default:"demo" %}
+          <form hx-post="/servicenow/mode/toggle/" hx-swap="none"
+                class="inline-flex" title="Click to switch between demo data and live ServiceNow">
+            {% csrf_token %}
+            <button type="submit" class="btn-ghost px-2.5 py-1.5 text-xs gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 {% if mode == 'live' %}bg-ok animate-pulse{% else %}bg-warn{% endif %}"></span>
+              <span class="hidden sm:inline text-ink-muted">Mode:</span>
+              <strong class="text-ink-primary">{{ mode|title }}</strong>
+            </button>
+          </form>
+          {% endwith %}
+
+          <!-- Session status pill in header — piggybacks on widget poll -->
+          <div id="header-session-pill"
+               hx-get="/servicenow/session/widget/"
+               hx-trigger="load, every 20s"
+               hx-target="this"
+               hx-swap="none"
+               hx-on::after-request="updateHeaderPill(event)">
+            <!-- Rendered by JS from widget response -->
+            <button onclick="document.getElementById('session-modal').showModal()"
+                    class="btn-ghost px-2.5 py-1.5 text-xs gap-1.5" title="ServiceNow session status">
+              <span id="header-session-dot" class="w-1.5 h-1.5 rounded-full bg-surface-5 flex-shrink-0"></span>
+              <span id="header-session-label" class="hidden sm:inline text-ink-muted">Session</span>
+            </button>
+          </div>
+
+          <!-- Activity bell — opens the activity log modal; badge polls for unread count -->
+          <button onclick="document.getElementById('activity-modal').showModal()"
+                  class="btn-ghost relative"
+                  title="Recent activity">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+            <span id="activity-badge"
+                  hx-get="/servicenow/activity/badge/"
+                  hx-trigger="load, activity-updated from:body, every 60s"
+                  hx-swap="outerHTML"
+                  class="hidden"></span>
+          </button>
+        </div>
+      </header>
+
+      {% if request.session.data_mode == 'live' %}
+      <!-- Live-mode banner — visible only while the user has toggled to Live -->
+      <div class="bg-warn/10 border-b border-warn/25 px-6 py-2 flex items-center gap-2.5 flex-shrink-0">
+        <svg class="w-4 h-4 text-warn flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <p class="text-xs text-warn leading-snug">
+          <strong>Live mode active.</strong>
+          ServiceNow API calls are not yet wired into read pages, so lists and details will appear empty.
+          Write actions (bulk create, create-from-template) already hit the real API when a session is connected.
+          Click the <strong>Mode</strong> chip to return to Demo.
+        </p>
+      </div>
+      {% endif %}
+
+      <!-- Page content -->
+      <main class="flex-1 overflow-y-auto p-6">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast notification container -->
+  <div id="toast-container"
+       class="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none"
+       x-data="toastManager()"
+       @show-toast.window="addToast($event.detail)">
+    <template x-for="toast in toasts" :key="toast.id">
+      <div class="pointer-events-auto glass-card px-4 py-3 flex items-center gap-3 animate-slide-up max-w-sm"
+           x-show="toast.visible"
+           x-transition:leave="transition ease-in duration-200"
+           x-transition:leave-start="opacity-100 translate-y-0"
+           x-transition:leave-end="opacity-0 translate-y-2">
+        <span class="w-2 h-2 rounded-full flex-shrink-0"
+              :class="{'bg-ok': toast.type==='success', 'bg-danger': toast.type==='error', 'bg-warn': toast.type==='warning', 'bg-info': toast.type==='info'}"></span>
+        <p class="text-sm text-ink-primary" x-text="toast.message"></p>
+      </div>
+    </template>
+  </div>
+
+  <!-- Global modals slot -->
+  {% block modals %}{% endblock %}
+
+  <!-- ── Create from template (shared across incidents + changes) ────── -->
+  <dialog id="create-from-template-modal"
+          class="bg-transparent p-0 m-auto w-full max-w-xl backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+          x-data="createFromTemplateModal()"
+          @open-from-template.window="handleOpen($event.detail)">
+    <div class="glass-card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-base font-semibold text-ink-primary">Create from template</h2>
+          <p class="text-xs text-ink-muted mt-0.5"
+             x-text="isChange ? 'Pick a change kind, then a saved template' : 'Pick a saved incident template'"></p>
+        </div>
+        <button onclick="document.getElementById('create-from-template-modal').close()"
+                class="p-1.5 rounded-lg hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Kind switcher for changes -->
+      <div x-show="isChange" class="flex items-center gap-2 mb-4 flex-wrap">
+        <button type="button" @click="loadKind('standard_change')"
+                :class="currentKind === 'standard_change' ? 'tab-active' : 'tab-inactive'"
+                class="text-xs">Standard</button>
+        <button type="button" @click="loadKind('normal_change')"
+                :class="currentKind === 'normal_change' ? 'tab-active' : 'tab-inactive'"
+                class="text-xs">Normal</button>
+        <button type="button" @click="loadKind('emergency_change')"
+                :class="currentKind === 'emergency_change' ? 'tab-active' : 'tab-inactive'"
+                class="text-xs">Emergency</button>
+        <a href="/servicenow/templates/" class="ml-auto text-[10px] text-brand-light hover:text-brand">
+          Manage templates →
+        </a>
+      </div>
+
+      <div id="create-template-body">
+        <div class="py-8 text-center">
+          <div class="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+  function _defineCreateFromTemplateModal() {
+    Alpine.data('createFromTemplateModal', () => ({
+      isChange: false,
+      currentKind: 'incident',
+      handleOpen(detail) {
+        const kind = detail && detail.kind;
+        this.isChange = (kind === 'change');
+        const initial = this.isChange ? 'standard_change' : 'incident';
+        document.getElementById('create-from-template-modal').showModal();
+        this.loadKind(initial);
+      },
+      loadKind(kind) {
+        this.currentKind = kind;
+        // htmx is global — load the picker partial for this kind
+        window.htmx.ajax('GET', `/servicenow/templates/picker/${kind}/`, {
+          target: '#create-template-body',
+          swap: 'innerHTML',
+        });
+      },
+    }));
+  }
+  if (window.Alpine) _defineCreateFromTemplateModal();
+  else document.addEventListener('alpine:init', _defineCreateFromTemplateModal);
+
+  function _bindCreateFromTemplateBackdrop() {
+    const m = document.getElementById('create-from-template-modal');
+    if (m && !m._backdropBound) {
+      m.addEventListener('click', e => { if (e.target === m) m.close(); });
+      m._backdropBound = true;
+    }
+  }
+  document.addEventListener('DOMContentLoaded', _bindCreateFromTemplateBackdrop);
+  document.addEventListener('htmx:afterSettle', _bindCreateFromTemplateBackdrop);
+  </script>
+
+  <!-- ── Session manager dialog ────────────────────────────── -->
+  <dialog id="session-modal"
+          class="bg-transparent p-0 m-auto w-full max-w-lg backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+    <div class="glass-card p-6 animate-slide-up">
+      <!-- Dialog header -->
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="text-base font-semibold text-ink-primary">ServiceNow Session</h2>
+          <p class="text-xs text-ink-muted mt-0.5">Browser connection manager</p>
+        </div>
+        <button onclick="document.getElementById('session-modal').close()"
+                class="p-1.5 rounded-lg hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Modal content — loaded fresh each open -->
+      <div id="session-modal-body"
+           hx-get="/servicenow/session/modal/"
+           hx-trigger="dialog-open from:#session-modal"
+           hx-swap="innerHTML">
+        <div class="py-8 text-center">
+          <div class="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ── Activity log dialog ─────────────────────────────── -->
+  <dialog id="activity-modal"
+          class="bg-transparent p-0 m-auto w-full max-w-xl backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+    <div class="glass-card p-6 animate-slide-up max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-base font-semibold text-ink-primary">Activity</h2>
+          <p class="text-xs text-ink-muted mt-0.5">Recent write actions and session events</p>
+        </div>
+        <button onclick="document.getElementById('activity-modal').close()"
+                class="p-1.5 rounded-lg hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div id="activity-modal-body"
+           hx-get="/servicenow/activity/"
+           hx-trigger="dialog-open from:#activity-modal"
+           hx-swap="innerHTML">
+        <div class="py-8 text-center">
+          <div class="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ── Preferences dialog ──────────────────────────────── -->
+  <dialog id="preferences-modal"
+          class="bg-transparent p-0 m-auto w-full max-w-2xl backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+    <div class="glass-card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="text-base font-semibold text-ink-primary">Preferences</h2>
+          <p class="text-xs text-ink-muted mt-0.5">Identity, defaults, and local-store management</p>
+        </div>
+        <button onclick="document.getElementById('preferences-modal').close()"
+                class="p-1.5 rounded-lg hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div id="preferences-modal-body"
+           hx-get="/servicenow/preferences/"
+           hx-trigger="dialog-open from:#preferences-modal"
+           hx-swap="innerHTML">
+        <div class="py-8 text-center">
+          <div class="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    // ── Toast manager ──────────────────────────────────────────
+    function toastManager() {
+      return {
+        toasts: [],
+        addToast({ message, type = 'info', duration = 3500 }) {
+          const id = Date.now();
+          this.toasts.push({ id, message, type, visible: true });
+          setTimeout(() => {
+            const t = this.toasts.find(t => t.id === id);
+            if (t) t.visible = false;
+            setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== id); }, 300);
+          }, duration);
+        }
+      }
+    }
+
+    // ── HTMX loading indicator ─────────────────────────────────
+    document.addEventListener('htmx:beforeRequest', () => {
+      const el = document.getElementById('htmx-indicator');
+      if (el) { el.style.display = 'block'; el.style.opacity = 1; }
+    });
+    document.addEventListener('htmx:afterRequest', () => {
+      const el = document.getElementById('htmx-indicator');
+      if (el) el.style.opacity = 0;
+    });
+
+    // ── Header session pill — synced from widget poll response ──
+    // The widget poll (hx-get every 20s) returns HTML; we read the
+    // status colour out of the response and update the tiny dot.
+    function updateHeaderPill(event) {
+      const html = event.detail.xhr.responseText;
+      const dot   = document.getElementById('header-session-dot');
+      const label = document.getElementById('header-session-label');
+      if (!dot) return;
+      if (html.includes('bg-ok'))      { dot.className = 'w-1.5 h-1.5 rounded-full bg-ok animate-pulse flex-shrink-0'; if (label) label.textContent = 'Connected'; }
+      else if (html.includes('bg-warn')) { dot.className = 'w-1.5 h-1.5 rounded-full bg-warn flex-shrink-0'; if (label) label.textContent = 'Offline'; }
+      else if (html.includes('bg-danger')){ dot.className = 'w-1.5 h-1.5 rounded-full bg-danger flex-shrink-0'; if (label) label.textContent = 'No session'; }
+      else if (html.includes('bg-info')) { dot.className = 'w-1.5 h-1.5 rounded-full bg-info flex-shrink-0'; if (label) label.textContent = 'Ready'; }
+    }
+
+    // ── Session modal: fire htmx trigger when dialog opens ─────
+    const sessionModal = document.getElementById('session-modal');
+    if (sessionModal) {
+      sessionModal.addEventListener('toggle', (e) => {
+        if (sessionModal.open) {
+          // dispatch the custom event that hx-trigger listens for
+          sessionModal.dispatchEvent(new Event('dialog-open', { bubbles: true }));
+        }
+      });
+      // Close on backdrop click
+      sessionModal.addEventListener('click', (e) => {
+        if (e.target === sessionModal) sessionModal.close();
+      });
+    }
+
+    // ── Preferences modal: same pattern ────────────────────────
+    const prefsModal = document.getElementById('preferences-modal');
+    if (prefsModal) {
+      prefsModal.addEventListener('toggle', () => {
+        if (prefsModal.open) {
+          prefsModal.dispatchEvent(new Event('dialog-open', { bubbles: true }));
+        }
+      });
+      prefsModal.addEventListener('click', (e) => {
+        if (e.target === prefsModal) prefsModal.close();
+      });
+    }
+
+    // ── Activity modal: same pattern + refresh badge when it closes
+    // (opening the modal marks everything read server-side).
+    const activityModal = document.getElementById('activity-modal');
+    if (activityModal) {
+      activityModal.addEventListener('toggle', () => {
+        if (activityModal.open) {
+          activityModal.dispatchEvent(new Event('dialog-open', { bubbles: true }));
+        } else {
+          // Closed — re-poll the badge so it clears the unread count.
+          document.body.dispatchEvent(new Event('activity-updated'));
+        }
+      });
+      activityModal.addEventListener('click', (e) => {
+        if (e.target === activityModal) activityModal.close();
+      });
+    }
+
+    // ── Session guard for action buttons ───────────────────────
+    // Intercepts $dispatch('open-create-*') events and shows a
+    // friendly prompt if no session is connected.
+    document.addEventListener('open-create-incident', (e) => {
+      const dot = document.getElementById('header-session-dot');
+      if (dot && dot.className.includes('bg-danger')) {
+        e.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: { message: 'No active session — connect ServiceNow first', type: 'warning' }
+        }));
+        document.getElementById('session-modal').showModal();
+      }
+    }, true); // capture phase so it fires before Alpine sees it
+
+    document.addEventListener('open-create-change', (e) => {
+      const dot = document.getElementById('header-session-dot');
+      if (dot && dot.className.includes('bg-danger')) {
+        e.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: { message: 'No active session — connect ServiceNow first', type: 'warning' }
+        }));
+        document.getElementById('session-modal').showModal();
+      }
+    }, true);
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block page_title %}Fetch by Number{% endblock %}
+{% block page_subtitle %}ServiceNow · Paste INC/CHG numbers to fetch full details{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl space-y-5 animate-fade-in">
+
+  <!-- ── Input card ── -->
+  <div class="glass-card p-5">
+    <form method="post"
+          hx-post="/servicenow/lookup/"
+          hx-target="#lookup-results"
+          hx-swap="innerHTML"
+          hx-indicator="#lookup-spinner"
+          @submit="document.getElementById('lookup-results').scrollIntoView({ behavior: 'smooth', block: 'nearest' })">
+      {% csrf_token %}
+
+      <div class="flex items-start gap-4">
+        <!-- Textarea -->
+        <div class="flex-1">
+          <label class="label">Record Numbers</label>
+          <textarea name="numbers"
+                    rows="4"
+                    placeholder="INC0045231&#10;CHG0034567&#10;INC0045228, CHG0034560"
+                    class="input-dark resize-none font-mono text-sm">{{ numbers_input }}</textarea>
+          <p class="text-xs text-ink-muted mt-1.5">
+            Paste any mix of INC and CHG numbers — one per line, or comma/space separated
+          </p>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex flex-col gap-2 pt-5 flex-shrink-0">
+          <button type="submit" class="btn-primary whitespace-nowrap">
+            <span id="lookup-spinner"
+                  class="htmx-indicator w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin hidden"></span>
+            <svg id="lookup-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            Look Up
+          </button>
+          {% if searched %}
+          <a href="/servicenow/lookup/" class="btn-ghost justify-center">Clear</a>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Results ── -->
+  <div id="lookup-results">
+    {% include "servicenow/partials/lookup_results.html" %}
+  </div>
+
+</div>
+
+<style>
+  .htmx-request #lookup-spinner { display: inline-block !important; }
+  .htmx-request #lookup-icon   { display: none; }
+</style>
+{% endblock %}

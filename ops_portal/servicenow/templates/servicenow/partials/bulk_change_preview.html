@@ -1,0 +1,108 @@
+{% if error %}
+<div class="flex items-start gap-2.5 rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5">
+  <svg class="w-4 h-4 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <p class="text-xs text-danger">{{ error }}</p>
+</div>
+{% else %}
+
+<div class="flex items-center justify-between gap-3 mb-3">
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="text-[10px] px-2 py-1 rounded bg-surface-5 text-ink-muted border border-edge font-medium">{{ source }}</span>
+    <span class="text-[10px] px-2 py-1 rounded bg-surface-5 text-ink-secondary border border-edge font-medium">
+      {{ summary.total }} row{{ summary.total|pluralize }}
+    </span>
+    <span class="text-[10px] px-2 py-1 rounded bg-ok/10 text-ok border border-ok/20 font-semibold tabular-nums">
+      {{ summary.valid }} valid
+    </span>
+    {% if summary.invalid %}
+    <span class="text-[10px] px-2 py-1 rounded bg-danger/10 text-danger border border-danger/20 font-semibold tabular-nums">
+      {{ summary.invalid }} invalid
+    </span>
+    {% endif %}
+    {% if summary.warnings %}
+    <span class="text-[10px] px-2 py-1 rounded bg-warn/10 text-warn border border-warn/20 font-semibold tabular-nums">
+      {{ summary.warnings }} with warnings
+    </span>
+    {% endif %}
+    <span class="text-[10px] px-2 py-1 rounded bg-brand-subtle text-brand-light border border-brand/20 font-semibold tabular-nums">
+      {{ summary.normal }} normal · {{ summary.emergency }} emergency · {{ summary.standard }} standard
+    </span>
+  </div>
+
+  <button type="button"
+          class="btn-primary text-xs px-4 py-2"
+          @click="submitBulk()"
+          :disabled="{{ summary.valid|default:0 }} === 0 || running"
+          :class="({{ summary.valid|default:0 }} === 0 || running) ? 'opacity-50 cursor-not-allowed' : ''">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+    </svg>
+    Submit {{ summary.valid }} change{{ summary.valid|pluralize }}
+  </button>
+</div>
+
+<!-- Hidden JSON blob the page consumes on submit -->
+{{ rows|json_script:"bulk-change-rows-json" }}
+
+<div class="overflow-x-auto glass-card p-0 border border-edge rounded-xl">
+  <table class="w-full text-xs">
+    <thead class="bg-surface-3 border-b border-edge">
+      <tr>
+        <th class="th">#</th>
+        <th class="th">Type</th>
+        <th class="th">Short description</th>
+        <th class="th">Assignment group</th>
+        <th class="th">Start</th>
+        <th class="th">End</th>
+        <th class="th">Template</th>
+        <th class="th">Validation</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="table-row">
+        <td class="td font-mono text-ink-muted tabular-nums">{{ forloop.counter }}</td>
+        <td class="td">
+          {% if r.type == 'normal' %}
+            <span class="badge badge-info">normal</span>
+          {% elif r.type == 'emergency' %}
+            <span class="badge badge-p1">emergency</span>
+          {% elif r.type == 'standard' %}
+            <span class="badge badge-ok">standard</span>
+          {% else %}
+            <span class="badge badge-muted">{{ r.type|default:'—' }}</span>
+          {% endif %}
+        </td>
+        <td class="td text-ink-primary max-w-xs truncate" title="{{ r.short_description }}">{{ r.short_description|default:'—' }}</td>
+        <td class="td font-mono text-[11px] text-ink-secondary">{{ r.assignment_group|default:'—' }}</td>
+        <td class="td text-ink-secondary">{{ r.start_date|default:'—' }}</td>
+        <td class="td text-ink-secondary">{{ r.end_date|default:'—' }}</td>
+        <td class="td">
+          {% if r.template_key %}
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-4 border border-edge text-ink-secondary">{{ r.template_key }}</span>
+          {% else %}
+            <span class="text-ink-muted">—</span>
+          {% endif %}
+        </td>
+        <td class="td">
+          {% if r.errors %}
+            <div class="space-y-0.5">
+              {% for e in r.errors %}<div class="text-[11px] text-danger">• {{ e }}</div>{% endfor %}
+            </div>
+          {% elif r.warnings %}
+            <div class="space-y-0.5">
+              {% for w in r.warnings %}<div class="text-[11px] text-warn">• {{ w }}</div>{% endfor %}
+            </div>
+          {% else %}
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-ok/10 text-ok border border-ok/20 font-semibold">ok</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}

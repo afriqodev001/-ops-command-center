@@ -1,0 +1,59 @@
+<form hx-post="/servicenow/templates/submit/"
+      hx-target="#create-template-result"
+      hx-swap="innerHTML"
+      class="space-y-3">
+  {% csrf_token %}
+  <input type="hidden" name="template_key" value="{{ key }}">
+
+  <div class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-3 border border-edge mb-3">
+    <svg class="w-4 h-4 text-ink-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-6 9l2 2 4-4"/>
+    </svg>
+    <div class="min-w-0 flex-1">
+      <p class="text-xs font-medium text-ink-primary truncate">{{ template.label }}</p>
+      <p class="text-[10px] font-mono text-ink-muted">{{ key }} · {{ kind }}</p>
+    </div>
+  </div>
+
+  {% for fname, fval in fields %}
+  <div>
+    <label class="label">
+      {{ fname|cut:"_"|title }}{% if fname == 'short_description' %} <span class="text-danger">*</span>{% endif %}
+    </label>
+    {% if fname == 'description' %}
+    <textarea name="{{ fname }}" rows="3" class="input-dark text-xs resize-none">{{ fval }}</textarea>
+    {% else %}
+    <input type="text" name="{{ fname }}" value="{{ fval }}"
+           class="input-dark text-xs"
+           {% if fname == 'short_description' %}required{% endif %}>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <div class="flex items-center gap-2 pt-2 border-t border-edge">
+    <button type="submit" class="btn-primary text-xs px-4 py-2">
+      {% if kind == 'standard_change' %}
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+      </svg>
+      Open in ServiceNow
+      {% else %}
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+      Create
+      {% endif %}
+    </button>
+    <button type="button"
+            hx-get="/servicenow/templates/picker/{{ kind }}/"
+            hx-target="#create-template-body"
+            hx-swap="innerHTML"
+            class="btn-ghost text-xs">
+      ← Back to templates
+    </button>
+  </div>
+</form>
+
+<div id="create-template-result" class="mt-4"></div>

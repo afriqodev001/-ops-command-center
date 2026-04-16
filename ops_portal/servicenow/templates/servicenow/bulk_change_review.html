@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block page_title %}Bulk Change Review{% endblock %}
+{% block page_subtitle %}ServiceNow · AI-assisted review for multiple change records{% endblock %}
+
+{% block header_actions %}
+  <a href="/servicenow/changes/" class="btn-ghost">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    Changes
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5 animate-fade-in">
+
+  <!-- ── Input card ─────────────────────────────────────────── -->
+  <div class="glass-card p-5">
+    <form id="bulk-form"
+          method="post"
+          hx-post="/servicenow/changes/bulk-review/"
+          hx-target="#review-queue"
+          hx-swap="innerHTML"
+          hx-indicator="#form-spinner">
+      {% csrf_token %}
+
+      <div class="flex items-start gap-4">
+        <div class="flex-1">
+          <label class="label">Change Numbers</label>
+          <textarea name="numbers"
+                    rows="4"
+                    placeholder="CHG0034567&#10;CHG0034560&#10;CHG0034558, CHG0034550"
+                    class="input-dark resize-none font-mono text-sm">{{ numbers_input }}</textarea>
+          <p class="text-xs text-ink-muted mt-1.5">
+            Paste CHG numbers — one per line or comma separated.
+            Each change is reviewed individually with a readiness assessment.
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-2 pt-5 flex-shrink-0">
+          <button type="submit" class="btn-primary whitespace-nowrap">
+            <span id="form-spinner"
+                  class="htmx-indicator w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin hidden"></span>
+            <svg id="form-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-3 7l2 2 4-4"/>
+            </svg>
+            Review All
+          </button>
+          {% if searched %}
+          <a href="/servicenow/changes/bulk-review/" class="btn-ghost justify-center text-sm">Clear</a>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Results queue ──────────────────────────────────────── -->
+  <div id="review-queue">
+    {% include "servicenow/partials/bulk_review_queue.html" %}
+  </div>
+
+</div>
+
+<style>
+  .htmx-request #form-spinner { display: inline-block !important; }
+  .htmx-request #form-icon    { display: none; }
+</style>
+{% endblock %}

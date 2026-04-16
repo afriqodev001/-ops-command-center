@@ -1,0 +1,73 @@
+# ─── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Test / type caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ─── Virtualenvs ────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Environment files ──────────────────────────────────────
+.env
+.env.local
+.env.*.local
+# (keep the checked-in example)
+!.env.example
+
+# ─── Django ─────────────────────────────────────────────────
+*.log
+db.sqlite3
+db.sqlite3-journal
+ops_portal/db.sqlite3
+ops_portal/db.sqlite3-journal
+# collectstatic output
+staticfiles/
+ops_portal/staticfiles/
+
+# Local settings override (imported at bottom of settings.py if present)
+local_settings.py
+ops_portal/ops_portal/local_settings.py
+
+# ─── Project runtime state ──────────────────────────────────
+# ServiceNow browser profiles — contain auth cookies, never commit
+.browser_sessions/
+ops_portal/.browser_sessions/
+# Celery filesystem broker / processed messages
+celery_data/
+ops_portal/celery_data/
+
+# ─── User-authored JSON stores ──────────────────────────────
+# These may contain company-specific CI names, template URLs, group names.
+# Default: don't commit — each user populates locally from the UI.
+ops_portal/servicenow/user_presets.json
+ops_portal/servicenow/creation_templates.json
+ops_portal/servicenow/standard_change_templates.json
+ops_portal/servicenow/search_presets.json
+ops_portal/servicenow/user_preferences.json
+
+# ─── IDEs / editors ─────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS noise ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

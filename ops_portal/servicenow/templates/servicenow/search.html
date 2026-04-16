@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+{% block title %}Search — Ops Center{% endblock %}
+{% block page_title %}Search{% endblock %}
+{% block page_subtitle %}Find incidents or changes by CI, requester, or assignment group{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-5 h-full overflow-y-auto"
+     x-data="searchPage()">
+
+  <!-- ═ FILTER PANEL ═══════════════════════════════════════════════ -->
+  <div class="glass-card p-5">
+
+    <!-- Preset dropdown row -->
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      <label class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Load preset:</label>
+      <select x-model="selectedPresetKey"
+              @change="applyPreset()"
+              class="select-dark text-xs min-w-[220px]">
+        <option value="">— choose a saved preset —</option>
+        <template x-for="(p, key) in presets" :key="key">
+          <option :value="key" x-text="'[' + p.app_id + '] ' + (p.label || key)"></option>
+        </template>
+      </select>
+      <span x-show="Object.keys(presets).length === 0" class="text-[10px] text-ink-muted">
+        (none yet — click Manage to add)
+      </span>
+      <button type="button"
+              @click="openManage()"
+              class="ml-auto btn-ghost text-xs gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Manage presets
+      </button>
+    </div>
+
+    <form id="search-form"
+          hx-post="/servicenow/search/"
+          hx-target="#search-results"
+          hx-swap="innerHTML"
+          hx-indicator="#search-spinner">
+      {% csrf_token %}
+
+      <!-- Domain toggle -->
+      <div class="flex items-center gap-2 mb-4">
+        <label class="relative cursor-pointer">
+          <input type="radio" name="domain" value="incident" class="peer sr-only"
+                 {% if domain == 'incident' %}checked{% endif %}>
+          <span class="tab-inactive peer-checked:tab-active text-xs inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            Incidents
+          </span>
+        </label>
+        <label class="relative cursor-pointer">
+          <input type="radio" name="domain" value="change" class="peer sr-only"
+                 {% if domain == 'change' %}checked{% endif %}>
+          <span class="tab-inactive peer-checked:tab-active text-xs inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+            </svg>
+            Changes
+          </span>
+        </label>
+        <span class="ml-auto text-[10px] text-ink-muted">Leave any field blank to skip it</span>
+      </div>
+
+      <!-- Filter inputs -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div>
+          <label class="label">Configuration item</label>
+          <input type="text" name="cmdb_ci" value="{{ cmdb_ci }}"
+                 placeholder="e.g. prod-db-01"
+                 class="input-dark text-xs">
+        </div>
+        <div>
+          <label class="label">Requested by</label>
+          <input type="text" name="requested_by" value="{{ requested_by }}"
+                 placeholder="e.g. J. Smith"
+                 class="input-dark text-xs">
+        </div>
+        <div>
+          <label class="label">Assignment group</label>
+          <input type="text" name="assignment_group" value="{{ assignment_group }}"
+                 placeholder="e.g. Database Ops"
+                 class="input-dark text-xs">
+        </div>
+        <div>
+          <label class="label">Time range</label>
+          <select name="days" class="select-dark w-full text-xs">
+            {% for val, label in time_ranges %}
+            <option value="{{ val }}" {% if days == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 mt-4">
+        <button type="submit" class="btn-primary text-xs px-4 py-2">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          Search
+        </button>
+        <button type="button"
+                onclick="this.closest('form').reset(); document.getElementById('search-results').innerHTML = '';"
+                class="btn-ghost text-xs">
+          Clear
+        </button>
+        <div id="search-spinner" class="htmx-indicator flex items-center gap-2 text-xs text-ink-muted">
+          <div class="w-3.5 h-3.5 border-2 border-brand/30 border-t-brand rounded-full animate-spin"></div>
+          Searching…
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ═ RESULTS PANEL ══════════════════════════════════════════════ -->
+  <div id="search-results">
+    {% if searched %}
+      {% include 'servicenow/partials/search_results.html' %}
+    {% else %}
+      <div class="glass-card p-8 text-center">
+        <svg class="w-10 h-10 text-ink-muted mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <p class="text-sm text-ink-secondary">Enter at least one filter and click Search</p>
+        <p class="text-xs text-ink-muted mt-1">Results can be combined — filters AND together</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{{ search_presets|json_script:"search-presets-json" }}
+<script>
+function _defineSearchPage() {
+  Alpine.data('searchPage', () => ({
+    presets: JSON.parse(document.getElementById('search-presets-json').textContent || '{}'),
+    selectedPresetKey: '',
+
+    init() {
+      // Keep in-memory presets + dropdown in sync when the modal adds/removes
+      // entries (server fires HX-Trigger: search-presets-changed).
+      window.addEventListener('search-presets-changed', () => this._reloadPresets());
+    },
+
+    async _reloadPresets() {
+      try {
+        const resp = await fetch('/servicenow/search/presets/json/');
+        this.presets = await resp.json();
+      } catch (e) { /* best-effort; dropdown keeps last-known presets */ }
+    },
+
+    applyPreset() {
+      const p = this.presets[this.selectedPresetKey];
+      if (!p) return;
+      const set = (name, val) => {
+        const el = document.querySelector(`#search-form [name="${name}"]`);
+        if (el) el.value = val || '';
+      };
+      set('cmdb_ci',          p.cmdb_ci);
+      set('requested_by',     p.requested_by);
+      set('assignment_group', p.assignment_group);
+    },
+
+    openManage() {
+      document.getElementById('search-preset-modal').showModal();
+      // Pre-fill the save form with current filter values so "Save as preset"
+      // captures what's in the filter row right now.
+      const cur = (name) => {
+        const el = document.querySelector(`#search-form [name="${name}"]`);
+        return el ? el.value : '';
+      };
+      const form = document.getElementById('search-preset-save-form');
+      if (form) {
+        form.querySelector('[name="cmdb_ci"]').value          = cur('cmdb_ci');
+        form.querySelector('[name="requested_by"]').value     = cur('requested_by');
+        form.querySelector('[name="assignment_group"]').value = cur('assignment_group');
+      }
+    },
+  }));
+}
+if (window.Alpine) _defineSearchPage();
+else document.addEventListener('alpine:init', _defineSearchPage);
+</script>
+{% endblock %}
+
+{% block modals %}
+<!-- ══ Search Preset Manager ═══════════════════════════════════════ -->
+<dialog id="search-preset-modal"
+        class="bg-transparent p-0 m-auto w-full max-w-2xl backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+  <div class="glass-card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-base font-semibold text-ink-primary">Search presets</h2>
+        <p class="text-xs text-ink-muted mt-0.5">
+          Save long CI names (and optional group / requester defaults) behind a short App ID.
+        </p>
+      </div>
+      <button onclick="document.getElementById('search-preset-modal').close()"
+              class="p-1.5 rounded-lg hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Save form (pre-filled from current search filters on modal open) -->
+    <form id="search-preset-save-form"
+          hx-post="/servicenow/search/presets/save/"
+          hx-target="#search-preset-errors"
+          hx-swap="innerHTML"
+          hx-on::after-request="if (event.detail.xhr.getResponseHeader('HX-Retarget')) { this.reset(); document.getElementById('search-preset-errors').innerHTML=''; }"
+          class="space-y-3 pb-4 mb-4 border-b border-edge">
+      {% csrf_token %}
+
+      <div id="search-preset-errors"></div>
+
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="label">Key <span class="text-danger">*</span></label>
+          <input type="text" name="key" required
+                 placeholder="e.g. pdly_prod"
+                 class="input-dark text-xs font-mono">
+          <p class="text-[10px] text-ink-muted mt-1">Lowercase, digits, underscores</p>
+        </div>
+        <div>
+          <label class="label">App ID <span class="text-danger">*</span></label>
+          <input type="text" name="app_id" required
+                 placeholder="e.g. PDLY"
+                 class="input-dark text-xs font-mono">
+        </div>
+        <div>
+          <label class="label">Friendly name</label>
+          <input type="text" name="label"
+                 placeholder="e.g. Production ledger"
+                 class="input-dark text-xs">
+        </div>
+      </div>
+
+      <div>
+        <label class="label">Configuration item <span class="text-danger">*</span></label>
+        <input type="text" name="cmdb_ci" required
+               placeholder="the long full CI value"
+               class="input-dark text-xs font-mono">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label">Default requested by</label>
+          <input type="text" name="requested_by" class="input-dark text-xs">
+        </div>
+        <div>
+          <label class="label">Default assignment group</label>
+          <input type="text" name="assignment_group" class="input-dark text-xs">
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 pt-2">
+        <button type="submit" class="btn-primary text-xs px-4 py-2">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Save preset
+        </button>
+        <p class="text-[10px] text-ink-muted">
+          Opening this modal pre-fills CI / requester / group from the current search filters.
+        </p>
+      </div>
+    </form>
+
+    <div>
+      <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Saved presets</p>
+      <div id="search-preset-list">
+        {% include 'servicenow/partials/search_preset_list.html' %}
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<script>
+function _bindSearchPresetModalBackdrop() {
+  const m = document.getElementById('search-preset-modal');
+  if (m && !m._backdropBound) {
+    m.addEventListener('click', e => { if (e.target === m) m.close(); });
+    m._backdropBound = true;
+  }
+}
+document.addEventListener('DOMContentLoaded', _bindSearchPresetModalBackdrop);
+document.addEventListener('htmx:afterSettle', _bindSearchPresetModalBackdrop);
+</script>
+{% endblock %}

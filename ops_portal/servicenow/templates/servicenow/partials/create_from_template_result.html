@@ -1,0 +1,119 @@
+{% if error %}
+<div class="flex items-start gap-2.5 rounded-lg bg-danger/10 border border-danger/20 px-3 py-2.5">
+  <svg class="w-4 h-4 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <p class="text-xs text-danger">{{ error }}</p>
+</div>
+
+{% elif url %}
+<div class="p-3 rounded-lg bg-ok/5 border border-ok/20"
+     x-data="{ opened: false }"
+     x-init="window.open('{{ url|escapejs }}', '_blank'); opened = true;">
+  <div class="flex items-start gap-2">
+    <svg class="w-4 h-4 text-ok flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+    </svg>
+    <div class="flex-1">
+      <p class="text-xs font-semibold text-ok">Opened in ServiceNow</p>
+      <p class="text-[11px] text-ink-muted mt-0.5">Complete and save the change in the new tab.</p>
+      <a :href="'{{ url|escapejs }}'" target="_blank"
+         class="text-[11px] text-brand-light hover:text-brand font-mono break-all mt-1 block">{{ url }}</a>
+    </div>
+  </div>
+</div>
+
+{% elif task_id %}
+<div class="p-3 rounded-lg bg-info/5 border border-info/20"
+     x-data="taskWatcher('{{ task_id }}')"
+     x-init="start()">
+  <div class="flex items-start gap-2">
+    <div class="w-4 h-4 flex-shrink-0 mt-0.5">
+      <div x-show="status === 'pending'"
+           class="w-4 h-4 border-2 border-info/30 border-t-info rounded-full animate-spin"></div>
+      <svg x-show="status === 'success'" class="w-4 h-4 text-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+      <svg x-show="status === 'error'" class="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="text-xs font-semibold"
+         :class="{
+           'text-info':   status === 'pending',
+           'text-ok':     status === 'success',
+           'text-danger': status === 'error'
+         }"
+         x-text="statusLabel()"></p>
+      <p x-show="number"
+         class="text-[11px] text-ink-secondary mt-0.5">
+        Created
+        <a :href="linkUrl()" x-text="number"
+           class="text-brand-light hover:text-brand font-mono"></a>
+      </p>
+      <p x-show="errorText"
+         class="text-[11px] text-danger mt-0.5 font-mono" x-text="errorText"></p>
+      <p class="text-[10px] text-ink-muted mt-1 font-mono">task {{ task_id }}</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// Registered once — Alpine.data survives hx-swap
+if (!window._taskWatcherRegistered) {
+  window._taskWatcherRegistered = true;
+  const register = () => Alpine.data('taskWatcher', (taskId) => ({
+    taskId: taskId,
+    status: 'pending',
+    number: '',
+    errorText: '',
+    kind: '{{ kind|escapejs }}',
+    async start() {
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          const resp = await fetch(`/tasks/${this.taskId}/result/`);
+          const data = await resp.json();
+          if (!data.ready) continue;
+          if (data.state === 'FAILURE') {
+            this.status = 'error';
+            this.errorText = data.error || 'task failed';
+            return;
+          }
+          const result = data.result || {};
+          if (result.error) {
+            this.status = 'error';
+            this.errorText = result.detail || result.error;
+            return;
+          }
+          this.status = 'success';
+          const rec = (result.result && result.result.record) || result.record || result;
+          this.number = rec.number || rec.sys_id || '';
+          return;
+        } catch (e) {
+          this.status = 'error';
+          this.errorText = 'polling failed';
+          return;
+        }
+      }
+      this.status = 'error';
+      this.errorText = 'task timed out';
+    },
+    statusLabel() {
+      if (this.status === 'pending') return 'Creating…';
+      if (this.status === 'success') return 'Created';
+      return 'Failed';
+    },
+    linkUrl() {
+      if (!this.number) return '#';
+      return (this.kind === 'incident' ? '/servicenow/incidents/' : '/servicenow/changes/') + this.number + '/';
+    },
+  }));
+  if (window.Alpine) register();
+  else document.addEventListener('alpine:init', register);
+}
+</script>
+{% endif %}

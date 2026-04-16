@@ -1,0 +1,110 @@
+{% if not any_filters %}
+<div class="glass-card p-6 text-center">
+  <p class="text-sm text-warn">Enter at least one filter to search.</p>
+</div>
+{% elif not results %}
+<div class="glass-card p-8 text-center">
+  <svg class="w-10 h-10 text-ink-muted mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <p class="text-sm text-ink-secondary">No {{ domain }}s match those filters</p>
+  <p class="text-xs text-ink-muted mt-1">Try broadening or clearing a filter</p>
+</div>
+{% else %}
+
+<div class="flex items-center gap-2 mb-3 flex-wrap">
+  <span class="text-[10px] px-2 py-1 rounded bg-surface-5 text-ink-secondary border border-edge font-medium">
+    {% if truncated %}
+      Showing {{ total }} of <span class="text-warn">{{ matched }}</span> — capped at {{ limit }}
+    {% else %}
+      {{ total }} {{ domain }}{{ total|pluralize }}
+    {% endif %}
+  </span>
+  {% if cmdb_ci %}
+  <span class="text-[10px] px-2 py-1 rounded bg-brand-subtle text-brand-light border border-brand/20 font-medium">
+    CI: <span class="font-mono">{{ cmdb_ci }}</span>
+  </span>
+  {% endif %}
+  {% if requested_by %}
+  <span class="text-[10px] px-2 py-1 rounded bg-brand-subtle text-brand-light border border-brand/20 font-medium">
+    Requested: {{ requested_by }}
+  </span>
+  {% endif %}
+  {% if assignment_group %}
+  <span class="text-[10px] px-2 py-1 rounded bg-brand-subtle text-brand-light border border-brand/20 font-medium">
+    Group: {{ assignment_group }}
+  </span>
+  {% endif %}
+  {% if days and days != 'all' %}
+  <span class="text-[10px] px-2 py-1 rounded bg-brand-subtle text-brand-light border border-brand/20 font-medium">
+    Last {{ days }} days
+  </span>
+  {% endif %}
+</div>
+
+<div class="overflow-x-auto glass-card p-0 border border-edge rounded-xl">
+  <table class="w-full text-xs">
+    <thead class="bg-surface-3 border-b border-edge">
+      <tr>
+        <th class="th">Number</th>
+        <th class="th">Description</th>
+        {% if domain == 'incident' %}
+        <th class="th">Priority</th>
+        <th class="th">State</th>
+        {% else %}
+        <th class="th">Type</th>
+        <th class="th">State</th>
+        <th class="th">Risk</th>
+        {% endif %}
+        <th class="th">CI</th>
+        <th class="th">Group</th>
+        <th class="th">Requested by</th>
+        <th class="th">Assignee</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in results %}
+      <tr class="table-row">
+        <td class="td">
+          {% if domain == 'incident' %}
+          <a href="/servicenow/incidents/{{ r.number }}/"
+             class="text-brand-light hover:text-brand font-mono">{{ r.number }}</a>
+          {% else %}
+          <a href="/servicenow/changes/{{ r.number }}/"
+             class="text-brand-light hover:text-brand font-mono">{{ r.number }}</a>
+          {% endif %}
+        </td>
+        <td class="td text-ink-primary max-w-md truncate" title="{{ r.short_description }}">
+          {{ r.short_description }}
+        </td>
+        {% if domain == 'incident' %}
+        <td class="td">
+          {% if r.priority == '1' %}<span class="badge-p1">P1</span>
+          {% elif r.priority == '2' %}<span class="badge-p2">P2</span>
+          {% elif r.priority == '3' %}<span class="badge-p3">P3</span>
+          {% else %}<span class="badge badge-muted">P{{ r.priority|default:'—' }}</span>
+          {% endif %}
+        </td>
+        <td class="td text-ink-secondary">{{ r.state }}</td>
+        {% else %}
+        <td class="td text-ink-secondary">{{ r.type }}</td>
+        <td class="td text-ink-secondary">{{ r.state }}</td>
+        <td class="td">
+          {% if r.risk == 'Critical' or r.risk == 'High' %}
+            <span class="badge-warn">{{ r.risk }}</span>
+          {% else %}
+            <span class="text-ink-secondary">{{ r.risk|default:'—' }}</span>
+          {% endif %}
+        </td>
+        {% endif %}
+        <td class="td font-mono text-[11px] text-ink-secondary">{{ r.cmdb_ci|default:'—' }}</td>
+        <td class="td text-ink-secondary">{{ r.assignment_group|default:'—' }}</td>
+        <td class="td text-ink-secondary">{{ r.opened_by|default:'—' }}</td>
+        <td class="td text-ink-secondary">{{ r.assigned_to|default:'—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}

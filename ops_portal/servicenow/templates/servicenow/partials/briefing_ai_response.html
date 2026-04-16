@@ -1,0 +1,59 @@
+{% if ai_pending %}
+<!-- Loading state — shown while HTMX request is in flight -->
+<div class="flex flex-col items-center gap-3 py-8">
+  <div class="flex gap-1">
+    <span class="w-2 h-2 bg-brand rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+    <span class="w-2 h-2 bg-brand rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+    <span class="w-2 h-2 bg-brand rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+  </div>
+  <p class="text-sm text-ink-muted">Generating change review…</p>
+  <p class="text-xs text-ink-muted opacity-60">Analysing tasks, work notes, and risk level</p>
+</div>
+
+{% else %}
+<!-- Empty state — shown before first generation -->
+<div class="flex flex-col items-center gap-3 py-10 text-center">
+  <div class="w-10 h-10 rounded-xl bg-brand-subtle border border-brand/20 flex items-center justify-center">
+    <svg class="w-5 h-5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+    </svg>
+  </div>
+  <div>
+    <p class="text-sm font-medium text-ink-primary">AI review not generated yet</p>
+    <p class="text-xs text-ink-muted mt-1">
+      Click <span class="font-semibold text-brand-light">Generate Review</span> to get an AI assessment<br>
+      of this change's readiness for approval.
+    </p>
+  </div>
+  <div class="mt-2 glass rounded-lg px-4 py-3 text-left max-w-xs w-full">
+    <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-2">The AI will assess</p>
+    <ul class="space-y-1.5">
+      <li class="flex items-center gap-2 text-xs text-ink-secondary">
+        <svg class="w-3.5 h-3.5 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/>
+        </svg>
+        CTASK completion status
+      </li>
+      <li class="flex items-center gap-2 text-xs text-ink-secondary">
+        <svg class="w-3.5 h-3.5 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/>
+        </svg>
+        Risk level vs change scope
+      </li>
+      <li class="flex items-center gap-2 text-xs text-ink-secondary">
+        <svg class="w-3.5 h-3.5 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/>
+        </svg>
+        Work note activity and quality
+      </li>
+      <li class="flex items-center gap-2 text-xs text-ink-secondary">
+        <svg class="w-3.5 h-3.5 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/>
+        </svg>
+        Approve / Hold / Reject recommendation
+      </li>
+    </ul>
+  </div>
+  <p class="text-[11px] text-ink-muted mt-1 opacity-60">AI integration coming soon — prompt is ready to connect</p>
+</div>
+{% endif %}

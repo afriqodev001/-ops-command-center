@@ -1,0 +1,27 @@
+{% if templates %}
+<ul class="space-y-1.5">
+  {% for key, tpl in templates.items %}
+  <li>
+    <button type="button"
+            hx-get="/servicenow/templates/form/{{ key }}/"
+            hx-target="#create-template-body"
+            hx-swap="innerHTML"
+            class="w-full text-left p-3 rounded-lg bg-surface-3 border border-edge hover:bg-white/5 hover:border-brand/30 transition-colors">
+      <div class="flex items-center gap-2 mb-0.5">
+        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-5 border border-edge text-ink-secondary">{{ key }}</span>
+        <span class="text-xs font-medium text-ink-primary">{{ tpl.label }}</span>
+      </div>
+      {% if tpl.url %}
+      <p class="text-[10px] text-ink-muted font-mono truncate">{{ tpl.url }}</p>
+      {% endif %}
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="text-center py-6">
+  <p class="text-xs text-ink-muted">No templates for this kind yet.</p>
+  <a href="/servicenow/templates/"
+     class="inline-block mt-2 text-xs text-brand-light hover:text-brand">Create one →</a>
+</div>
+{% endif %}

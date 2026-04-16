@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(python -m django startproject ops_command_center .)",
+      "Bash(python manage.py startapp ops_portal)",
+      "Bash(python manage.py migrate)",
+      "Bash(python manage.py check)",
+      "Bash(python -m venv .venv)",
+      "Bash(.venv/Scripts/pip install *)",
+      "Bash(.venv/Scripts/django-admin startproject *)",
+      "Bash(.venv/Scripts/python manage.py migrate)",
+      "Bash(.venv/Scripts/python manage.py check)",
+      "Bash(mv ops_portal ops_portal_tmp)",
+      "Bash(mkdir ops_portal)",
+      "Bash(mv ops_portal_tmp ops_portal/ops_portal)",
+      "Bash(mv manage.py ops_portal/)",
+      "Bash(mv db.sqlite3 ops_portal/)",
+      "Bash(../../.venv/Scripts/python manage.py check)",
+      "Bash(C:/Users/Owner/Documents/claude_development/ops-command-center/.venv/Scripts/python manage.py check)",
+      "Bash(C:/Users/Owner/Documents/claude_development/ops-command-center/.venv/Scripts/python manage.py collectstatic --noinput)",
+      "Bash(C:/Users/Owner/Documents/claude_development/ops-command-center/.venv/Scripts/python manage.py startapp core)",
+      "Bash(C:/Users/Owner/Documents/claude_development/ops-command-center/.venv/Scripts/pip install *)",
+      "Bash(C:/Users/Owner/Documents/claude_development/ops-command-center/.venv/Scripts/python manage.py migrate)",
+      "Bash(C:/Users/Owner/Documents/claude_development/ops-command-center/.venv/Scripts/python manage.py startapp servicenow)",
+      "Bash(../.venv/Scripts/python manage.py check)",
+      "Bash(../.venv/Scripts/python manage.py show_urls)",
+      "Bash(../.venv/Scripts/python -c ' *)",
+      "Bash(../.venv/Scripts/python manage.py runserver)",
+      "Bash(curl *)"
+    ]
+  }
+}
