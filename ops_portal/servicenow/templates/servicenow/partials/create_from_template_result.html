@@ -92,6 +92,13 @@ if (!window._taskWatcherRegistered) {
           this.status = 'success';
           const rec = (result.result && result.result.record) || result.record || result;
           this.number = rec.number || rec.sys_id || '';
+          // Show a success toast + auto-redirect after a short delay
+          if (this.number) {
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: { message: `${this.number} created successfully`, type: 'success', duration: 4000 }
+            }));
+            setTimeout(() => { window.location.href = this.linkUrl(); }, 1500);
+          }
           return;
         } catch (e) {
           this.status = 'error';
@@ -104,7 +111,7 @@ if (!window._taskWatcherRegistered) {
     },
     statusLabel() {
       if (this.status === 'pending') return 'Creating…';
-      if (this.status === 'success') return 'Created';
+      if (this.status === 'success') return this.number ? 'Created — redirecting…' : 'Created';
       return 'Failed';
     },
     linkUrl() {
