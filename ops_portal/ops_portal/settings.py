@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     # local apps
     'core',
     'servicenow',
+    'tachyon',
     # celery results backend
     'django_celery_results',
 ]
