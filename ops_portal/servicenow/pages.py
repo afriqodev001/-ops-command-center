@@ -370,8 +370,9 @@ def _adapt_live_incident(rec):
         'sla_warning':       _sla_is_at_risk(sla_due),
         'cmdb_ci':           rec.get('cmdb_ci', ''),
         'opened_by':         rec.get('opened_by', ''),
-        # Parse work_notes inline; _enrich_incident_live can refresh via a
-        # dedicated journal query if we add one later.
+        # Parse work_notes inline from the record's own field (available when
+        # the fetch includes it). Deeper history would need a sys_journal_field
+        # query we don't currently issue.
         'work_notes':        _parse_sn_journal(rec.get('work_notes', '')),
         '_raw_work_notes':   rec.get('work_notes', '') or '',
         'tasks':             [], 'attachments': [],
@@ -396,7 +397,7 @@ def _adapt_live_change(rec):
         'scheduled':         rec.get('start_date', ''),
         'cmdb_ci':           rec.get('cmdb_ci', ''),
         'opened_by':         rec.get('opened_by', ''),
-        'ctasks':            [],          # populated by _enrich_change_live on detail pages
+        'ctasks':            [],          # populated by _get_change_context_live on detail pages
         'ctask_closed':      0,
         'ctask_pct':         0,
         'work_notes':        _parse_sn_journal(rec.get('work_notes', '')),
@@ -647,66 +648,90 @@ def _adapt_live_attachment(rec) -> dict:
     }
 
 
-def _live_attachments_for(table_name: str, sys_id: str) -> list:
-    if not sys_id:
-        return []
+def _get_change_context_live(number: str) -> dict | None:
+    """Fetch a change + its ctasks (with attachments) + change attachments in ONE task.
+
+    change_context_task runs all three fetches inside a single op(driver) call, so
+    we pay one auth-retry / driver-acquisition overhead instead of three. Returns
+    a dict shaped like the rest of the app expects, or None on failure.
+    """
+    if not number:
+        return None
     try:
-        from .tasks import attachments_list_task
-        resp = attachments_list_task.apply(args=[{
-            'table_name':   table_name,
-            'table_sys_id': sys_id,
+        from .tasks import change_context_task
+        resp = change_context_task.apply(args=[{
+            'change_number': number,
+            'display_value': True,
         }]).result
-        return [_adapt_live_attachment(r) for r in _unwrap_list(resp) if r]
     except Exception:
-        return []
+        return None
+
+    if not resp or not isinstance(resp, dict) or resp.get('error'):
+        return None
+
+    bundle = resp.get('result') or {}
+    change_raw = bundle.get('change')
+    if not change_raw:
+        return None
+
+    change = _adapt_live_change(change_raw)
+    if not change:
+        return None
+
+    # CTASKs already arrive bundled with their per-task attachments attached.
+    ctasks = []
+    for ct in bundle.get('ctasks') or []:
+        adapted = _adapt_live_ctask(ct)
+        adapted['attachments'] = [_adapt_live_attachment(a) for a in (ct.get('attachments') or [])]
+        ctasks.append(adapted)
+    change['ctasks'] = ctasks
+
+    # Change-level attachments
+    change['attachments'] = [
+        _adapt_live_attachment(a) for a in (bundle.get('change_attachments') or [])
+    ]
+    return change
 
 
-def _live_ctasks_for(change_sys_id: str) -> list:
-    if not change_sys_id:
-        return []
+def _get_incident_context_live(number: str) -> dict | None:
+    """Fetch an incident + its child tasks (with attachments) + incident attachments
+    in ONE task via incident_context_task. Note the task wraps each child task as
+    {'task': {...}, 'attachments': [...]} — unpacked here."""
+    if not number:
+        return None
     try:
-        from .tasks import ctasks_list_for_change_task
-        resp = ctasks_list_for_change_task.apply(args=[{
-            'change_sys_id': change_sys_id,
+        from .tasks import incident_context_task
+        resp = incident_context_task.apply(args=[{
+            'incident_number': number,
+            'display_value': True,
         }]).result
-        return [_adapt_live_ctask(r) for r in _unwrap_list(resp) if r]
     except Exception:
-        return []
+        return None
 
+    if not resp or not isinstance(resp, dict) or resp.get('error'):
+        return None
 
-def _live_incident_tasks_for(incident_sys_id: str) -> list:
-    """Child incident_task records — no dedicated task, so use table_list_task."""
-    if not incident_sys_id:
-        return []
-    from django.conf import settings as dj_settings
-    table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TASK_TABLE', 'incident_task')
-    fields = getattr(dj_settings, 'SERVICENOW_INCIDENT_TASK_FIELDS',
-                     'sys_id,number,short_description,state,assigned_to')
-    raw = _live_list(table, f'parent={incident_sys_id}', fields, 100)
-    return [_adapt_live_incident_task(r) for r in raw if r]
+    bundle = resp.get('result') or {}
+    inc_raw = bundle.get('incident')
+    if not inc_raw:
+        return None
 
+    incident = _adapt_live_incident(inc_raw)
+    if not incident:
+        return None
 
-def _enrich_change_live(change: dict) -> None:
-    """Populate ctasks, attachments, and parsed work_notes on a live change."""
-    if not change or not change.get('sys_id'):
-        return
-    sys_id = change['sys_id']
-    change['ctasks'] = _live_ctasks_for(sys_id)
-    change['attachments'] = _live_attachments_for('change_request', sys_id)
-    # work_notes may have come through on the record itself; parse if so
-    raw_notes = change.get('_raw_work_notes') or ''
-    change['work_notes'] = _parse_sn_journal(raw_notes)
+    tasks = []
+    for tw in bundle.get('tasks') or []:
+        task_rec = tw.get('task') or {}
+        adapted = _adapt_live_incident_task(task_rec)
+        adapted['attachments'] = [_adapt_live_attachment(a) for a in (tw.get('attachments') or [])]
+        tasks.append(adapted)
+    incident['tasks'] = tasks
 
-
-def _enrich_incident_live(incident: dict) -> None:
-    """Populate tasks, attachments, and parsed work_notes on a live incident."""
-    if not incident or not incident.get('sys_id'):
-        return
-    sys_id = incident['sys_id']
-    incident['tasks'] = _live_incident_tasks_for(sys_id)
-    incident['attachments'] = _live_attachments_for('incident', sys_id)
-    raw_notes = incident.get('_raw_work_notes') or ''
-    incident['work_notes'] = _parse_sn_journal(raw_notes)
+    incident['attachments'] = [
+        _adapt_live_attachment(a) for a in (bundle.get('incident_attachments') or [])
+    ]
+    return incident
 
 
 def _parse_numbers(raw):
@@ -815,12 +840,13 @@ def incidents_list(request):
 
 
 def incident_detail(request, number):
-    incident = _get_incident_modal(request, number)
+    if _is_live(request):
+        incident = _get_incident_context_live(number)
+    else:
+        incident = _get_incident(number)
     if not incident:
         from django.http import Http404
         raise Http404
-    if _is_live(request):
-        _enrich_incident_live(incident)
     return render(request, 'servicenow/incident_detail.html', {'incident': incident})
 
 
@@ -861,12 +887,13 @@ def changes_list(request):
 
 
 def change_detail(request, number):
-    change = _get_change_modal(request, number)
+    if _is_live(request):
+        change = _get_change_context_live(number)
+    else:
+        change = _get_change(number)
     if not change:
         from django.http import Http404
         raise Http404
-    if _is_live(request):
-        _enrich_change_live(change)
     closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
     total = len(change['ctasks'])
     pct = int((closed / total) * 100) if total else 0
@@ -952,12 +979,13 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct):
 
 
 def change_briefing(request, number):
-    change = _get_change_modal(request, number)
+    if _is_live(request):
+        change = _get_change_context_live(number)
+    else:
+        change = _get_change(number)
     if not change:
         from django.http import Http404
         raise Http404
-    if _is_live(request):
-        _enrich_change_live(change)
 
     closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
     total = len(change['ctasks'])
@@ -984,12 +1012,13 @@ def change_briefing_generate(request, number):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    change = _get_change_modal(request, number)
+    if _is_live(request):
+        change = _get_change_context_live(number)
+    else:
+        change = _get_change(number)
     if not change:
         from django.http import Http404
         raise Http404
-    if _is_live(request):
-        _enrich_change_live(change)
 
     # ── Placeholder until AI is wired in ──────────────────────
     # To integrate: POST the prompt to Claude / OpenAI and stream
@@ -1106,15 +1135,19 @@ def bulk_change_review_item(request):
         return HttpResponse(status=405)
 
     number = request.POST.get('number', '').strip().upper()
-    change = _get_change_modal(request, number)
+    # Bulk review scores changes on CTASK completeness, so it needs the full
+    # context (ctasks + attachments) — route live mode through the bundled
+    # context task instead of three separate .apply() calls per row.
+    if _is_live(request):
+        change = _get_change_context_live(number)
+    else:
+        change = _get_change(number)
 
     if not change:
         return render(request, 'servicenow/partials/bulk_review_card.html', {
             'not_found': True,
             'number': number,
         })
-    if _is_live(request):
-        _enrich_change_live(change)
 
     closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
     total = len(change['ctasks'])
