@@ -15,6 +15,7 @@ _STORE_FILE = Path(__file__).parent.parent / 'user_preferences.json'
 DEFAULTS = {
     'default_data_mode': 'demo',            # 'demo' or 'live'
     'default_group_filter': '',             # assignment_group.parent name applied to list pages
+    'browser_idle_timeout_minutes': 30,     # auto-close browser after N minutes of no task activity
 }
 
 

@@ -2249,6 +2249,11 @@ def preferences_save(request):
         updates['default_data_mode'] = dm
     if 'default_group_filter' in request.POST:
         updates['default_group_filter'] = request.POST.get('default_group_filter', '').strip()
+    if 'browser_idle_timeout_minutes' in request.POST:
+        try:
+            updates['browser_idle_timeout_minutes'] = max(0, int(request.POST.get('browser_idle_timeout_minutes', 30)))
+        except (ValueError, TypeError):
+            pass
 
     if updates:
         save_preferences(updates)

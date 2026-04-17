@@ -28,14 +28,27 @@
     Manage
   </button>
 </div>
-<p class="text-[10px] text-ink-muted px-1 opacity-70 mt-1">Last active {{ last_used_ago }}</p>
+<div class="flex items-center gap-1.5 mt-1.5 px-0.5">
+  <p class="text-[10px] text-ink-muted opacity-70 flex-1">Last active {{ last_used_ago }}</p>
+  <form hx-post="/servicenow/session/close-browser/"
+        hx-target="#session-widget-container"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button"
+        class="flex-shrink-0">
+    {% csrf_token %}
+    <button type="submit" title="Close browser to free memory (cookies are saved)"
+            class="text-[10px] text-ink-muted hover:text-warn transition-colors px-1 py-0.5 rounded hover:bg-white/10 disabled:opacity-50">
+      Close browser
+    </button>
+  </form>
+</div>
 
 {% elif status == 'disconnected' %}
-<div class="rounded-lg px-3 py-2.5 bg-warn/10 border border-warn/20 flex items-center gap-2.5">
-  <span class="w-2 h-2 rounded-full bg-warn flex-shrink-0"></span>
+<div class="rounded-lg px-3 py-2.5 bg-info/10 border border-info/20 flex items-center gap-2.5">
+  <span class="w-2 h-2 rounded-full bg-info flex-shrink-0"></span>
   <div class="flex-1 min-w-0">
-    <p class="text-xs font-semibold text-warn leading-none">Browser offline</p>
-    <p class="text-[11px] text-ink-muted mt-0.5">Last seen {{ last_used_ago }}</p>
+    <p class="text-xs font-semibold text-info leading-none">Session saved</p>
+    <p class="text-[11px] text-ink-muted mt-0.5">Browser closed · cookies on disk · tasks auto-launch headless</p>
   </div>
 </div>
 <form hx-post="/servicenow/session/connect/"

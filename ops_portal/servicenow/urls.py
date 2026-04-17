@@ -54,6 +54,7 @@ urlpatterns = [
     path("session/modal/",         views.session_modal_content, name="session-modal"),
     path("session/connect/",       views.session_connect,       name="session-connect"),
     path("session/disconnect/",    views.session_disconnect,    name="session-disconnect"),
+    path("session/close-browser/", views.session_close_browser, name="session-close-browser"),
 
     # ─── API endpoints ──────────────────────────
     path("login/open/", views.servicenow_login_open),

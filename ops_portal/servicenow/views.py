@@ -80,6 +80,19 @@ def _build_session_context():
     last_used_ago = _format_age(time.time() - last_used) if last_used else 'unknown'
     browser_alive = _is_browser_alive(port)
 
+    # Auto-close the browser after idle to reclaim memory on laptops.
+    if browser_alive and last_used:
+        try:
+            from servicenow.services.user_preferences import load_preferences
+            idle_min = int(load_preferences().get('browser_idle_timeout_minutes', 30) or 30)
+        except Exception:
+            idle_min = 30
+        idle_seconds = time.time() - last_used
+        if idle_min > 0 and idle_seconds > idle_min * 60:
+            from core.browser.shutdown import shutdown_browser
+            shutdown_browser(debug_port=port or 0, pid=pid)
+            browser_alive = False
+
     if browser_alive:
         status = 'active'
         status_label = 'Connected'
@@ -149,6 +162,27 @@ def session_disconnect(request):
     ctx = _build_session_context()
     _push_session_activity(request, 'session_disconnected',
                            'Cleared ServiceNow session', 'warning')
+    resp = render(request, 'servicenow/partials/session_widget.html', ctx)
+    resp['HX-Trigger'] = 'activity-updated'
+    return resp
+
+
+@csrf_exempt
+@require_POST
+def session_close_browser(request):
+    """Kill the Edge process but keep the session profile (cookies persist).
+    The next Table API task will auto-launch a headless instance using the
+    same profile, so cookies carry over."""
+    session, user_key = _resolve_session()
+    if session:
+        from core.browser.shutdown import shutdown_browser
+        port = session.get('debug_port')
+        pid = session.get('pid')
+        if port or pid:
+            shutdown_browser(debug_port=port or 0, pid=pid)
+    _push_session_activity(request, 'session_browser_closed',
+                           'Closed browser (cookies saved)', 'info')
+    ctx = _build_session_context()
     resp = render(request, 'servicenow/partials/session_widget.html', ctx)
     resp['HX-Trigger'] = 'activity-updated'
     return resp

@@ -64,6 +64,13 @@
                    class="input-dark text-xs">
           </div>
         </div>
+        <div>
+          <label class="label">Browser idle timeout (minutes)</label>
+          <input type="number" name="browser_idle_timeout_minutes" min="0" max="480"
+                 value="{{ prefs.browser_idle_timeout_minutes|default:30 }}"
+                 class="input-dark text-xs w-24">
+          <p class="text-[10px] text-ink-muted mt-1">Auto-close the browser after this many minutes of no task activity. 0 = never auto-close.</p>
+        </div>
         <p class="text-[10px] text-ink-muted">
           Group filter narrows Incidents + Changes list pages by <code>assignment_group.parent</code>.
           Leave blank to show all.
