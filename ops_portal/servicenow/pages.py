@@ -819,7 +819,12 @@ def _render_change_briefing(request, payload, extras):
     closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
     total = len(change['ctasks'])
     pct = int((closed / total) * 100) if total else 0
-    prompt = _build_briefing_prompt(change, closed, total, pct)
+
+    # Try to extract text from attachments for the briefing prompt.
+    attachment_texts = _extract_briefing_attachments(change)
+
+    prompt = _build_briefing_prompt(change, closed, total, pct,
+                                    attachment_texts=attachment_texts)
     return render(request, 'servicenow/partials/change_briefing_body.html', {
         'change':       change,
         'ctask_closed': closed,
@@ -828,6 +833,7 @@ def _render_change_briefing(request, payload, extras):
         'prompt':       prompt,
         'prompt_lines': len(prompt.splitlines()),
         'prompt_chars': len(prompt),
+        'attachment_texts_count': len(attachment_texts),
     })
 
 
@@ -1170,68 +1176,138 @@ def change_detail(request, number):
 # Change Briefing / AI Review
 # ─────────────────────────────────────────────────────────────
 
-def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct):
+def _extract_briefing_attachments(change):
+    """Extract text from change attachments for the AI briefing prompt.
+    Uses the browser session if available; returns {} if no session or all binary."""
+    attachments = change.get('attachments', [])
+    if not attachments:
+        return {}
+    try:
+        from .services.attachment_extract import extract_attachment_texts
+        from servicenow.runners.servicenow_runner import ServiceNowRunner
+        runner = ServiceNowRunner('localuser')
+        driver = runner.get_driver()
+        return extract_attachment_texts(attachments, driver=driver)
+    except Exception:
+        return {}
+
+
+def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
+                           attachment_texts=None):
     """
     Produce a structured, AI-readable briefing for a change record.
     Includes a system instruction preamble so the prompt is ready to send.
+
+    attachment_texts: optional dict of {filename: extracted_text} for text-based
+    attachments whose content was fetched and extracted.
     """
-    W = 64  # column width for section dividers
+    attachment_texts = attachment_texts or {}
+    W = 64
     SEP = "─" * W
 
     def section(title):
         return f"\n{SEP}\n{title}\n{SEP}"
 
+    def field(label, value, indent=2):
+        if not value:
+            return None
+        return f"{' ' * indent}{label}: {value}"
+
     lines = [
         "You are an experienced IT change management reviewer.",
         "Review the change request below and provide a concise assessment covering:",
         "  1. Readiness — are all pre-conditions and CTASKs in the expected state?",
-        "  2. Risk assessment — any concerns given the risk level and scope?",
-        "  3. Recommendation — APPROVE / HOLD / REJECT with a one-paragraph justification.",
+        "  2. Risk assessment — any concerns given the risk level, scope, and planning quality?",
+        "  3. Planning review — are the implementation, backout, and test plans adequate?",
+        "  4. Recommendation — APPROVE / HOLD / REJECT with a one-paragraph justification.",
         "",
         "Keep the response brief and actionable. Flag anything that looks incomplete or risky.",
         "",
     ]
 
+    # ── Change record ───────────────────────────────────────
     lines.append(section("CHANGE RECORD"))
-    lines += [
-        f"  Number          : {change['number']}",
-        f"  Type            : {change['type']}",
-        f"  Risk Level      : {change.get('risk', 'Unknown')}",
-        f"  Current State   : {change['state']}",
-        f"  Assignment Group: {change['assignment_group']}",
-        f"  Assignee        : {change.get('assigned_to') or 'Unassigned'}",
-        f"  Scheduled Start : {change['scheduled']}",
-        "",
-        f"  Description: {change['short_description']}",
-    ]
+    for f in [
+        field("Number",          change.get('number')),
+        field("Type",            change.get('type')),
+        field("Risk Level",      change.get('risk', 'Unknown')),
+        field("Current State",   change.get('state')),
+        field("Assignment Group", change.get('assignment_group')),
+        field("Planned Start",   change.get('start_date') or change.get('scheduled')),
+        field("Planned End",     change.get('end_date')),
+    ]:
+        if f:
+            lines.append(f)
 
+    lines.append("")
+    lines.append(f"  Short Description: {change.get('short_description', '')}")
+    desc = change.get('description', '')
+    if desc:
+        lines.append(f"\n  Full Description:\n  {desc}")
+
+    # ── Planning ────────────────────────────────────────────
+    planning_fields = [
+        ("JUSTIFICATION",        change.get('justification', '')),
+        ("OUTAGE",               change.get('outage', '')),
+        ("IMPLEMENTATION PLAN",  change.get('implementation_plan', '')),
+        ("BACKOUT PLAN",         change.get('backout_plan', '')),
+        ("TEST PLAN",            change.get('test_plan', '')),
+    ]
+    has_planning = any(v for _, v in planning_fields)
+    if has_planning:
+        lines.append(section("PLANNING"))
+        for label, value in planning_fields:
+            if value:
+                lines.append(f"\n  ── {label} ──")
+                for line in value.strip().splitlines():
+                    lines.append(f"  {line}")
+
+    # ── CTASKs ──────────────────────────────────────────────
     ctasks = change.get('ctasks', [])
     if ctasks:
         lines.append(section(f"IMPLEMENTATION TASKS  ({ctask_closed}/{ctask_total} closed · {ctask_pct}% complete)"))
         for t in ctasks:
-            if t['state'] == 'Closed Complete':
+            if t.get('state') == 'Closed Complete':
                 marker = '[DONE] '
-            elif t['state'] == 'In Progress':
+            elif t.get('state') == 'In Progress':
                 marker = '[WIP]  '
             else:
                 marker = '[OPEN] '
             assignee = f"  ← {t['assigned_to']}" if t.get('assigned_to') else ''
-            lines.append(f"  {marker}{t['number']}  {t['description']}{assignee}")
-            lines.append(f"          Status: {t['state']}")
+            lines.append(f"  {marker}{t.get('number', '')}  {t.get('description', '')}{assignee}")
+            lines.append(f"          Status: {t.get('state', '')}")
+            # Include full CTASK description if it differs from the summary line
+            task_desc = t.get('description', '')
+            if task_desc and len(task_desc) > 60:
+                lines.append(f"          Detail: {task_desc}")
 
+    # ── Work notes ──────────────────────────────────────────
     work_notes = change.get('work_notes', [])
     if work_notes:
         lines.append(section("WORK NOTES  (most recent first)"))
         for note in work_notes:
-            lines.append(f"  [{note['at']}  {note['by']}]")
-            lines.append(f"  {note['text']}")
+            lines.append(f"  [{note.get('at', '')}  {note.get('by', '')}]")
+            lines.append(f"  {note.get('text', '')}")
             lines.append("")
 
+    # ── Attachments ─────────────────────────────────────────
     attachments = change.get('attachments', [])
     if attachments:
         lines.append(section("ATTACHMENTS"))
         for att in attachments:
-            lines.append(f"  • {att['name']}  ({att['size']})  — {att['by']}  @ {att['at']}")
+            name = att.get('name', '')
+            lines.append(f"  • {name}  ({att.get('size', '')})  — {att.get('by', '')}  @ {att.get('at', '')}")
+            # Include extracted text content if available
+            extracted = attachment_texts.get(name, '')
+            if extracted:
+                lines.append(f"    ── Content of {name} ──")
+                # Cap at 2000 chars per attachment to keep prompt manageable
+                text = extracted[:2000]
+                if len(extracted) > 2000:
+                    text += f"\n    ... (truncated, {len(extracted)} chars total)"
+                for line in text.splitlines():
+                    lines.append(f"    {line}")
+                lines.append("")
 
     lines.append(f"\n{'═' * W}")
     lines.append("Provide your change review assessment now.")
