@@ -354,6 +354,9 @@ def _unwrap_record(response):
     for key in ('record', 'result'):
         inner = response.get(key)
         if isinstance(inner, dict):
+            # Could be {"found": [...], "by_value": {...}} from bulk lookup
+            if 'found' in inner and isinstance(inner['found'], list) and inner['found']:
+                return _unwrap_record(inner['found'][0])
             return _unwrap_record(inner)
         if isinstance(inner, list) and inner:
             return _unwrap_record(inner[0])
@@ -422,7 +425,12 @@ def _adapt_live_change(rec):
 # ─── Live fetch — list-oriented helpers ──────────────────────────
 
 def _unwrap_list(response):
-    """Peel wrappers off a list-shaped task response, returning [] on any error."""
+    """Peel wrappers off a list-shaped task response, returning [] on any error.
+
+    Handles both shapes returned by the ServiceNow service layer:
+     - list_records:           {"result": [rec, rec, ...], "raw": ...}
+     - bulk_get_by_field:      {"result": {"found": [rec, ...], "not_found": [...]}, "raw": ...}
+    """
     if not response or not isinstance(response, dict):
         return []
     if response.get('error'):
@@ -431,6 +439,12 @@ def _unwrap_list(response):
         inner = response.get(key)
         if isinstance(inner, list):
             return inner
+        # Handle nested dict like {"found": [...]}
+        if isinstance(inner, dict):
+            for sub in ('found', 'records', 'result'):
+                sub_inner = inner.get(sub)
+                if isinstance(sub_inner, list):
+                    return sub_inner
     return []
 
 
@@ -926,7 +940,14 @@ def live_poll(request, shape, task_id):
         )
 
     renderer = LIVE_POLL_RENDERERS[shape]
-    return renderer(request, payload, request.GET)
+    try:
+        return renderer(request, payload, request.GET)
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return _render_live_error(request, 'Renderer failed',
+                                  detail=f'{type(exc).__name__}: {exc}',
+                                  hint='Check the Celery/Django console for the full traceback.')
 
 
 def _get_change_context_live(number: str) -> dict | None:
@@ -999,24 +1020,30 @@ def dashboard(request):
     live_changes_task_id = ''
 
     if _is_live(request):
-        # Async: dispatch two bounded active-slice queries in parallel.
-        # Each panel has its own placeholder that polls independently;
-        # stats tiles show "—" until you open the full list pages.
+        # Async: dispatch two bounded active-slice queries in parallel,
+        # scoped to the user's default group filter if set.
         from django.conf import settings as dj_settings
         from .tasks import table_list_task
         inc_table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
         chg_table = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
+        group = _default_group_filter(request)
+
+        inc_query = 'active=true^ORDERBYDESCsys_updated_on'
+        chg_query = 'active=true^ORDERBYstart_date'
+        if group:
+            inc_query = f'assignment_group.parent.name={group}^{inc_query}'
+            chg_query = f'assignment_group.parent.name={group}^{chg_query}'
 
         inc_task = table_list_task.delay({
             'table':         inc_table,
-            'query':         'active=true^ORDERBYDESCsys_updated_on',
+            'query':         inc_query,
             'fields':        _INCIDENT_LIST_FIELDS,
             'limit':         50,
             'display_value': True,
         })
         chg_task = table_list_task.delay({
             'table':         chg_table,
-            'query':         'active=true^ORDERBYstart_date',
+            'query':         chg_query,
             'fields':        _CHANGE_LIST_FIELDS,
             'limit':         25,
             'display_value': True,
