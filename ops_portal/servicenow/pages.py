@@ -1049,16 +1049,22 @@ def incidents_list(request):
     search = request.GET.get('q', '').lower()
     days = request.GET.get('days', DEFAULT_DAYS)
 
+    live_task_id = ''
     if _is_live(request):
-        # Live mode — push the filters into a SN encoded query.
-        # We fetch limit+1 to detect truncation cheaply.
+        # Async live-mode: dispatch task, render page with a polling placeholder.
         from django.conf import settings as dj_settings
+        from .tasks import table_list_task
         table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
         query = _build_incident_list_query(priority_filter, state_filter, search, days)
-        raw = _live_list(table, query, _INCIDENT_LIST_FIELDS, DEFAULT_LIST_LIMIT + 1)
-        incidents = [_adapt_live_incident(r) for r in raw if r]
-        matched = len(incidents)                      # we only know what we fetched
-        incidents = incidents[:DEFAULT_LIST_LIMIT]
+        task = table_list_task.delay({
+            'table':         table,
+            'query':         query,
+            'fields':        _INCIDENT_LIST_FIELDS,
+            'limit':         DEFAULT_LIST_LIMIT + 1,
+            'display_value': True,
+        })
+        live_task_id = task.id
+        incidents, matched = [], 0
     else:
         incidents = _filter_by_days(_incidents_source(request), '_opened_dt', days)
         if priority_filter:
@@ -1081,6 +1087,7 @@ def incidents_list(request):
         'total':           len(incidents),
         'matched':         matched,
         'truncated':       matched > DEFAULT_LIST_LIMIT,
+        'live_task_id':    live_task_id,
     })
 
 
@@ -1100,14 +1107,21 @@ def changes_list(request):
     search = request.GET.get('q', '').lower()
     days = request.GET.get('days', DEFAULT_DAYS)
 
+    live_task_id = ''
     if _is_live(request):
         from django.conf import settings as dj_settings
+        from .tasks import table_list_task
         table = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
         query = _build_change_list_query(state_filter, search, days)
-        raw = _live_list(table, query, _CHANGE_LIST_FIELDS, DEFAULT_LIST_LIMIT + 1)
-        changes = [_adapt_live_change(r) for r in raw if r]
-        matched = len(changes)
-        changes = changes[:DEFAULT_LIST_LIMIT]
+        task = table_list_task.delay({
+            'table':         table,
+            'query':         query,
+            'fields':        _CHANGE_LIST_FIELDS,
+            'limit':         DEFAULT_LIST_LIMIT + 1,
+            'display_value': True,
+        })
+        live_task_id = task.id
+        changes, matched = [], 0
     else:
         changes = _filter_by_days(_changes_source(request), '_scheduled_dt', days)
         if state_filter:
@@ -1128,6 +1142,7 @@ def changes_list(request):
         'total':        len(changes),
         'matched':      matched,
         'truncated':    matched > DEFAULT_LIST_LIMIT,
+        'live_task_id': live_task_id,
     })
 
 
