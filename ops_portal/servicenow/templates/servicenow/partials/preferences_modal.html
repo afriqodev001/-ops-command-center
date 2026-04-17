@@ -46,16 +46,29 @@
       <form hx-post="/servicenow/preferences/save/"
             hx-target="#preferences-modal-body"
             hx-swap="innerHTML"
-            class="flex items-end gap-3 pt-2 border-t border-edge">
+            class="space-y-3 pt-2 border-t border-edge">
         {% csrf_token %}
-        <div class="flex-1">
-          <label class="label">Default on next Django session</label>
-          <select name="default_data_mode" class="select-dark w-full text-xs">
-            <option value="demo" {% if prefs.default_data_mode == 'demo' %}selected{% endif %}>Demo</option>
-            <option value="live" {% if prefs.default_data_mode == 'live' %}selected{% endif %}>Live</option>
-          </select>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Default data mode</label>
+            <select name="default_data_mode" class="select-dark w-full text-xs">
+              <option value="demo" {% if prefs.default_data_mode == 'demo' %}selected{% endif %}>Demo</option>
+              <option value="live" {% if prefs.default_data_mode == 'live' %}selected{% endif %}>Live</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Default group filter</label>
+            <input type="text" name="default_group_filter"
+                   value="{{ prefs.default_group_filter|default:'' }}"
+                   placeholder="e.g. CTULMS - Retail Services"
+                   class="input-dark text-xs">
+          </div>
         </div>
-        <button type="submit" class="btn-primary text-xs px-4 py-2">Save default</button>
+        <p class="text-[10px] text-ink-muted">
+          Group filter narrows Incidents + Changes list pages by <code>assignment_group.parent</code>.
+          Leave blank to show all.
+        </p>
+        <button type="submit" class="btn-primary text-xs px-4 py-2">Save defaults</button>
       </form>
     </div>
   </section>

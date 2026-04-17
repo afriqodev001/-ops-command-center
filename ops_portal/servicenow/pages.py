@@ -459,8 +459,10 @@ def _days_clause(days: str, date_field: str) -> str:
     return f'{date_field}>=javascript:gs.daysAgoStart({n})'
 
 
-def _build_incident_list_query(priority, state_code, search, days) -> str:
+def _build_incident_list_query(priority, state_code, search, days, group_parent='') -> str:
     parts = []
+    if group_parent:
+        parts.append(f'assignment_group.parent.name={group_parent}')
     if priority:
         parts.append(f'priority={priority}')
     clause = _INCIDENT_STATE_QUERY.get(state_code)
@@ -475,8 +477,10 @@ def _build_incident_list_query(priority, state_code, search, days) -> str:
     return '^'.join(parts)
 
 
-def _build_change_list_query(state_code, search, days) -> str:
+def _build_change_list_query(state_code, search, days, group_parent='') -> str:
     parts = []
+    if group_parent:
+        parts.append(f'assignment_group.parent.name={group_parent}')
     clause = _CHANGE_STATE_QUERY.get(state_code)
     if clause:
         parts.append(clause)
@@ -1029,19 +1033,34 @@ def dashboard(request):
     })
 
 
+def _default_group_filter(request) -> str:
+    """Read the saved default group filter from preferences. Empty = no filter."""
+    try:
+        from .services.user_preferences import load_preferences
+        return (load_preferences().get('default_group_filter') or '').strip()
+    except Exception:
+        return ''
+
+
 def incidents_list(request):
     priority_filter = request.GET.get('priority', '')
     state_filter = request.GET.get('state', '')
     search = request.GET.get('q', '').lower()
     days = request.GET.get('days', DEFAULT_DAYS)
+    # Group filter: from GET param (allows clear) or default from preferences.
+    # Explicitly passing ?group= (empty) clears the default for this request.
+    if 'group' in request.GET:
+        group_filter = request.GET.get('group', '').strip()
+    else:
+        group_filter = _default_group_filter(request)
 
     live_task_id = ''
     if _is_live(request):
-        # Async live-mode: dispatch task, render page with a polling placeholder.
         from django.conf import settings as dj_settings
         from .tasks import table_list_task
         table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
-        query = _build_incident_list_query(priority_filter, state_filter, search, days)
+        query = _build_incident_list_query(priority_filter, state_filter, search, days,
+                                            group_parent=group_filter)
         task = table_list_task.delay({
             'table':         table,
             'query':         query,
@@ -1059,6 +1078,9 @@ def incidents_list(request):
             incidents = [i for i in incidents if i['state_code'] == state_filter]
         if search:
             incidents = [i for i in incidents if search in i['short_description'].lower() or search in i['number'].lower()]
+        if group_filter:
+            incidents = [i for i in incidents
+                         if group_filter.lower() in (i.get('assignment_group') or '').lower()]
         matched = len(incidents)
         incidents = incidents[:DEFAULT_LIST_LIMIT]
 
@@ -1068,6 +1090,7 @@ def incidents_list(request):
         'state_filter':    state_filter,
         'search':          search,
         'days':            days,
+        'group_filter':    group_filter,
         'time_ranges':     TIME_RANGES,
         'limit':           DEFAULT_LIST_LIMIT,
         'total':           len(incidents),
@@ -1100,13 +1123,18 @@ def changes_list(request):
     state_filter = request.GET.get('state', '')
     search = request.GET.get('q', '').lower()
     days = request.GET.get('days', DEFAULT_DAYS)
+    if 'group' in request.GET:
+        group_filter = request.GET.get('group', '').strip()
+    else:
+        group_filter = _default_group_filter(request)
 
     live_task_id = ''
     if _is_live(request):
         from django.conf import settings as dj_settings
         from .tasks import table_list_task
         table = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
-        query = _build_change_list_query(state_filter, search, days)
+        query = _build_change_list_query(state_filter, search, days,
+                                          group_parent=group_filter)
         task = table_list_task.delay({
             'table':         table,
             'query':         query,
@@ -1122,6 +1150,9 @@ def changes_list(request):
             changes = [c for c in changes if c['state_code'] == state_filter]
         if search:
             changes = [c for c in changes if search in c['short_description'].lower() or search in c['number'].lower()]
+        if group_filter:
+            changes = [c for c in changes
+                       if group_filter.lower() in (c.get('assignment_group') or '').lower()]
         matched = len(changes)
         changes = changes[:DEFAULT_LIST_LIMIT]
     changes = _annotate_ctask_pct(list(changes))
@@ -1131,6 +1162,7 @@ def changes_list(request):
         'state_filter': state_filter,
         'search':       search,
         'days':         days,
+        'group_filter': group_filter,
         'time_ranges':  TIME_RANGES,
         'limit':        DEFAULT_LIST_LIMIT,
         'total':        len(changes),
@@ -2201,6 +2233,8 @@ def preferences_save(request):
     dm = (request.POST.get('default_data_mode') or '').strip()
     if dm in DATA_MODES:
         updates['default_data_mode'] = dm
+    if 'default_group_filter' in request.POST:
+        updates['default_group_filter'] = request.POST.get('default_group_filter', '').strip()
 
     if updates:
         save_preferences(updates)

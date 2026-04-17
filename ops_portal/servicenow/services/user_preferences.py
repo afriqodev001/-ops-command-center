@@ -13,7 +13,8 @@ import json
 _STORE_FILE = Path(__file__).parent.parent / 'user_preferences.json'
 
 DEFAULTS = {
-    'default_data_mode': 'demo',    # 'demo' or 'live'
+    'default_data_mode': 'demo',            # 'demo' or 'live'
+    'default_group_filter': '',             # assignment_group.parent name applied to list pages
 }
 
 

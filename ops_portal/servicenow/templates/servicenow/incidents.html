@@ -56,11 +56,29 @@
       {% endfor %}
     </select>
 
+    {% if group_filter %}
+    <input type="hidden" name="group" value="{{ group_filter }}">
+    {% endif %}
+
     <button type="submit" class="btn-primary">Filter</button>
-    {% if search or priority_filter or state_filter or days != '30' %}
-    <a href="/servicenow/incidents/" class="btn-ghost">Clear</a>
+    {% if search or priority_filter or state_filter or days != '30' or group_filter %}
+    <a href="/servicenow/incidents/?group=" class="btn-ghost">Clear all</a>
     {% endif %}
   </form>
+
+  {% if group_filter %}
+  <div class="flex items-center gap-2 text-[11px] px-1">
+    <span class="px-2 py-1 rounded bg-brand-subtle text-brand-light border border-brand/20 font-medium inline-flex items-center gap-1.5">
+      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      Group: {{ group_filter }}
+      <a href="/servicenow/incidents/?group=" title="Remove group filter"
+         class="ml-0.5 hover:text-white transition-colors">&times;</a>
+    </span>
+    <span class="text-ink-muted">from Preferences — <a href="/servicenow/incidents/?group=" class="text-brand-light hover:text-brand">clear</a></span>
+  </div>
+  {% endif %}
 
   {% if live_task_id %}
   {% include 'servicenow/partials/live_loading.html' with shape='incidents-list' task_id=live_task_id label='Fetching incidents from ServiceNow…' placeholder_id='incidents-live-placeholder' extras='' %}
