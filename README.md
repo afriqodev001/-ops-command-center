@@ -67,9 +67,13 @@ Open http://localhost:8000/ in your browser. The app starts in **Demo mode** wit
 **For daily use** (lower overhead than `runserver`):
 
 ```bash
-pip install waitress    # already in requirements.txt
+cd ops_portal
+python manage.py collectstatic --noinput    # one-time, or after CSS/JS changes
 waitress-serve --port=8000 ops_portal.wsgi:application
 ```
+
+Static files are served by the `whitenoise` middleware — no nginx/Apache needed.
+`collectstatic` copies source files into `staticfiles/` where whitenoise picks them up.
 
 ### Running Celery (for create/patch operations)
 
