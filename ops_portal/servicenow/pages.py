@@ -246,6 +246,7 @@ for _c in DEMO_CHANGES:
 
 # ─── Time-range filter shared by incidents / changes / search ───
 TIME_RANGES = [
+    ('1',   'Last 24 hrs'),
     ('7',   'Last 7 days'),
     ('30',  'Last 30 days'),
     ('90',  'Last 90 days'),

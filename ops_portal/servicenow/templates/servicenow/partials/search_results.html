@@ -69,7 +69,9 @@
         <th class="th">CI</th>
         <th class="th">Group</th>
         <th class="th">Requested by</th>
+        {% if domain == 'incident' %}
         <th class="th">Assignee</th>
+        {% endif %}
       </tr>
     </thead>
     <tbody>
@@ -110,7 +112,9 @@
         <td class="td font-mono text-[11px] text-ink-secondary">{{ r.cmdb_ci|default:'—' }}</td>
         <td class="td text-ink-secondary">{{ r.assignment_group|default:'—' }}</td>
         <td class="td text-ink-secondary">{{ r.opened_by|default:'—' }}</td>
+        {% if domain == 'incident' %}
         <td class="td text-ink-secondary">{{ r.assigned_to|default:'—' }}</td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
