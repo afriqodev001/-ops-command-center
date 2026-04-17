@@ -41,10 +41,19 @@
     Last {{ days }} days
   </span>
   {% endif %}
+
+  <button type="button" onclick="exportSearchCSV()"
+          class="ml-auto btn-ghost text-xs gap-1.5 flex-shrink-0">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+    </svg>
+    Export CSV
+  </button>
 </div>
 
 <div class="overflow-x-auto glass-card p-0 border border-edge rounded-xl">
-  <table class="w-full text-xs">
+  <table id="search-results-table" class="w-full text-xs">
     <thead class="bg-surface-3 border-b border-edge">
       <tr>
         <th class="th">Number</th>
@@ -107,4 +116,36 @@
     </tbody>
   </table>
 </div>
+
+<script>
+function exportSearchCSV() {
+  const table = document.getElementById('search-results-table');
+  if (!table) return;
+  const rows = [];
+  // Header
+  const ths = table.querySelectorAll('thead th');
+  rows.push([...ths].map(th => th.textContent.trim()));
+  // Body
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    const cells = [...tr.querySelectorAll('td')].map(td => {
+      // Strip badge markup, get clean text
+      let text = td.textContent.trim().replace(/\s+/g, ' ');
+      // Escape quotes for CSV
+      if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+        text = '"' + text.replace(/"/g, '""') + '"';
+      }
+      return text;
+    });
+    if (cells.length) rows.push(cells);
+  });
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'search_results_{{ domain }}_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
 {% endif %}
