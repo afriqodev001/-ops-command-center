@@ -1715,6 +1715,7 @@ def presets_page(request):
             'query': cfg.get('query', ''),
             'fields': cfg.get('fields', ''),
             'is_user_defined': name in user_preset_names,
+            'actions': cfg.get('actions', []),
         }
         for name, cfg in all_presets.items()
     }
@@ -1843,7 +1844,18 @@ def preset_save(request):
     except ValueError:
         limit = 25
 
-    save_user_preset(name, {
+    # Build optional actions array from form checkboxes
+    import json as _json
+    actions_raw = request.POST.get('actions', '').strip()
+    if actions_raw:
+        try:
+            actions = _json.loads(actions_raw)
+        except _json.JSONDecodeError:
+            actions = []
+    else:
+        actions = []
+
+    cfg = {
         'description': description,
         'table': table,
         'query': query,
@@ -1851,7 +1863,11 @@ def preset_save(request):
         'defaults': {'limit': limit, 'display_value': True},
         'required_params': required_params,
         'domain': domain,
-    })
+    }
+    if actions:
+        cfg['actions'] = actions
+
+    save_user_preset(name, cfg)
     _push_activity(request,
                    type='preset_saved',
                    title=f'Saved preset "{name}"',
@@ -1864,6 +1880,79 @@ def preset_save(request):
         resp['HX-Redirect'] = '/servicenow/presets/'
         return resp
     return HttpResponseRedirect('/servicenow/presets/')
+
+
+def preset_email_outlook(request):
+    """POST (JSON): create an Outlook draft email with CSV attachment.
+
+    Body: { recipients, subject, body, csv, filename }
+    Uses win32com (pywin32) to drive Outlook desktop. Returns {ok: true}
+    or {error: "..."}.
+    """
+    from django.http import JsonResponse, HttpResponse
+    import json as _json
+    import tempfile
+    import os
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    try:
+        data = _json.loads(request.body or '{}')
+    except _json.JSONDecodeError:
+        return JsonResponse({'error': 'invalid JSON'}, status=400)
+
+    recipients = data.get('recipients', '')
+    subject    = data.get('subject', '')
+    body       = data.get('body', '')
+    csv_text   = data.get('csv', '')
+    filename   = data.get('filename', 'export.csv')
+
+    if not csv_text:
+        return JsonResponse({'error': 'No CSV data provided'}, status=400)
+
+    # Write CSV to a temp file
+    tmp_dir = tempfile.mkdtemp()
+    csv_path = os.path.join(tmp_dir, filename)
+    with open(csv_path, 'w', encoding='utf-8-sig', newline='') as f:
+        f.write(csv_text)
+
+    try:
+        import win32com.client
+        outlook = win32com.client.Dispatch('Outlook.Application')
+        mail = outlook.CreateItem(0)  # olMailItem = 0
+        if recipients:
+            mail.To = recipients
+        mail.Subject = subject
+        mail.Body = body
+        mail.Attachments.Add(csv_path)
+        mail.Display()  # Open draft (don't send automatically)
+
+        _push_activity(request,
+                       type='email_draft',
+                       title=f'Outlook draft: {subject}',
+                       detail=f'To: {recipients}',
+                       severity='success')
+
+        return JsonResponse({'ok': True})
+    except ImportError:
+        return JsonResponse({'error': 'Outlook not available (pywin32 not installed)'})
+    except Exception as e:
+        return JsonResponse({'error': f'Outlook error: {e}'})
+    finally:
+        # Clean up temp file after a delay (Outlook may still be reading it)
+        try:
+            import threading
+            def cleanup():
+                import time
+                time.sleep(10)
+                try:
+                    os.remove(csv_path)
+                    os.rmdir(tmp_dir)
+                except Exception:
+                    pass
+            threading.Thread(target=cleanup, daemon=True).start()
+        except Exception:
+            pass
 
 
 def presets_export(request):

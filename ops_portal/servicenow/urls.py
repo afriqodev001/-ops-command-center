@@ -91,6 +91,7 @@ urlpatterns = [
     path("presets/run/ui/",   pages.preset_run_ui,  name="preset-run-ui"),
     path("presets/save/",     pages.preset_save,    name="preset-save"),
     path("presets/delete/",   pages.preset_delete,  name="preset-delete"),
+    path("presets/email/",    pages.preset_email_outlook, name="preset-email"),
     path("presets/export/",   pages.presets_export, name="presets-export"),
     path("presets/import/",   pages.presets_import, name="presets-import"),
 

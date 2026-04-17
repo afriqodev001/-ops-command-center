@@ -377,6 +377,8 @@ function presetFormData() {
     form: {
       name: '', description: '', domain: 'change', table: 'change_request',
       query: '', fields: '', required_params_str: '', limit: 25, is_builtin: false,
+      show_actions: false, action_download: false, action_email: false,
+      email_recipients: '', email_subject: '', email_body: '',
     },
     // JSON copy/paste panel state
     jsonPaneOpen: false,
@@ -396,7 +398,20 @@ function presetFormData() {
         fields:          f.fields,
         required_params: (f.required_params_str || '').split(',').map(s => s.trim()).filter(Boolean),
         defaults:        { limit: parseInt(f.limit, 10) || 25, display_value: true },
+        actions:         _buildActions(f),
       }, null, 2);
+
+      function _buildActions(f) {
+        const acts = [];
+        if (f.action_download) acts.push({ type: 'download' });
+        if (f.action_email) acts.push({
+          type: 'email',
+          recipients: f.email_recipients || '',
+          subject_template: f.email_subject || '',
+          body_template: f.email_body || '',
+        });
+        return acts.length ? acts : undefined;
+      }
     },
 
     async copyJson() {
@@ -458,6 +473,8 @@ function presetFormData() {
 
       if (detail.mode === 'edit' && detail.cfg) {
         const c = detail.cfg;
+        const acts = c.actions || [];
+        const emailAct = acts.find(a => a.type === 'email') || {};
         this.form = {
           name:                detail.name || '',
           description:         c.description || '',
@@ -468,14 +485,21 @@ function presetFormData() {
           required_params_str: (c.required_params || []).join(', '),
           limit:               25,
           is_builtin:          !c.is_user_defined,
+          show_actions:        acts.length > 0,
+          action_download:     acts.some(a => a.type === 'download'),
+          action_email:        acts.some(a => a.type === 'email'),
+          email_recipients:    emailAct.recipients || '',
+          email_subject:       emailAct.subject_template || '',
+          email_body:          emailAct.body_template || '',
         };
       } else if (detail.mode === 'clone' && detail.cfg) {
         const c = detail.cfg;
-        // Suggest a unique name by appending _copy (and _copy2, _copy3 if it already exists)
         const existing = window.PRESET_CONFIGS || {};
         let suggested = (detail.name || 'preset') + '_copy';
         let n = 2;
         while (existing[suggested]) { suggested = (detail.name || 'preset') + '_copy' + n++; }
+        const acts = c.actions || [];
+        const emailAct = acts.find(a => a.type === 'email') || {};
         this.form = {
           name:                suggested,
           description:         (c.description || '') + ' (copy)',
@@ -485,12 +509,20 @@ function presetFormData() {
           fields:              c.fields || '',
           required_params_str: (c.required_params || []).join(', '),
           limit:               25,
-          is_builtin:          false,   // clone always creates a fresh user preset
+          is_builtin:          false,
+          show_actions:        acts.length > 0,
+          action_download:     acts.some(a => a.type === 'download'),
+          action_email:        acts.some(a => a.type === 'email'),
+          email_recipients:    emailAct.recipients || '',
+          email_subject:       emailAct.subject_template || '',
+          email_body:          emailAct.body_template || '',
         };
       } else {
         this.form = {
           name: '', description: '', domain: 'change', table: 'change_request',
           query: '', fields: '', required_params_str: '', limit: 25, is_builtin: false,
+          show_actions: false, action_download: false, action_email: false,
+          email_recipients: '', email_subject: '', email_body: '',
         };
       }
 
@@ -722,6 +754,51 @@ document.addEventListener('htmx:afterSettle', _registerPresetModalBackdrop);
         </div>
       </div>
 
+      <!-- Actions (optional) -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="label mb-0">Actions (optional)</label>
+          <button type="button" @click="form.show_actions = !form.show_actions"
+                  class="text-[10px] text-brand-light hover:text-brand transition-colors"
+                  x-text="form.show_actions ? 'Hide' : 'Configure actions'"></button>
+        </div>
+        <div x-show="form.show_actions" x-collapse class="space-y-3 mt-2">
+          <div class="p-3 rounded-lg bg-surface-3 border border-edge space-y-3">
+            <div class="flex items-center gap-2">
+              <input type="checkbox" x-model="form.action_download" class="rounded bg-surface-4 border-edge text-brand">
+              <label class="text-xs text-ink-primary">Download CSV</label>
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <input type="checkbox" x-model="form.action_email" class="rounded bg-surface-4 border-edge text-brand">
+                <label class="text-xs text-ink-primary">Email via Outlook</label>
+              </div>
+              <div x-show="form.action_email" x-collapse class="ml-6 space-y-2">
+                <div>
+                  <label class="label">Recipients</label>
+                  <input type="text" x-model="form.email_recipients"
+                         placeholder="ops-team@company.com, manager@company.com"
+                         class="input-dark text-xs">
+                </div>
+                <div>
+                  <label class="label">Subject template</label>
+                  <input type="text" x-model="form.email_subject"
+                         placeholder="{preset_name} — {count} records — {date}"
+                         class="input-dark text-xs">
+                  <p class="text-[10px] text-ink-muted mt-1">Placeholders: {preset_name}, {count}, {date}, {domain}</p>
+                </div>
+                <div>
+                  <label class="label">Body template</label>
+                  <textarea x-model="form.email_body" rows="3"
+                            placeholder="Hi team,&#10;&#10;Please find the {preset_name} results attached.&#10;&#10;{count} records as of {date}."
+                            class="input-dark text-xs resize-none"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Paste JSON panel (collapsible) -->
       <div x-show="jsonPaneOpen" x-collapse>
         <div class="pt-3 border-t border-edge">
@@ -738,6 +815,14 @@ document.addEventListener('htmx:afterSettle', _registerPresetModalBackdrop);
           <p class="text-[10px] text-ok mt-1" x-show="jsonApplied">✓ Applied — review the fields above, then save</p>
         </div>
       </div>
+
+      <!-- Hidden field: serializes actions before submit -->
+      <input type="hidden" name="actions" :value="JSON.stringify((() => {
+        const a = [];
+        if (form.action_download) a.push({type:'download'});
+        if (form.action_email) a.push({type:'email', recipients:form.email_recipients, subject_template:form.email_subject, body_template:form.email_body});
+        return a;
+      })())">
 
       <!-- Footer actions -->
       <div class="flex items-center gap-2 pt-2 border-t border-edge">

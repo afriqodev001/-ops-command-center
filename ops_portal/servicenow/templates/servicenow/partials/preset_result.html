@@ -111,6 +111,136 @@
   </div>
 </div>
 
+<!-- Action buttons — only if the preset has actions configured and there are results -->
+{% if preset_cfg.actions %}
+<div class="flex items-center gap-2 mt-3" x-data="presetActions()">
+  {% for action in preset_cfg.actions %}
+  {% if action.type == 'download' %}
+  <button type="button" @click="downloadCSV()" class="btn-ghost text-xs gap-1.5">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+    </svg>
+    Download CSV
+  </button>
+  {% elif action.type == 'email' %}
+  <button type="button"
+          @click="emailOutlook('{{ action.recipients|escapejs }}', '{{ action.subject_template|escapejs }}', '{{ action.body_template|escapejs }}')"
+          :disabled="emailing"
+          class="btn-ghost text-xs gap-1.5 disabled:opacity-50">
+    <template x-if="!emailing">
+      <span class="inline-flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        Email via Outlook
+      </span>
+    </template>
+    <template x-if="emailing">
+      <span class="inline-flex items-center gap-1.5">
+        <div class="w-3.5 h-3.5 border-2 border-brand/30 border-t-brand rounded-full animate-spin"></div>
+        Opening Outlook…
+      </span>
+    </template>
+  </button>
+  {% endif %}
+  {% endfor %}
+  <span class="text-[10px] text-ink-muted" x-show="emailResult" x-text="emailResult" x-cloak></span>
+</div>
+
+<script>
+function _definePresetActions() {
+  Alpine.data('presetActions', () => ({
+    emailing: false,
+    emailResult: '',
+
+    downloadCSV() {
+      const table = document.querySelector('#preset-results table');
+      if (!table) return;
+      const rows = [];
+      table.querySelectorAll('thead th').forEach((_, i, ths) => {
+        if (i === 0) rows.push([...ths].map(th => th.textContent.trim()));
+      });
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = [...tr.querySelectorAll('td')].map(td => {
+          let t = td.textContent.trim().replace(/\s+/g, ' ');
+          if (t.includes(',') || t.includes('"')) t = '"' + t.replace(/"/g, '""') + '"';
+          return t;
+        });
+        if (cells.length) rows.push(cells);
+      });
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '{{ preset_name }}_' + new Date().toISOString().slice(0,10) + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    },
+
+    async emailOutlook(recipients, subjectTpl, bodyTpl) {
+      this.emailing = true;
+      this.emailResult = '';
+      // First generate the CSV
+      const table = document.querySelector('#preset-results table');
+      if (!table) { this.emailing = false; return; }
+      const rows = [];
+      table.querySelectorAll('thead th').forEach((_, i, ths) => {
+        if (i === 0) rows.push([...ths].map(th => th.textContent.trim()));
+      });
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = [...tr.querySelectorAll('td')].map(td => {
+          let t = td.textContent.trim().replace(/\s+/g, ' ');
+          if (t.includes(',') || t.includes('"')) t = '"' + t.replace(/"/g, '""') + '"';
+          return t;
+        });
+        if (cells.length) rows.push(cells);
+      });
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const count = rows.length - 1; // minus header
+      const date = new Date().toLocaleDateString();
+      const presetName = '{{ preset_name|escapejs }}';
+      const domain = '{{ preset_cfg.domain|default:"record"|escapejs }}';
+
+      // Expand template placeholders
+      const expand = (tpl) => tpl
+        .replace(/\{preset_name\}/g, presetName)
+        .replace(/\{count\}/g, count)
+        .replace(/\{date\}/g, date)
+        .replace(/\{domain\}/g, domain);
+
+      const subject = expand(subjectTpl || '{preset_name} — {count} records — {date}');
+      const body = expand(bodyTpl || 'Hi team,\n\nPlease find the {preset_name} results attached.\n\n{count} {domain} records as of {date}.');
+
+      const csrfEl = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      try {
+        const resp = await fetch('/servicenow/presets/email/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfEl ? csrfEl.value : '',
+          },
+          body: JSON.stringify({
+            recipients, subject, body, csv,
+            filename: presetName + '_' + new Date().toISOString().slice(0,10) + '.csv',
+          }),
+        });
+        const data = await resp.json();
+        this.emailResult = data.ok ? '✓ Outlook draft opened' : (data.error || 'Failed');
+      } catch (e) {
+        this.emailResult = 'Failed: ' + e.message;
+      } finally {
+        this.emailing = false;
+      }
+    },
+  }));
+}
+if (window.Alpine) _definePresetActions();
+else document.addEventListener('alpine:init', _definePresetActions);
+</script>
+{% endif %}
+
 {% else %}
 <div class="glass-card p-8 text-center">
   <svg class="w-10 h-10 text-ink-muted mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
