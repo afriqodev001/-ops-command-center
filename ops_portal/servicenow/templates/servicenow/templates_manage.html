@@ -71,46 +71,16 @@
         </div>
       </div>
 
-      <!-- Standard change fields -->
+      <!-- Standard change — URL only (template auto-populates everything in SN UI) -->
       <div x-show="kindChoice === 'standard_change'" class="space-y-3">
-        <label class="label">ServiceNow URL <span class="text-danger">*</span></label>
-        <input type="url" name="url"
-               placeholder="https://instance.service-now.com/nav_to.do?uri=change_request.do?sys_id=-1&amp;sysparm_template=..."
-               class="input-dark text-xs font-mono">
-        <p class="text-[10px] text-ink-muted mt-1">Opens in a new tab. Fields below are appended as pre-fill params.</p>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="label">Configuration item</label>
-            <input type="text" name="cmdb_ci" class="input-dark text-xs">
-          </div>
-          <div>
-            <label class="label">Standard change template name</label>
-            <input type="text" name="std_change_template" class="input-dark text-xs">
-          </div>
-        </div>
         <div>
-          <label class="label">Short description</label>
-          <input type="text" name="short_description" class="input-dark text-xs">
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="label">Assignment group</label>
-            <input type="text" name="assignment_group" class="input-dark text-xs">
-          </div>
-          <div>
-            <label class="label">Description</label>
-            <input type="text" name="description" class="input-dark text-xs">
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="label">Planned start date</label>
-            <input type="text" name="start_date" placeholder="2026-05-01 22:00" class="input-dark text-xs font-mono">
-          </div>
-          <div>
-            <label class="label">Planned end date</label>
-            <input type="text" name="end_date" placeholder="2026-05-01 23:00" class="input-dark text-xs font-mono">
-          </div>
+          <label class="label">ServiceNow URL <span class="text-danger">*</span></label>
+          <input type="url" name="url"
+                 placeholder="https://instance.service-now.com/nav_to.do?uri=change_request.do?sys_id=-1&amp;sysparm_template=..."
+                 class="input-dark text-xs font-mono">
+          <p class="text-[10px] text-ink-muted mt-1">
+            When used, this URL opens in a new tab. The ServiceNow standard change template auto-populates all fields — no manual entry needed.
+          </p>
         </div>
       </div>
 

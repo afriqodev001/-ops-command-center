@@ -2796,7 +2796,14 @@ def create_from_template_submit(request):
     desc = fields.get('short_description', '')
 
     if kind == 'standard_change':
-        target = build_standard_change_url(tpl.get('url', ''), fields)
+        # For blank standard changes, the URL comes from the form; for templates, from the template.
+        base_url = request.POST.get('url', '').strip() or tpl.get('url', '')
+        if not base_url:
+            return render(request, 'servicenow/partials/create_from_template_result.html', {
+                'error': 'A ServiceNow template URL is required for standard changes.',
+                'kind':  kind,
+            }, status=200)
+        target = build_standard_change_url(base_url, fields)
         _push_activity(request,
                        type='template_used',
                        title=f'Opened standard change from "{label or key}"',

@@ -61,8 +61,7 @@ KIND_LABELS = {
 
 # Fields each API-based kind renders in the create form, in display order.
 KIND_FIELDS: Dict[str, List[str]] = {
-    'standard_change':  ['cmdb_ci', 'short_description', 'std_change_template',
-                         'assignment_group', 'start_date', 'end_date', 'description'],
+    'standard_change':  [],  # No form fields — opens in ServiceNow UI via template URL
     'normal_change':    ['cmdb_ci', 'short_description', 'category', 'reason',
                          'description', 'assignment_group', 'start_date', 'end_date',
                          'justification', 'implementation_plan', 'backout_plan'],
@@ -77,7 +76,7 @@ KIND_FIELDS: Dict[str, List[str]] = {
 
 # Fields that are mandatory per kind (UI marks them with a red asterisk).
 KIND_REQUIRED: Dict[str, List[str]] = {
-    'standard_change':  ['cmdb_ci'],
+    'standard_change':  [],
     'normal_change':    ['cmdb_ci', 'short_description'],
     'emergency_change': ['cmdb_ci', 'short_description', 'assignment_group'],
     'incident':         ['short_description'],

@@ -16,6 +16,25 @@
     </div>
   </div>
 
+  {% if kind == 'standard_change' %}
+  <!-- Standard changes: URL-only. No editable fields — the SN template does everything. -->
+  {% if template.url %}
+  <div class="p-3 rounded-lg bg-surface-3 border border-edge">
+    <p class="text-[10px] text-ink-muted mb-1">ServiceNow URL</p>
+    <p class="text-xs font-mono text-ink-secondary break-all">{{ template.url }}</p>
+  </div>
+  <p class="text-[10px] text-ink-muted">Clicking "Open in ServiceNow" launches this URL in a new tab. The standard change template auto-populates all fields — review, save, and close the tab.</p>
+  {% else %}
+  <div>
+    <label class="label">ServiceNow URL <span class="text-danger">*</span></label>
+    <input type="text" name="url" required
+           placeholder="https://instance.service-now.com/nav_to.do?uri=change_request.do?sys_id=-1&amp;sysparm_template=..."
+           class="input-dark text-xs font-mono">
+    <p class="text-[10px] text-ink-muted mt-1">Paste the standard change template URL. Save a template in the Templates page to skip this next time.</p>
+  </div>
+  {% endif %}
+  {% else %}
+
   {% for fname, fval, flabel, freq, ftextarea in fields %}
   <div>
     <label class="label">
@@ -39,9 +58,7 @@
   {% if kind == 'incident' %}
   <p class="text-[10px] text-ink-muted">Priority is set automatically by ServiceNow from Impact + Urgency.</p>
   {% endif %}
-  {% if kind == 'standard_change' %}
-  <p class="text-[10px] text-ink-muted">Standard changes open in ServiceNow UI for template auto-population. Other fields are updated via Table API after save.</p>
-  {% endif %}
+  {% endif %}{# end standard_change vs other kinds #}
 
   <div class="flex items-center gap-2 pt-2 border-t border-edge">
     <button type="submit" class="btn-primary text-xs px-4 py-2">
