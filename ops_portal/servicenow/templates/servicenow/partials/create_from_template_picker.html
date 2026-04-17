@@ -1,4 +1,20 @@
+<!-- Blank form option — always available -->
+<button type="button"
+        hx-get="/servicenow/templates/form/_blank_{{ kind }}/"
+        hx-target="#create-template-body"
+        hx-swap="innerHTML"
+        class="w-full text-left p-3 rounded-lg bg-surface-3 border border-brand/20 hover:bg-white/5 hover:border-brand/40 transition-colors mb-3">
+  <div class="flex items-center gap-2">
+    <svg class="w-4 h-4 text-brand-light flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    <span class="text-xs font-medium text-brand-light">Blank form (no template)</span>
+  </div>
+  <p class="text-[10px] text-ink-muted mt-0.5 ml-6">Start with defaults only — fill all fields manually.</p>
+</button>
+
 {% if templates %}
+<p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Or pick a saved template</p>
 <ul class="space-y-1.5">
   {% for key, tpl in templates.items %}
   <li>
@@ -19,9 +35,8 @@
   {% endfor %}
 </ul>
 {% else %}
-<div class="text-center py-6">
-  <p class="text-xs text-ink-muted">No templates for this kind yet.</p>
-  <a href="/servicenow/templates/"
-     class="inline-block mt-2 text-xs text-brand-light hover:text-brand">Create one →</a>
-</div>
+<p class="text-xs text-ink-muted text-center py-2">
+  No saved templates yet.
+  <a href="/servicenow/templates/" class="text-brand-light hover:text-brand">Create one →</a>
+</p>
 {% endif %}

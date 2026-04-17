@@ -2698,14 +2698,22 @@ def create_from_template_form(request, key: str):
     from .services.creation_templates import load_templates, KIND_FIELDS
     if request.method != 'GET':
         return HttpResponse(status=405)
-    templates = load_templates()
-    tpl = templates.get(key)
-    if not tpl:
-        return HttpResponse(status=404)
-    kind = tpl.get('kind', 'standard_change')
-    tpl_fields = tpl.get('fields') or {}
-    # Merge template values over kind-level defaults (incident impact/urgency).
     from .services.creation_templates import INCIDENT_FIELD_DEFAULTS
+
+    # Handle the synthetic "_blank_<kind>" key from the picker.
+    if key.startswith('_blank_'):
+        kind = key.replace('_blank_', '')
+        tpl = {'kind': kind, 'label': f'New {kind.replace("_", " ")}'}
+        tpl_fields = {}
+    else:
+        templates = load_templates()
+        tpl = templates.get(key)
+        if not tpl:
+            return HttpResponse(status=404)
+        kind = tpl.get('kind', 'standard_change')
+        tpl_fields = tpl.get('fields') or {}
+
+    # Merge template values over kind-level defaults (incident impact/urgency).
     defaults = dict(INCIDENT_FIELD_DEFAULTS) if kind == 'incident' else {}
     defaults.update(tpl_fields)
     fields_with_values = [(f, defaults.get(f, '')) for f in KIND_FIELDS.get(kind, [])]
@@ -2732,13 +2740,17 @@ def create_from_template_submit(request):
         return HttpResponse(status=405)
 
     key = request.POST.get('template_key', '').strip()
-    tpl = load_templates().get(key) if key else None
-    if not tpl:
-        return render(request, 'servicenow/partials/create_from_template_result.html', {
-            'error': 'Template not found.',
-        }, status=200)
-
-    kind = tpl.get('kind')
+    # Handle blank-form submissions (no saved template).
+    if key and key.startswith('_blank_'):
+        kind = key.replace('_blank_', '')
+        tpl = {'kind': kind, 'label': f'New {kind.replace("_", " ")}'}
+    else:
+        tpl = load_templates().get(key) if key else None
+        if not tpl:
+            return render(request, 'servicenow/partials/create_from_template_result.html', {
+                'error': 'Template not found.',
+            }, status=200)
+        kind = tpl.get('kind')
     allowed = KIND_FIELDS.get(kind, [])
     fields = {f: request.POST.get(f, '').strip() for f in allowed if request.POST.get(f, '').strip()}
 
