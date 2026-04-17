@@ -64,6 +64,13 @@ python manage.py runserver
 
 Open http://localhost:8000/ in your browser. The app starts in **Demo mode** with seeded records — click the "Mode" chip in the header to switch to Live. In Live mode, every read page dispatches a Celery task and shows a loading spinner until ServiceNow responds; the Celery worker must be running for results to arrive.
 
+**For daily use** (lower overhead than `runserver`):
+
+```bash
+pip install waitress    # already in requirements.txt
+waitress-serve --port=8000 ops_portal.wsgi:application
+```
+
 ### Running Celery (for create/patch operations)
 
 In a second terminal:
@@ -79,7 +86,25 @@ hits "access denied" errors in corporate environments where AV/EDR blocks
 child-process spawning. `solo` handles one task at a time, which is fine
 for this app since most tasks drive an interactive browser anyway.
 
-The filesystem broker writes under `celery_data/` (git-ignored).
+The filesystem broker writes under `celery_data/` (git-ignored). Task results
+auto-expire after 1 hour (`CELERY_RESULT_EXPIRES`). To clean stale broker
+messages periodically:
+
+```bash
+find celery_data/processed -type f -mtime +1 -delete   # Unix / Git Bash
+```
+
+### Rebuilding Tailwind CSS (after editing templates)
+
+The UI uses a pre-built Tailwind CSS file. If you add new Tailwind classes to templates, rebuild:
+
+```bash
+npm install -D tailwindcss@3       # one-time
+npx tailwindcss -i ops_portal/static/css/input.css \
+                -o ops_portal/static/css/tailwind.min.css --minify
+```
+
+The build scans all `.html` templates for class usage. Custom component classes (`.glass-card`, `.btn-primary`, etc.) are defined in `ops_portal/static/css/input.css`.
 
 ## Configuration
 

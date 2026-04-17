@@ -64,6 +64,10 @@ ops_portal/servicenow/user_preferences.json
 GIT_CHEATSHEET.md
 *.local.md
 
+# ─── Node.js (Tailwind build tooling) ───────────────────────
+node_modules/
+package-lock.json
+
 # ─── IDEs / editors ─────────────────────────────────────────
 .vscode/
 .idea/
