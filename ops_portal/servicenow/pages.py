@@ -2698,7 +2698,9 @@ def create_from_template_form(request, key: str):
     from .services.creation_templates import load_templates, KIND_FIELDS
     if request.method != 'GET':
         return HttpResponse(status=405)
-    from .services.creation_templates import INCIDENT_FIELD_DEFAULTS
+    from .services.creation_templates import (
+        INCIDENT_FIELD_DEFAULTS, KIND_REQUIRED, FIELD_LABELS, TEXTAREA_FIELDS,
+    )
 
     # Handle the synthetic "_blank_<kind>" key from the picker.
     if key.startswith('_blank_'):
@@ -2716,7 +2718,17 @@ def create_from_template_form(request, key: str):
     # Merge template values over kind-level defaults (incident impact/urgency).
     defaults = dict(INCIDENT_FIELD_DEFAULTS) if kind == 'incident' else {}
     defaults.update(tpl_fields)
-    fields_with_values = [(f, defaults.get(f, '')) for f in KIND_FIELDS.get(kind, [])]
+
+    required_set = set(KIND_REQUIRED.get(kind, []))
+    # Build tuples: (field_name, value, label, is_required, is_textarea)
+    fields_with_values = [
+        (f,
+         defaults.get(f, ''),
+         FIELD_LABELS.get(f, f.replace('_', ' ').title()),
+         f in required_set,
+         f in TEXTAREA_FIELDS)
+        for f in KIND_FIELDS.get(kind, [])
+    ]
     return render(request, 'servicenow/partials/create_from_template_form.html', {
         'key':       key,
         'template':  tpl,
@@ -2754,22 +2766,29 @@ def create_from_template_submit(request):
     allowed = KIND_FIELDS.get(kind, [])
     fields = {f: request.POST.get(f, '').strip() for f in allowed if request.POST.get(f, '').strip()}
 
-    # For incidents: apply defaults for impact/urgency if not explicitly set,
-    # and map our form field names to ServiceNow API field names.
+    # Map our form field names to ServiceNow Table API field names.
     if kind == 'incident':
         from .services.creation_templates import INCIDENT_FIELD_DEFAULTS
         for k, v in INCIDENT_FIELD_DEFAULTS.items():
             fields.setdefault(k, v)
-        # 'caller' in our form → 'caller_id' in the ServiceNow Table API
         if 'caller' in fields:
             fields['caller_id'] = fields.pop('caller')
-        # 'service' → 'business_service' in SN
         if 'service' in fields:
             fields['business_service'] = fields.pop('service')
+    elif kind in ('normal_change', 'emergency_change', 'standard_change'):
+        # start_date/end_date are already the SN field names
+        # cmdb_ci → cmdb_ci (same name in SN)
+        # std_change_template → std_change_producer_version (SN field name)
+        if 'std_change_template' in fields:
+            fields['std_change_producer_version'] = fields.pop('std_change_template')
 
-    if not fields.get('short_description'):
+    from .services.creation_templates import KIND_REQUIRED, FIELD_LABELS as _FL
+    missing = [f for f in KIND_REQUIRED.get(kind, []) if not fields.get(f)]
+    if missing:
+        labels = {f: _FL.get(f, f.replace('_', ' ').title())
+                  for f in missing}
         return render(request, 'servicenow/partials/create_from_template_result.html', {
-            'error': 'short_description is required.',
+            'error': 'Missing required field(s): ' + ', '.join(labels.values()),
             'kind':  kind,
         }, status=200)
 

@@ -71,18 +71,23 @@
         </div>
       </div>
 
-      <!-- Standard change URL -->
-      <div x-show="kindChoice === 'standard_change'">
+      <!-- Standard change fields -->
+      <div x-show="kindChoice === 'standard_change'" class="space-y-3">
         <label class="label">ServiceNow URL <span class="text-danger">*</span></label>
         <input type="url" name="url"
                placeholder="https://instance.service-now.com/nav_to.do?uri=change_request.do?sys_id=-1&amp;sysparm_template=..."
                class="input-dark text-xs font-mono">
-        <p class="text-[10px] text-ink-muted mt-1">When used, opens this URL in a new tab with fields pre-filled.</p>
-      </div>
-
-      <!-- Per-kind field inputs -->
-      <div x-show="kindChoice === 'normal_change' || kindChoice === 'emergency_change'" class="space-y-3">
-        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Default fields</p>
+        <p class="text-[10px] text-ink-muted mt-1">Opens in a new tab. Fields below are appended as pre-fill params.</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Configuration item</label>
+            <input type="text" name="cmdb_ci" class="input-dark text-xs">
+          </div>
+          <div>
+            <label class="label">Standard change template name</label>
+            <input type="text" name="std_change_template" class="input-dark text-xs">
+          </div>
+        </div>
         <div>
           <label class="label">Short description</label>
           <input type="text" name="short_description" class="input-dark text-xs">
@@ -93,26 +98,135 @@
             <input type="text" name="assignment_group" class="input-dark text-xs">
           </div>
           <div>
-            <label class="label">Risk</label>
-            <input type="text" name="risk" placeholder="low, moderate, high"
-                   class="input-dark text-xs">
+            <label class="label">Description</label>
+            <input type="text" name="description" class="input-dark text-xs">
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="label">Start date</label>
-            <input type="text" name="start_date" placeholder="2026-05-01 22:00"
-                   class="input-dark text-xs font-mono">
+            <label class="label">Planned start date</label>
+            <input type="text" name="start_date" placeholder="2026-05-01 22:00" class="input-dark text-xs font-mono">
           </div>
           <div>
-            <label class="label">End date</label>
-            <input type="text" name="end_date" placeholder="2026-05-01 23:00"
-                   class="input-dark text-xs font-mono">
+            <label class="label">Planned end date</label>
+            <input type="text" name="end_date" placeholder="2026-05-01 23:00" class="input-dark text-xs font-mono">
+          </div>
+        </div>
+      </div>
+
+      <!-- Normal change fields -->
+      <div x-show="kindChoice === 'normal_change'" class="space-y-3">
+        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Default fields</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Configuration item</label>
+            <input type="text" name="cmdb_ci" class="input-dark text-xs">
+          </div>
+          <div>
+            <label class="label">Assignment group</label>
+            <input type="text" name="assignment_group" class="input-dark text-xs">
+          </div>
+        </div>
+        <div>
+          <label class="label">Short description</label>
+          <input type="text" name="short_description" class="input-dark text-xs">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Category</label>
+            <input type="text" name="category" class="input-dark text-xs">
+          </div>
+          <div>
+            <label class="label">Reason</label>
+            <input type="text" name="reason" class="input-dark text-xs">
           </div>
         </div>
         <div>
           <label class="label">Description</label>
-          <textarea name="description" rows="3" class="input-dark text-xs resize-none"></textarea>
+          <textarea name="description" rows="2" class="input-dark text-xs resize-none"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Planned start date</label>
+            <input type="text" name="start_date" placeholder="2026-05-01 22:00" class="input-dark text-xs font-mono">
+          </div>
+          <div>
+            <label class="label">Planned end date</label>
+            <input type="text" name="end_date" placeholder="2026-05-01 23:00" class="input-dark text-xs font-mono">
+          </div>
+        </div>
+        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mt-2">Planning</p>
+        <div>
+          <label class="label">Justification</label>
+          <textarea name="justification" rows="2" class="input-dark text-xs resize-none"></textarea>
+        </div>
+        <div>
+          <label class="label">Implementation plan</label>
+          <textarea name="implementation_plan" rows="2" class="input-dark text-xs resize-none"></textarea>
+        </div>
+        <div>
+          <label class="label">Backout plan</label>
+          <textarea name="backout_plan" rows="2" class="input-dark text-xs resize-none"></textarea>
+        </div>
+      </div>
+
+      <!-- Emergency change fields -->
+      <div x-show="kindChoice === 'emergency_change'" class="space-y-3">
+        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Default fields</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Configuration item</label>
+            <input type="text" name="cmdb_ci" class="input-dark text-xs">
+          </div>
+          <div>
+            <label class="label">Assignment group</label>
+            <input type="text" name="assignment_group" class="input-dark text-xs">
+          </div>
+        </div>
+        <div>
+          <label class="label">Short description</label>
+          <input type="text" name="short_description" class="input-dark text-xs">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Category</label>
+            <input type="text" name="category" class="input-dark text-xs">
+          </div>
+          <div>
+            <label class="label">Reason</label>
+            <input type="text" name="reason" class="input-dark text-xs">
+          </div>
+        </div>
+        <div>
+          <label class="label">Description</label>
+          <textarea name="description" rows="2" class="input-dark text-xs resize-none"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Planned start date</label>
+            <input type="text" name="start_date" placeholder="2026-05-01 22:00" class="input-dark text-xs font-mono">
+          </div>
+          <div>
+            <label class="label">Planned end date</label>
+            <input type="text" name="end_date" placeholder="2026-05-01 23:00" class="input-dark text-xs font-mono">
+          </div>
+        </div>
+        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mt-2">Planning</p>
+        <div>
+          <label class="label">Justification</label>
+          <textarea name="justification" rows="2" class="input-dark text-xs resize-none"></textarea>
+        </div>
+        <div>
+          <label class="label">Implementation plan</label>
+          <textarea name="implementation_plan" rows="2" class="input-dark text-xs resize-none"></textarea>
+        </div>
+        <div>
+          <label class="label">Backout plan</label>
+          <textarea name="backout_plan" rows="2" class="input-dark text-xs resize-none"></textarea>
+        </div>
+        <div>
+          <label class="label">Test plan</label>
+          <textarea name="test_plan" rows="2" class="input-dark text-xs resize-none"></textarea>
         </div>
       </div>
 

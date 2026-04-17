@@ -61,19 +61,56 @@ KIND_LABELS = {
 
 # Fields each API-based kind renders in the create form, in display order.
 KIND_FIELDS: Dict[str, List[str]] = {
-    'standard_change':  ['short_description', 'assignment_group', 'start_date', 'end_date', 'description'],
-    'normal_change':    ['short_description', 'assignment_group', 'start_date', 'end_date', 'risk', 'description'],
-    'emergency_change': ['short_description', 'assignment_group', 'start_date', 'end_date', 'risk', 'description'],
+    'standard_change':  ['cmdb_ci', 'short_description', 'std_change_template',
+                         'assignment_group', 'start_date', 'end_date', 'description'],
+    'normal_change':    ['cmdb_ci', 'short_description', 'category', 'reason',
+                         'description', 'assignment_group', 'start_date', 'end_date',
+                         'justification', 'implementation_plan', 'backout_plan'],
+    'emergency_change': ['cmdb_ci', 'short_description', 'assignment_group',
+                         'category', 'reason', 'description',
+                         'start_date', 'end_date',
+                         'justification', 'implementation_plan', 'backout_plan', 'test_plan'],
     'incident':         ['caller', 'category', 'subcategory', 'service',
                          'short_description', 'description', 'assignment_group',
                          'impact', 'urgency'],
 }
 
-# Default field values injected into new incident templates.
+# Fields that are mandatory per kind (UI marks them with a red asterisk).
+KIND_REQUIRED: Dict[str, List[str]] = {
+    'standard_change':  ['cmdb_ci'],
+    'normal_change':    ['cmdb_ci', 'short_description'],
+    'emergency_change': ['cmdb_ci', 'short_description', 'assignment_group'],
+    'incident':         ['short_description'],
+}
+
+# Default field values injected into new templates of each kind.
 # Impact 3 + Urgency 3 → Priority 5 (Very Low) in standard SN config.
 INCIDENT_FIELD_DEFAULTS: Dict[str, str] = {
     'impact':  '3',
     'urgency': '3',
+}
+
+# Human-readable labels for fields that don't self-describe well.
+FIELD_LABELS: Dict[str, str] = {
+    'cmdb_ci':              'Configuration item',
+    'short_description':    'Short description',
+    'std_change_template':  'Standard change template name',
+    'assignment_group':     'Assignment group',
+    'start_date':           'Planned start date',
+    'end_date':             'Planned end date',
+    'implementation_plan':  'Implementation plan',
+    'backout_plan':         'Backout plan',
+    'test_plan':            'Test plan',
+    'caller':               'Caller',
+    'subcategory':          'Subcategory',
+    'impact':               'Impact',
+    'urgency':              'Urgency',
+}
+
+# Fields that render as <textarea> instead of <input>.
+TEXTAREA_FIELDS = {
+    'description', 'justification', 'implementation_plan',
+    'backout_plan', 'test_plan',
 }
 
 
@@ -152,7 +189,9 @@ def build_standard_change_url(template_url: str, row: Dict[str, Any]) -> str:
     existing = dict(parse_qsl(parsed.query, keep_blank_values=True))
 
     prefill = []
-    for field in ('short_description', 'assignment_group', 'start_date', 'end_date', 'description', 'risk'):
+    for field in ('short_description', 'assignment_group', 'start_date', 'end_date',
+                  'description', 'cmdb_ci', 'std_change_producer_version',
+                  'category', 'reason'):
         val = (row.get(field) or '').strip()
         if val:
             prefill.append(f"{field}={val}")

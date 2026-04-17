@@ -16,33 +16,31 @@
     </div>
   </div>
 
-  {% for fname, fval in fields %}
+  {% for fname, fval, flabel, freq, ftextarea in fields %}
   <div>
     <label class="label">
-      {% if fname == 'short_description' %}Short description <span class="text-danger">*</span>
-      {% elif fname == 'assignment_group' %}Assignment group
-      {% elif fname == 'subcategory' %}Subcategory
-      {% elif fname == 'impact' %}Impact
-      {% elif fname == 'urgency' %}Urgency
-      {% else %}{{ fname|cut:"_"|title }}{% endif %}
+      {{ flabel }}{% if freq %} <span class="text-danger">*</span>{% endif %}
     </label>
-    {% if fname == 'description' %}
-    <textarea name="{{ fname }}" rows="3" class="input-dark text-xs resize-none">{{ fval }}</textarea>
-    {% elif fname == 'impact' or fname == 'urgency' %}
+    {% if fname == 'impact' or fname == 'urgency' %}
     <select name="{{ fname }}" class="select-dark w-full text-xs">
       <option value="1" {% if fval == '1' %}selected{% endif %}>1 - High</option>
       <option value="2" {% if fval == '2' %}selected{% endif %}>2 - Medium</option>
       <option value="3" {% if fval == '3' or not fval %}selected{% endif %}>3 - Low</option>
     </select>
+    {% elif ftextarea %}
+    <textarea name="{{ fname }}" rows="3" class="input-dark text-xs resize-none">{{ fval }}</textarea>
     {% else %}
     <input type="text" name="{{ fname }}" value="{{ fval }}"
            class="input-dark text-xs"
-           {% if fname == 'short_description' %}required{% endif %}>
+           {% if freq %}required{% endif %}>
     {% endif %}
   </div>
   {% endfor %}
   {% if kind == 'incident' %}
   <p class="text-[10px] text-ink-muted">Priority is set automatically by ServiceNow from Impact + Urgency.</p>
+  {% endif %}
+  {% if kind == 'standard_change' %}
+  <p class="text-[10px] text-ink-muted">Standard changes open in ServiceNow UI for template auto-population. Other fields are updated via Table API after save.</p>
   {% endif %}
 
   <div class="flex items-center gap-2 pt-2 border-t border-edge">
