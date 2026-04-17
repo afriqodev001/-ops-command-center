@@ -775,6 +775,49 @@ def _render_change_context(request, payload, extras):
     })
 
 
+def _render_dashboard_recent_incidents(request, payload, extras):
+    raw = _unwrap_list(payload)
+    rows = [_adapt_live_incident(r) for r in raw if r]
+    recent = [i for i in rows if i.get('state_code') != 'resolved'][:4]
+    return render(request, 'servicenow/partials/dashboard_recent_incidents_list.html', {
+        'recent_incidents': recent,
+    })
+
+
+def _render_dashboard_today_changes(request, payload, extras):
+    raw = _unwrap_list(payload)
+    rows = [_adapt_live_change(r) for r in raw if r]
+    today = _annotate_ctask_pct(list(rows[:3]))
+    return render(request, 'servicenow/partials/dashboard_today_changes_list.html', {
+        'todays_changes': today,
+    })
+
+
+def _render_preset_result(request, payload, extras):
+    """Poll renderer for preset-result shape. Rebuilds the preset_result.html
+    context from the task payload + the preset name/params carried in extras."""
+    import json as _json
+    from .services.query_presets import render_preset, get_all_presets
+    preset_name = extras.get('preset', '')
+    try:
+        params = _json.loads(extras.get('params', '{}'))
+    except Exception:
+        params = {}
+    all_presets = get_all_presets()
+    if preset_name not in all_presets:
+        return _render_live_error(request, 'Unknown preset', detail=preset_name)
+    try:
+        rendered = render_preset(preset_name, params)
+    except ValueError as e:
+        return _render_live_error(request, 'Preset render failed', detail=str(e))
+    preset_cfg = all_presets[preset_name]
+    columns = [f.strip() for f in rendered['fields'].split(',') if f.strip()]
+    raw_results = _unwrap_list(payload)
+    ctx = _build_preset_result_context(preset_name, rendered, preset_cfg,
+                                       columns, raw_results, live=True)
+    return render(request, 'servicenow/partials/preset_result.html', ctx)
+
+
 def _render_change_briefing(request, payload, extras):
     change = _shape_change_from_context(payload)
     if not change:
@@ -831,7 +874,9 @@ LIVE_POLL_RENDERERS = {
     'change-context':    _render_change_context,
     'change-briefing':   _render_change_briefing,
     'bulk-review-card':  _render_bulk_review_card,
-    # 'preset-result' — registered when preset refactor lands
+    'preset-result':     _render_preset_result,
+    'dashboard-recent-incidents': _render_dashboard_recent_incidents,
+    'dashboard-today-changes':    _render_dashboard_today_changes,
 }
 
 
@@ -1021,46 +1066,54 @@ def _annotate_ctask_pct(changes):
 
 
 def dashboard(request):
+    live_incidents_task_id = ''
+    live_changes_task_id = ''
+
     if _is_live(request):
+        # Async: dispatch two bounded active-slice queries in parallel.
+        # Each panel has its own placeholder that polls independently;
+        # stats tiles show "—" until you open the full list pages.
         from django.conf import settings as dj_settings
+        from .tasks import table_list_task
         inc_table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
         chg_table = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
 
-        # Active slices — bounded so dashboard stays snappy on large instances.
-        inc_raw = _live_list(
-            inc_table,
-            'active=true^ORDERBYDESCsys_updated_on',
-            _INCIDENT_LIST_FIELDS,
-            50,
-        )
-        chg_raw = _live_list(
-            chg_table,
-            'active=true^ORDERBYstart_date',
-            _CHANGE_LIST_FIELDS,
-            25,
-        )
-        incidents_src = [_adapt_live_incident(r) for r in inc_raw if r]
-        changes_src   = [_adapt_live_change(r)   for r in chg_raw if r]
-
+        inc_task = table_list_task.delay({
+            'table':         inc_table,
+            'query':         'active=true^ORDERBYDESCsys_updated_on',
+            'fields':        _INCIDENT_LIST_FIELDS,
+            'limit':         50,
+            'display_value': True,
+        })
+        chg_task = table_list_task.delay({
+            'table':         chg_table,
+            'query':         'active=true^ORDERBYstart_date',
+            'fields':        _CHANGE_LIST_FIELDS,
+            'limit':         25,
+            'display_value': True,
+        })
+        live_incidents_task_id = inc_task.id
+        live_changes_task_id = chg_task.id
+        # Stats unavailable until both tasks complete; show zeros as placeholders.
         stats = {
-            'open_p1':         sum(1 for i in incidents_src if i.get('priority') == '1'),
-            'open_p2':         sum(1 for i in incidents_src if i.get('priority') == '2'),
-            'open_incidents':  len(incidents_src),
-            'pending_changes': len(changes_src),
-            'implementing':    sum(1 for c in changes_src if c.get('state_code') == 'implement'),
-            'awaiting_review': sum(1 for c in changes_src if c.get('state_code') == 'review'),
+            'open_p1': 0, 'open_p2': 0, 'open_incidents': 0,
+            'pending_changes': 0, 'implementing': 0, 'awaiting_review': 0,
         }
+        recent_incidents = []
+        todays_changes = []
     else:
         incidents_src = _incidents_source(request)
         changes_src = _changes_source(request)
         stats = DEMO_STATS
+        recent_incidents = [i for i in incidents_src if i.get('state_code') != 'resolved'][:4]
+        todays_changes = _annotate_ctask_pct(list(changes_src[:3]))
 
-    recent_incidents = [i for i in incidents_src if i.get('state_code') != 'resolved'][:4]
-    todays_changes = _annotate_ctask_pct(list(changes_src[:3]))
     return render(request, 'core/index.html', {
-        'stats': stats,
-        'recent_incidents': recent_incidents,
-        'todays_changes': todays_changes,
+        'stats':                  stats,
+        'recent_incidents':       recent_incidents,
+        'todays_changes':         todays_changes,
+        'live_incidents_task_id': live_incidents_task_id,
+        'live_changes_task_id':   live_changes_task_id,
     })
 
 
@@ -1541,7 +1594,12 @@ def _count_preset_demo(name, cfg):
 def _run_preset_for_display(preset_name, params=None, request=None):
     """
     Render a preset and return the full context dict needed by preset_result.html.
-    Used by presets_page to server-render the initial/default result.
+
+    - In demo mode, filters DEMO_INCIDENTS / DEMO_CHANGES synchronously.
+    - In live mode, this helper is ONLY used for the presets_page initial
+      render (which has no placeholder pattern). The async path — used by
+      preset_run_ui — bypasses this and dispatches presets_run_task.delay()
+      directly, routing through _render_preset_result on poll.
     """
     from .services.query_presets import render_preset, get_all_presets
     params = params or {}
@@ -1559,9 +1617,7 @@ def _run_preset_for_display(preset_name, params=None, request=None):
     live = bool(request and _is_live(request))
 
     if live:
-        # Run the preset through its Celery task body synchronously.
-        # presets_run_task internally calls render_preset + list_records,
-        # so it respects user overrides and parameters exactly like demo.
+        # Sync fallback used by presets_page initial render only.
         try:
             from .tasks import presets_run_task
             resp = presets_run_task.apply(args=[{
@@ -1577,6 +1633,13 @@ def _run_preset_for_display(preset_name, params=None, request=None):
         raw_results = _preset_demo_changes(preset_name, params)
     else:
         raw_results = []
+
+    return _build_preset_result_context(preset_name, rendered, preset_cfg, columns, raw_results, live)
+
+
+def _build_preset_result_context(preset_name, rendered, preset_cfg, columns, raw_results, live):
+    """Shape a rendered preset + raw rows into the preset_result.html context.
+    Shared between the demo synchronous path and the live async renderer."""
 
     FIELD_MAP = {
         'priority': 'priority_label', 'opened_at': 'opened',
@@ -1619,12 +1682,12 @@ def _run_preset_for_display(preset_name, params=None, request=None):
 
     return {
         'preset_name': preset_name,
-        'preset_cfg': preset_cfg,
-        'rendered': rendered,
+        'preset_cfg':  preset_cfg,
+        'rendered':    rendered,
         'display_cols': display_cols,
-        'rows': rows,
-        'total': len(rows),
-        'is_demo': True,
+        'rows':        rows,
+        'total':       len(rows),
+        'is_demo':     not live,
     }
 
 
@@ -1662,15 +1725,19 @@ def presets_page(request):
         for name, cfg in all_presets.items()
     }
 
-    initial_result_ctx = _run_preset_for_display(DEFAULT_PRESET, request=request)
+    # Skip the initial pre-render in live mode — users should click Run to
+    # dispatch the task asynchronously. Demo mode still pre-renders for a
+    # friendlier first-visit experience.
     initial_result_html = ''
-    if initial_result_ctx:
-        from django.template.loader import render_to_string
-        initial_result_html = render_to_string(
-            'servicenow/partials/preset_result.html',
-            initial_result_ctx,
-            request=request,
-        )
+    if not _is_live(request):
+        initial_result_ctx = _run_preset_for_display(DEFAULT_PRESET, request=request)
+        if initial_result_ctx:
+            from django.template.loader import render_to_string
+            initial_result_html = render_to_string(
+                'servicenow/partials/preset_result.html',
+                initial_result_ctx,
+                request=request,
+            )
 
     return render(request, 'servicenow/presets.html', {
         'grouped': grouped,
@@ -1704,6 +1771,23 @@ def preset_run_ui(request):
         return render(request, 'servicenow/partials/preset_result.html', {
             'error': f'Missing required parameter(s): {", ".join(missing)}',
             'preset_name': preset_name,
+        })
+
+    if _is_live(request):
+        # Async: dispatch via Celery, return polling placeholder.
+        import json as _json
+        from urllib.parse import urlencode
+        from .tasks import presets_run_task
+        task = presets_run_task.delay({
+            'preset': preset_name,
+            'params': params,
+        })
+        return render(request, 'servicenow/partials/live_loading.html', {
+            'shape':          'preset-result',
+            'task_id':        task.id,
+            'extras':         urlencode({'preset': preset_name, 'params': _json.dumps(params)}),
+            'label':          f'Running preset {preset_name}…',
+            'placeholder_id': 'preset-result-placeholder',
         })
 
     ctx = _run_preset_for_display(preset_name, params, request=request)

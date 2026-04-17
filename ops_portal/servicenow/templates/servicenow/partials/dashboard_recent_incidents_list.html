@@ -1,0 +1,23 @@
+        {% for inc in recent_incidents %}
+        <a href="/servicenow/incidents/{{ inc.number }}/"
+           class="flex items-start gap-3 px-5 py-3.5 hover:bg-white/[.02] transition-colors group">
+          <div class="mt-0.5 flex-shrink-0">
+            {% if inc.priority == "1" %}<span class="badge-p1 badge text-[10px]">P1</span>
+            {% elif inc.priority == "2" %}<span class="badge-p2 badge text-[10px]">P2</span>
+            {% else %}<span class="badge-p4 badge text-[10px]">P{{ inc.priority }}</span>{% endif %}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-ink-primary group-hover:text-white truncate font-medium">{{ inc.short_description }}</p>
+            <p class="text-xs text-ink-muted mt-0.5">
+              {{ inc.number }} · {{ inc.assignment_group }}
+              {% if inc.assigned_to %} · {{ inc.assigned_to }}{% endif %}
+            </p>
+          </div>
+          <div class="flex-shrink-0 text-right">
+            <p class="text-xs text-ink-muted">{{ inc.age }}</p>
+            {% if inc.sla_warning %}
+            <span class="text-[10px] text-danger font-medium">SLA ⚠</span>
+            {% endif %}
+          </div>
+        </a>
+        {% endfor %}
