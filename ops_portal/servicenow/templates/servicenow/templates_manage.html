@@ -118,34 +118,63 @@
 
       <div x-show="kindChoice === 'incident'" class="space-y-3">
         <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Default fields</p>
-        <div>
-          <label class="label">Short description</label>
-          <input type="text" name="short_description" class="input-dark text-xs">
-        </div>
         <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Caller</label>
+            <input type="text" name="caller" placeholder="e.g. John Smith"
+                   class="input-dark text-xs">
+          </div>
           <div>
             <label class="label">Assignment group</label>
             <input type="text" name="assignment_group" class="input-dark text-xs">
           </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
           <div>
-            <label class="label">Priority</label>
-            <select name="priority" class="select-dark w-full text-xs">
-              <option value="">—</option>
-              <option value="1">1 (Critical)</option>
-              <option value="2">2 (High)</option>
-              <option value="3">3 (Moderate)</option>
-              <option value="4">4 (Low)</option>
-            </select>
+            <label class="label">Category</label>
+            <input type="text" name="category" class="input-dark text-xs">
+          </div>
+          <div>
+            <label class="label">Subcategory</label>
+            <input type="text" name="subcategory" class="input-dark text-xs">
+          </div>
+          <div>
+            <label class="label">Service</label>
+            <input type="text" name="service" class="input-dark text-xs">
           </div>
         </div>
         <div>
-          <label class="label">Category</label>
-          <input type="text" name="category" class="input-dark text-xs">
+          <label class="label">Short description</label>
+          <input type="text" name="short_description" class="input-dark text-xs">
         </div>
         <div>
           <label class="label">Description</label>
           <textarea name="description" rows="3" class="input-dark text-xs resize-none"></textarea>
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Impact</label>
+            <select name="impact" class="select-dark w-full text-xs">
+              <option value="">— (use template default)</option>
+              <option value="1">1 - High</option>
+              <option value="2">2 - Medium</option>
+              <option value="3" selected>3 - Low</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Urgency</label>
+            <select name="urgency" class="select-dark w-full text-xs">
+              <option value="">— (use template default)</option>
+              <option value="1">1 - High</option>
+              <option value="2">2 - Medium</option>
+              <option value="3" selected>3 - Low</option>
+            </select>
+          </div>
+        </div>
+        <p class="text-[10px] text-ink-muted">
+          Priority is computed automatically by ServiceNow from Impact + Urgency.
+          Default 3+3 = Priority 5 (Very Low).
+        </p>
       </div>
 
       <div class="flex items-center gap-2 pt-2 border-t border-edge">

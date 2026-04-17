@@ -2703,7 +2703,11 @@ def create_from_template_form(request, key: str):
     if not tpl:
         return HttpResponse(status=404)
     kind = tpl.get('kind', 'standard_change')
-    defaults = tpl.get('fields') or {}
+    tpl_fields = tpl.get('fields') or {}
+    # Merge template values over kind-level defaults (incident impact/urgency).
+    from .services.creation_templates import INCIDENT_FIELD_DEFAULTS
+    defaults = dict(INCIDENT_FIELD_DEFAULTS) if kind == 'incident' else {}
+    defaults.update(tpl_fields)
     fields_with_values = [(f, defaults.get(f, '')) for f in KIND_FIELDS.get(kind, [])]
     return render(request, 'servicenow/partials/create_from_template_form.html', {
         'key':       key,
@@ -2737,6 +2741,19 @@ def create_from_template_submit(request):
     kind = tpl.get('kind')
     allowed = KIND_FIELDS.get(kind, [])
     fields = {f: request.POST.get(f, '').strip() for f in allowed if request.POST.get(f, '').strip()}
+
+    # For incidents: apply defaults for impact/urgency if not explicitly set,
+    # and map our form field names to ServiceNow API field names.
+    if kind == 'incident':
+        from .services.creation_templates import INCIDENT_FIELD_DEFAULTS
+        for k, v in INCIDENT_FIELD_DEFAULTS.items():
+            fields.setdefault(k, v)
+        # 'caller' in our form → 'caller_id' in the ServiceNow Table API
+        if 'caller' in fields:
+            fields['caller_id'] = fields.pop('caller')
+        # 'service' → 'business_service' in SN
+        if 'service' in fields:
+            fields['business_service'] = fields.pop('service')
 
     if not fields.get('short_description'):
         return render(request, 'servicenow/partials/create_from_template_result.html', {

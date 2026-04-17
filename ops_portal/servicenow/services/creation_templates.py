@@ -64,7 +64,16 @@ KIND_FIELDS: Dict[str, List[str]] = {
     'standard_change':  ['short_description', 'assignment_group', 'start_date', 'end_date', 'description'],
     'normal_change':    ['short_description', 'assignment_group', 'start_date', 'end_date', 'risk', 'description'],
     'emergency_change': ['short_description', 'assignment_group', 'start_date', 'end_date', 'risk', 'description'],
-    'incident':         ['short_description', 'assignment_group', 'priority',   'category',  'description'],
+    'incident':         ['caller', 'category', 'subcategory', 'service',
+                         'short_description', 'description', 'assignment_group',
+                         'impact', 'urgency'],
+}
+
+# Default field values injected into new incident templates.
+# Impact 3 + Urgency 3 → Priority 5 (Very Low) in standard SN config.
+INCIDENT_FIELD_DEFAULTS: Dict[str, str] = {
+    'impact':  '3',
+    'urgency': '3',
 }
 
 

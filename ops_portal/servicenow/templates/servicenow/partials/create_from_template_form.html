@@ -19,10 +19,21 @@
   {% for fname, fval in fields %}
   <div>
     <label class="label">
-      {{ fname|cut:"_"|title }}{% if fname == 'short_description' %} <span class="text-danger">*</span>{% endif %}
+      {% if fname == 'short_description' %}Short description <span class="text-danger">*</span>
+      {% elif fname == 'assignment_group' %}Assignment group
+      {% elif fname == 'subcategory' %}Subcategory
+      {% elif fname == 'impact' %}Impact
+      {% elif fname == 'urgency' %}Urgency
+      {% else %}{{ fname|cut:"_"|title }}{% endif %}
     </label>
     {% if fname == 'description' %}
     <textarea name="{{ fname }}" rows="3" class="input-dark text-xs resize-none">{{ fval }}</textarea>
+    {% elif fname == 'impact' or fname == 'urgency' %}
+    <select name="{{ fname }}" class="select-dark w-full text-xs">
+      <option value="1" {% if fval == '1' %}selected{% endif %}>1 - High</option>
+      <option value="2" {% if fval == '2' %}selected{% endif %}>2 - Medium</option>
+      <option value="3" {% if fval == '3' or not fval %}selected{% endif %}>3 - Low</option>
+    </select>
     {% else %}
     <input type="text" name="{{ fname }}" value="{{ fval }}"
            class="input-dark text-xs"
@@ -30,6 +41,9 @@
     {% endif %}
   </div>
   {% endfor %}
+  {% if kind == 'incident' %}
+  <p class="text-[10px] text-ink-muted">Priority is set automatically by ServiceNow from Impact + Urgency.</p>
+  {% endif %}
 
   <div class="flex items-center gap-2 pt-2 border-t border-edge">
     <button type="submit" class="btn-primary text-xs px-4 py-2">
