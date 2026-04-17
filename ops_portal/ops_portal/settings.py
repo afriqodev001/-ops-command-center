@@ -168,6 +168,7 @@ EDGE_EXE_PATH = os.environ.get(
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
 )
 BROWSER_SESSION_DIR = BASE_DIR / '.browser_sessions'
+BROWSER_STARTUP_TIMEOUT = int(os.environ.get('BROWSER_STARTUP_TIMEOUT', 30))
 BROWSER_PROFILE_BASE = os.environ.get('BROWSER_PROFILE_BASE') or None
 # ↑ defaults to %LOCALAPPDATA%\CopilotOps\EdgeProfiles when None
 EDGE_PORT_BASES = {

@@ -46,7 +46,7 @@ def launch_edge(
     url: str,
     *,
     headless: bool = True,
-    startup_timeout: int = 12,
+    startup_timeout: int | None = None,
 ) -> Dict[str, Optional[object]]:
     """
     Launch Edge with remote debugging.
@@ -54,6 +54,9 @@ def launch_edge(
     Returns:
         {"status": "reused"|"headless"|"headed"|"failed", "port": int, "pid": int|None}
     """
+
+    if startup_timeout is None:
+        startup_timeout = int(getattr(settings, 'BROWSER_STARTUP_TIMEOUT', 30))
 
     os.makedirs(profile_dir, exist_ok=True)
 
