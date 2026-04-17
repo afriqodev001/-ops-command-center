@@ -173,7 +173,7 @@
 
         <!-- User identity -->
         <button type="button"
-                onclick="document.getElementById('preferences-modal').showModal()"
+                onclick="var m=document.getElementById('preferences-modal'); m.showModal(); m.dispatchEvent(new Event('dialog-open',{bubbles:true}))"
                 class="w-full flex items-center gap-2.5 px-4 py-2 border-t border-edge text-left hover:bg-white/5 transition-colors"
                 title="Open preferences">
           <span class="w-7 h-7 rounded-full bg-brand-subtle border border-brand/30 flex items-center justify-center text-xs font-bold text-brand-light flex-shrink-0">{{ os_user.initials }}</span>
@@ -223,7 +223,7 @@
                hx-swap="none"
                hx-on::after-request="updateHeaderPill(event)">
             <!-- Rendered by JS from widget response -->
-            <button onclick="document.getElementById('session-modal').showModal()"
+            <button onclick="var m=document.getElementById('session-modal'); m.showModal(); m.dispatchEvent(new Event('dialog-open',{bubbles:true}))"
                     class="btn-ghost px-2.5 py-1.5 text-xs gap-1.5" title="ServiceNow session status">
               <span id="header-session-dot" class="w-1.5 h-1.5 rounded-full bg-surface-5 flex-shrink-0"></span>
               <span id="header-session-label" class="hidden sm:inline text-ink-muted">Session</span>
@@ -231,7 +231,7 @@
           </div>
 
           <!-- Activity bell — opens the activity log modal; badge polls for unread count -->
-          <button onclick="document.getElementById('activity-modal').showModal()"
+          <button onclick="var m=document.getElementById('activity-modal'); m.showModal(); m.dispatchEvent(new Event('dialog-open',{bubbles:true}))"
                   class="btn-ghost relative"
                   title="Recent activity">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
