@@ -1913,38 +1913,55 @@ def search_records(request):
     results = []
     matched = 0
 
+    live_task_id = ''
+    live_extras = ''
+
     if request.method == 'POST':
         searched = True
-        if domain == 'change':
-            if _is_live(request):
-                from django.conf import settings as dj_settings
+        if _is_live(request):
+            # Async: dispatch list task, return a placeholder that polls.
+            from django.conf import settings as dj_settings
+            from .tasks import table_list_task
+            if domain == 'change':
                 table = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
                 query = _build_change_search_query(ci, requested_by, assignment_group, days)
-                raw = _live_list(table, query, _CHANGE_LIST_FIELDS, DEFAULT_LIST_LIMIT + 1)
-                results = [_adapt_live_change(r) for r in raw if r]
-                matched = len(results)
-                results = results[:DEFAULT_LIST_LIMIT]
+                fields = _CHANGE_LIST_FIELDS
             else:
-                base = _filter_by_days(_changes_source(request), '_scheduled_dt', days)
-                results = _filter_records(base, ci, requested_by, assignment_group)
-                matched = len(results)
-                results = results[:DEFAULT_LIST_LIMIT]
+                domain = 'incident'
+                table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
+                query = _build_incident_search_query(ci, requested_by, assignment_group, days)
+                fields = _INCIDENT_LIST_FIELDS
+            task = table_list_task.delay({
+                'table':         table,
+                'query':         query,
+                'fields':        fields,
+                'limit':         DEFAULT_LIST_LIMIT + 1,
+                'display_value': True,
+            })
+            live_task_id = task.id
+            # Propagate filter state to the poll endpoint so the result template
+            # can echo the filter chips.
+            from urllib.parse import urlencode
+            live_extras = urlencode({
+                'domain':           domain,
+                'cmdb_ci':          ci,
+                'requested_by':     requested_by,
+                'assignment_group': assignment_group,
+                'days':             days,
+            })
+            results, matched = [], 0
+        elif domain == 'change':
+            base = _filter_by_days(_changes_source(request), '_scheduled_dt', days)
+            results = _filter_records(base, ci, requested_by, assignment_group)
+            matched = len(results)
+            results = results[:DEFAULT_LIST_LIMIT]
             results = _annotate_ctask_pct(list(results))
         else:
             domain = 'incident'
-            if _is_live(request):
-                from django.conf import settings as dj_settings
-                table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
-                query = _build_incident_search_query(ci, requested_by, assignment_group, days)
-                raw = _live_list(table, query, _INCIDENT_LIST_FIELDS, DEFAULT_LIST_LIMIT + 1)
-                results = [_adapt_live_incident(r) for r in raw if r]
-                matched = len(results)
-                results = results[:DEFAULT_LIST_LIMIT]
-            else:
-                base = _filter_by_days(_incidents_source(request), '_opened_dt', days)
-                results = _filter_records(base, ci, requested_by, assignment_group)
-                matched = len(results)
-                results = results[:DEFAULT_LIST_LIMIT]
+            base = _filter_by_days(_incidents_source(request), '_opened_dt', days)
+            results = _filter_records(base, ci, requested_by, assignment_group)
+            matched = len(results)
+            results = results[:DEFAULT_LIST_LIMIT]
 
     ctx = {
         'domain':           domain,
@@ -1960,10 +1977,22 @@ def search_records(request):
         'total':            len(results),
         'matched':          matched,
         'truncated':        matched > DEFAULT_LIST_LIMIT,
+        'live_task_id':     live_task_id,
+        'live_extras':      live_extras,
     }
 
     # HTMX partial swap — only for POSTs driven by the form, not hx-boost nav
     if request.method == 'POST' and request.headers.get('HX-Request'):
+        if live_task_id:
+            # Return a placeholder. HTMX swaps it into #search-results; the
+            # placeholder's own hx-get then polls and swaps itself on success.
+            return render(request, 'servicenow/partials/live_loading.html', {
+                'shape':          'search-results',
+                'task_id':        live_task_id,
+                'extras':         live_extras,
+                'label':          'Searching ServiceNow…',
+                'placeholder_id': 'search-live-placeholder',
+            })
         return render(request, 'servicenow/partials/search_results.html', ctx)
 
     # Full-page render — include search presets for the dropdown / modal
