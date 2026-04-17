@@ -397,43 +397,13 @@ def _adapt_live_change(rec):
         'scheduled':         rec.get('start_date', ''),
         'cmdb_ci':           rec.get('cmdb_ci', ''),
         'opened_by':         rec.get('opened_by', ''),
-        'ctasks':            [],          # populated by _get_change_context_live on detail pages
+        'ctasks':            [],          # populated by the change-context poll renderer on detail pages
         'ctask_closed':      0,
         'ctask_pct':         0,
         'work_notes':        _parse_sn_journal(rec.get('work_notes', '')),
         '_raw_work_notes':   rec.get('work_notes', '') or '',
         'attachments':       [],
     }
-
-
-def _get_incident_modal(request, number):
-    if not _is_live(request):
-        return _get_incident(number)
-    # Live mode — run the task synchronously in-process via .apply()
-    try:
-        from .tasks import incident_get_by_field_task
-        resp = incident_get_by_field_task.apply(args=[{
-            'field':         'number',
-            'value':         number,
-            'display_value': True,
-        }]).result
-        return _adapt_live_incident(_unwrap_record(resp))
-    except Exception:
-        return None
-
-
-def _get_change_modal(request, number):
-    if not _is_live(request):
-        return _get_change(number)
-    try:
-        from .tasks import changes_get_by_number_task
-        resp = changes_get_by_number_task.apply(args=[{
-            'number':        number,
-            'display_value': True,
-        }]).result
-        return _adapt_live_change(_unwrap_record(resp))
-    except Exception:
-        return None
 
 
 # ─── Live fetch — list-oriented helpers ──────────────────────────
@@ -449,23 +419,6 @@ def _unwrap_list(response):
         if isinstance(inner, list):
             return inner
     return []
-
-
-def _live_list(table: str, query: str, fields: str, limit: int):
-    """Run table_list_task synchronously and return [] on any error.
-    Kept as a thin, error-suppressing wrapper so call-sites stay readable."""
-    try:
-        from .tasks import table_list_task
-        resp = table_list_task.apply(args=[{
-            'table':         table,
-            'query':         query,
-            'fields':        fields,
-            'limit':         limit,
-            'display_value': True,
-        }]).result
-        return _unwrap_list(resp)
-    except Exception:
-        return []
 
 
 # Minimal fieldsets the templates need. Keep to what's actually rendered
@@ -1004,47 +957,6 @@ def _get_change_context_live(number: str) -> dict | None:
     return change
 
 
-def _get_incident_context_live(number: str) -> dict | None:
-    """Fetch an incident + its child tasks (with attachments) + incident attachments
-    in ONE task via incident_context_task. Note the task wraps each child task as
-    {'task': {...}, 'attachments': [...]} — unpacked here."""
-    if not number:
-        return None
-    try:
-        from .tasks import incident_context_task
-        resp = incident_context_task.apply(args=[{
-            'incident_number': number,
-            'display_value': True,
-        }]).result
-    except Exception:
-        return None
-
-    if not resp or not isinstance(resp, dict) or resp.get('error'):
-        return None
-
-    bundle = resp.get('result') or {}
-    inc_raw = bundle.get('incident')
-    if not inc_raw:
-        return None
-
-    incident = _adapt_live_incident(inc_raw)
-    if not incident:
-        return None
-
-    tasks = []
-    for tw in bundle.get('tasks') or []:
-        task_rec = tw.get('task') or {}
-        adapted = _adapt_live_incident_task(task_rec)
-        adapted['attachments'] = [_adapt_live_attachment(a) for a in (tw.get('attachments') or [])]
-        tasks.append(adapted)
-    incident['tasks'] = tasks
-
-    incident['attachments'] = [
-        _adapt_live_attachment(a) for a in (bundle.get('incident_attachments') or [])
-    ]
-    return incident
-
-
 def _parse_numbers(raw):
     """Split a free-text block of record numbers into a clean list."""
     import re
@@ -1459,13 +1371,18 @@ def bulk_change_review(request):
         numbers_input = request.POST.get('numbers', '')
         parsed = _parse_numbers(numbers_input)
 
+        live = _is_live(request)
         for i, num in enumerate(parsed):
-            if num.startswith('CHG'):
-                rec = _get_change_modal(request, num)
-                if rec:
-                    items.append({'number': num, 'delay_ms': i * 700})
-                else:
-                    not_found.append(num)
+            if not num.startswith('CHG'):
+                not_found.append(num)
+                continue
+            if live:
+                # Skip the sync existence check — queue every CHG as pending
+                # and let each card's own task (via bulk_change_review_item)
+                # surface the not-found state on its own response.
+                items.append({'number': num, 'delay_ms': i * 700})
+            elif _get_change(num):
+                items.append({'number': num, 'delay_ms': i * 700})
             else:
                 not_found.append(num)
 
