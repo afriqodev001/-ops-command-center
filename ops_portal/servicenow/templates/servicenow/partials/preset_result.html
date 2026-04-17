@@ -115,7 +115,17 @@
 {% if preset_cfg.actions %}
 <div class="flex items-center gap-2 mt-3" x-data="presetActions()">
   {% for action in preset_cfg.actions %}
-  {% if action.type == 'download' %}
+  {% if action.type == 'bulk_review' %}
+  {% if preset_cfg.domain == 'change' %}
+  <button type="button" @click="bulkReview()" class="btn-ghost text-xs gap-1.5">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-3 7l2 2 4-4"/>
+    </svg>
+    Bulk Review
+  </button>
+  {% endif %}
+  {% elif action.type == 'download' %}
   <button type="button" @click="downloadCSV()" class="btn-ghost text-xs gap-1.5">
     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -154,6 +164,39 @@ function _definePresetActions() {
   Alpine.data('presetActions', () => ({
     emailing: false,
     emailResult: '',
+
+    bulkReview() {
+      // Extract CHG numbers from the first column of the results table
+      const table = document.querySelector('#preset-results table');
+      if (!table) return;
+      const numbers = [];
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        const first = tr.querySelector('td');
+        if (first) {
+          const text = first.textContent.trim();
+          if (text.startsWith('CHG')) numbers.push(text);
+        }
+      });
+      if (numbers.length === 0) {
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: { message: 'No CHG numbers found in the results', type: 'warning' }
+        }));
+        return;
+      }
+      // Navigate to bulk review with numbers pre-filled via POST
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/servicenow/changes/bulk-review/';
+      const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      if (csrf) { const c = csrf.cloneNode(); form.appendChild(c); }
+      const input = document.createElement('textarea');
+      input.name = 'numbers';
+      input.value = numbers.join('\n');
+      input.style.display = 'none';
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+    },
 
     downloadCSV() {
       const table = document.querySelector('#preset-results table');
