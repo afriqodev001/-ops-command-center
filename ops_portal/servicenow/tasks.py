@@ -50,6 +50,26 @@ def _user_key(body: dict) -> str:
     return (body or {}).get("user_key") or "localuser"
 
 
+def _strip_raw(obj):
+    """Recursively remove 'raw' keys from task results before Celery stores them.
+
+    Every ServiceNow service function returns {"result": ..., "raw": <full HTTP response>}.
+    The 'raw' key duplicates the entire response payload (often megabytes for list queries)
+    and is never consumed by the async poll renderers. Stripping it keeps the serialized
+    result small enough for the django-db result backend to store reliably.
+    """
+    if isinstance(obj, dict):
+        obj.pop('raw', None)
+        for v in obj.values():
+            if isinstance(v, (dict, list)):
+                _strip_raw(v)
+    elif isinstance(obj, list):
+        for item in obj:
+            if isinstance(item, (dict, list)):
+                _strip_raw(item)
+    return obj
+
+
 def with_servicenow_auth_retry(
     *,
     body: dict,
@@ -69,7 +89,7 @@ def with_servicenow_auth_retry(
 
     try:
         driver = runner.get_driver()
-        return operation(driver)
+        return _strip_raw(operation(driver))
 
     except BrowserLoginRequired as e:
         # Step 1: Open login UI
@@ -93,7 +113,7 @@ def with_servicenow_auth_retry(
         # Step 2: Retry once after login
         try:
             driver = runner.get_driver()
-            return operation(driver)
+            return _strip_raw(operation(driver))
         except BrowserLoginRequired:
             return {
                 "error": "login_required",
