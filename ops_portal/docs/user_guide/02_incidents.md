@@ -41,6 +41,9 @@ Filters combine with AND. Empty filters match all.
 - **Search** — case-insensitive substring match on `number` and `short_description`
 - **Time range** — defaults to **Last 30 days** (filters by `opened_at`). Options: 7 / 30 / 90 / 365 days or All time. Picking a wider range matters when you're troubleshooting older issues.
 
+### Default group filter
+If a **default group filter** is set in Preferences (e.g. `CTULMS - Retail Services`), the list is automatically scoped to records whose `assignment_group.parent` matches. A visible chip above the table shows the active filter; click **×** or **clear** to remove it for the current page without changing the saved preference.
+
 ### Result cap
 The list is capped at 200 rows to stay responsive on large ServiceNow instances. A banner under the filter row shows **"Showing X of Y matches — capped at 200"** when your filter set matched more. Narrow filters (or shorten the time range) to see the rest.
 

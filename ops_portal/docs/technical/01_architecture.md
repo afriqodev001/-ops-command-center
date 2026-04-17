@@ -150,6 +150,8 @@ Go to the Table API via Celery tasks (`changes_create_task`, `incidents_create_t
 | Split `pages.py` / `views.py`                 | Keeps HTML-returning and JSON-returning handlers from tangling their response conventions. |
 | `Alpine.data('name', factory)` registration   | Survives `hx-boost` re-navigation cleanly; plain `function presetsPage()` inline definitions race with Alpine's MutationObserver. |
 | `json_script` over raw `{{ json_dump }}`      | Prevents Django auto-escape from corrupting JSON inside `<script>` tags (raw-text elements don't decode entities). |
+| Pre-built Tailwind CSS over CDN              | CDN recompiles styles on every page load (~100-200ms CPU spike + FOUC). Pre-built 42 KB CSS eliminates both. Rebuild after template changes: `npx tailwindcss -i .../input.css -o .../tailwind.min.css --minify`. |
+| Browser auto-idle shutdown                   | The headed Edge browser (200-500 MB RAM) is only needed for SSO login. Auto-closes after 30 min of no task activity (configurable in Preferences). Cookies persist; next task auto-launches headless. |
 
 ## See also
 - [Project Structure](02_project_structure.md)

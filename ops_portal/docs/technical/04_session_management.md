@@ -127,6 +127,20 @@ We run single-user today. `user_key='localuser'` is the default everywhere. Mult
 ### Session widget polling frequency
 Every 20s by default. Faster polling catches changes sooner but adds load. Widget is cheap, so tuning is safe if needed.
 
+### Browser lifecycle and memory management
+
+The headed Edge browser (200-500 MB) is only needed for SSO login. After authentication, cookies persist in the Edge profile directory. The lifecycle:
+
+1. **Connect** — headed browser opens for SSO/MFA login.
+2. **Close browser** — user clicks "Close browser" in the session widget, or the auto-idle timer fires. Edge process is killed but the profile directory (with cookies) is preserved.
+3. **Session saved** — widget shows "Session saved · cookies on disk · tasks auto-launch headless".
+4. **Next task** — `with_servicenow_auth_retry` calls `get_driver()` with `headless=True`. Edge launches headless using the same profile; cookies are valid → auth check passes → task runs.
+5. **Cookies expired** — headless auth check fails → wrapper automatically opens headed browser for re-login → cycle repeats.
+
+**Auto-idle shutdown:** `_build_session_context` (called every 20s via the widget poll) checks `last_used` against `browser_idle_timeout_minutes` from user preferences (default 30). If idle exceeds the threshold, `shutdown_browser()` is called automatically.
+
+**Close browser endpoint:** `POST /servicenow/session/close-browser/` calls `shutdown_browser(port, pid)` without calling `clear_session` — the session JSON and profile directory persist. This is different from "Disconnect" which wipes everything.
+
 ## See also
 - [Celery Tasks](05_celery_tasks.md)
 - [Table API](06_table_api.md)

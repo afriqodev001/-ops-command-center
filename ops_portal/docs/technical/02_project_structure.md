@@ -91,7 +91,7 @@ Pure-Python modules — no Django imports at module scope. Used by both `pages.p
 | `creation_templates.py`      | Unified write-side template store (4 kinds), URL builder for standard changes. |
 | `bulk_change_parser.py`      | CSV/paste parser + validator for Bulk Change Create. |
 | `search_presets.py`          | Shortcuts for the Search page — long CI values behind a short App ID + optional group/requester defaults. |
-| `user_preferences.py`        | File-backed user preferences (currently: default data mode). |
+| `user_preferences.py`        | File-backed user preferences (default data mode, default group filter, browser idle timeout). |
 | `activity.py`                | Session-backed activity log (rolling 50 events): `push`, `list_all`, `unread_count`, `mark_all_read`, `clear`. |
 | `standard_change_templates.py` | Legacy — kept for the migration read on first load of the unified store. |
 

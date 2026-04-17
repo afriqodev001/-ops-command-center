@@ -58,8 +58,12 @@ Right-side panel shows today's scheduled changes. Progress bar tells you how far
 
 ## Tips
 
-- Counts reflect demo data today. Once wired to real ServiceNow, they'll reflect
-  your instance totals within the widget's refresh window.
+- In **Live mode**, the dashboard panels fetch real data from ServiceNow via
+  async Celery tasks. If a **default group filter** is set in Preferences,
+  both panels are scoped to that group's records.
+- Stats tiles show zeros in Live mode until the panels load (aggregation
+  from two independent tasks is not yet implemented — click through to
+  the full list pages for filtered counts).
 - If a change is missing from today's list, it's either scheduled for another day
   or sliced out by the top-3 cap. Use the Changes page to see the full list.
 

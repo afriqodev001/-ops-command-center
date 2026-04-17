@@ -39,6 +39,9 @@ Browse change requests, inspect a single change's details and CTASK progress, an
 - **Search box** — case-insensitive substring on `number` and `short_description`.
 - **Time range** — defaults to **Last 30 days** (filters by `start_date`). Options: 7 / 30 / 90 / 365 / All time.
 
+### Default group filter
+If a **default group filter** is set in Preferences (e.g. `CTULMS - Retail Services`), the list is automatically scoped to records whose `assignment_group.parent` matches. A chip above the table shows the active filter with a **×** clear button. The filter is preserved across state-tab clicks.
+
 ### Result cap
 Capped at 200 rows. A banner below the filter row reads **"Showing X of Y matches — capped at 200"** when the underlying match set is larger. Narrow the state tab, add a search term, or shorten the time range.
 

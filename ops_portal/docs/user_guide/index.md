@@ -32,9 +32,15 @@ Quick reference for every page in the Ops Command Center. Each guide covers what
 - **HTMX swaps** — most actions update part of the page without a full reload.
   A small purple bar at the top flashes while a request is in flight.
 - **Preferences panel** — click the user block at the bottom of the sidebar to
-  open it. Shows the OS user, the ServiceNow session status, and lets you set
-  the **default data mode** (used on next Django session), plus reset any of
-  the local JSON stores (query presets, creation templates, search presets).
+  open it. Shows the OS user, the ServiceNow session status, and lets you set:
+  - **Default data mode** (used on next Django session)
+  - **Default group filter** — scopes Incidents, Changes, and Dashboard to
+    records under a specific `assignment_group.parent` (e.g. "CTULMS - Retail
+    Services"). Shown as a visible chip you can clear per-page.
+  - **Browser idle timeout** — auto-closes the Edge browser after N minutes
+    of no task activity (default 30) to reclaim 200-500 MB of RAM. Cookies
+    persist; the next task auto-launches headless.
+  - **Reset local stores** — clear query presets, creation templates, or search presets.
 - **Activity log** — the bell icon (top right) opens a log of recent write
   actions: preset / template saves & deletes, bulk-change submits,
   create-from-template dispatches, mode flips, session connect / disconnect.
