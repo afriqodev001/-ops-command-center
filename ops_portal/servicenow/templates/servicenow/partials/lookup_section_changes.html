@@ -1,0 +1,79 @@
+{% if change_results %}
+<div class="glass-card overflow-hidden">
+  <div class="flex items-center gap-3 px-5 py-3 border-b border-edge">
+    <svg class="w-4 h-4 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+    </svg>
+    <h3 class="text-sm font-semibold text-ink-primary">Changes</h3>
+    <span class="text-xs text-ink-muted">{{ change_results|length }} record{{ change_results|length|pluralize }}</span>
+  </div>
+  <table class="w-full">
+    <thead class="border-b border-edge">
+      <tr>
+        <th class="th">Number</th>
+        <th class="th">Description</th>
+        <th class="th">Type</th>
+        <th class="th">State</th>
+        <th class="th">CTASKs</th>
+        <th class="th">Group</th>
+        <th class="th">Scheduled</th>
+        <th class="th w-20"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-edge-subtle">
+      {% for chg in change_results %}
+      <tr class="table-row">
+        <td class="td">
+          <a href="/servicenow/changes/{{ chg.number }}/"
+             class="font-mono text-brand-light hover:text-brand hover:underline text-xs font-medium">{{ chg.number }}</a>
+        </td>
+        <td class="td max-w-xs">
+          <a href="/servicenow/changes/{{ chg.number }}/"
+             class="text-ink-primary hover:text-white font-medium leading-snug line-clamp-2 transition-colors">{{ chg.short_description }}</a>
+        </td>
+        <td class="td"><span class="badge badge-muted">{{ chg.type }}</span></td>
+        <td class="td">
+          {% if chg.state_code == "implement" %}<span class="badge badge-info">Implementing</span>
+          {% elif chg.state_code == "scheduled" %}<span class="badge badge-muted">Scheduled</span>
+          {% elif chg.state_code == "review" %}<span class="badge badge-warn">Review</span>
+          {% elif chg.state_code == "approved" %}<span class="badge badge-ok">Approved</span>
+          {% elif chg.state_code == "closed" %}<span class="badge badge-ok">Closed</span>
+          {% else %}<span class="badge badge-muted">{{ chg.state }}</span>{% endif %}
+        </td>
+        <td class="td">
+          {% with total=chg.ctasks|length %}
+          {% if total > 0 %}
+          <div class="flex items-center gap-2 min-w-[72px]">
+            <div class="flex-1 h-1.5 bg-surface-5 rounded-full overflow-hidden">
+              <div class="h-full bg-ok rounded-full" style="width: {{ chg.ctask_pct }}%"></div>
+            </div>
+            <span class="text-[11px] text-ink-muted whitespace-nowrap">{{ chg.ctask_closed }}/{{ total }}</span>
+          </div>
+          {% else %}<span class="text-xs text-ink-muted">—</span>{% endif %}
+          {% endwith %}
+        </td>
+        <td class="td">
+          <p class="text-xs text-ink-primary">{{ chg.assignment_group }}</p>
+          <p class="text-xs text-ink-muted">{{ chg.assigned_to|default:"Unassigned" }}</p>
+        </td>
+        <td class="td"><span class="text-xs text-ink-secondary">{{ chg.scheduled }}</span></td>
+        <td class="td">
+          <a href="/servicenow/changes/{{ chg.number }}/" class="btn-ghost text-xs py-1 px-2">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not_found %}
+<div class="glass-card px-5 py-3.5 mt-4 border-danger/20 bg-danger/5">
+  <p class="text-[10px] font-bold text-danger uppercase tracking-wider mb-1">Changes not found</p>
+  <p class="text-sm text-ink-secondary font-mono">{{ not_found|join:"  ·  " }}</p>
+</div>
+{% endif %}
+
+{% if not change_results and not not_found %}
+<p class="text-xs text-ink-muted px-1">No change numbers in your input.</p>
+{% endif %}

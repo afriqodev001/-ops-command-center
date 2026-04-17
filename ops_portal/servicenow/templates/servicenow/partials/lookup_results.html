@@ -9,198 +9,40 @@
   <p class="text-sm text-ink-muted">Enter record numbers above to look them up</p>
   <p class="text-xs text-ink-muted mt-1 opacity-60">Supports INC and CHG prefixes</p>
 </div>
-
 {% else %}
 
-<!-- Summary bar -->
+<!-- Summary bar (counts visible regardless of path) -->
 <div class="flex flex-wrap items-center gap-3 mb-4">
-  {% if total_found > 0 %}
-  <span class="badge badge-ok text-xs px-3 py-1">{{ total_found }} found</span>
-  {% endif %}
-  {% if not_found %}
-  <span class="badge bg-danger/15 text-danger border border-danger/20 text-xs px-3 py-1">{{ not_found|length }} not found</span>
-  {% endif %}
-  {% if incident_results %}
-  <span class="badge badge-muted text-xs">{{ incident_results|length }} incident{{ incident_results|length|pluralize }}</span>
-  {% endif %}
-  {% if change_results %}
-  <span class="badge badge-muted text-xs">{{ change_results|length }} change{{ change_results|length|pluralize }}</span>
+  <span class="text-[10px] px-2 py-1 rounded bg-surface-5 text-ink-muted border border-edge font-medium">
+    {{ numbers_input|wordcount }} input number{{ numbers_input|wordcount|pluralize }}
+  </span>
+  {% if unrecognised %}
+  <span class="badge bg-danger/15 text-danger border border-danger/20 text-xs px-3 py-1">
+    {{ unrecognised|length }} unrecognised
+  </span>
   {% endif %}
 </div>
 
-<!-- Not found -->
-{% if not_found %}
+{% if unrecognised %}
 <div class="glass-card px-5 py-3.5 mb-4 border-danger/20 bg-danger/5">
-  <div class="flex items-start gap-3">
-    <svg class="w-4 h-4 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-    </svg>
-    <div>
-      <p class="text-xs font-semibold text-danger uppercase tracking-wider mb-1">No records found</p>
-      <p class="text-sm text-ink-secondary font-mono">{{ not_found|join:"  ·  " }}</p>
-    </div>
-  </div>
+  <p class="text-[10px] font-bold text-danger uppercase tracking-wider mb-1">Unrecognised input</p>
+  <p class="text-sm text-ink-secondary font-mono">{{ unrecognised|join:"  ·  " }}</p>
+  <p class="text-[11px] text-ink-muted mt-1">Numbers must start with <code>INC</code> or <code>CHG</code>.</p>
 </div>
 {% endif %}
 
-{% if total_found == 0 and not not_found %}
-<!-- No numbers entered -->
-<div class="glass-card px-5 py-10 text-center">
-  <p class="text-sm text-ink-muted">No valid record numbers detected. Use INC or CHG prefixes.</p>
-</div>
+<!-- Incidents section — placeholder (live) OR inline render (demo) -->
+{% if live_incident_task_id %}
+{% include 'servicenow/partials/live_loading.html' with shape='fetch-incidents' task_id=live_incident_task_id extras=live_incident_extras label='Fetching incidents from ServiceNow…' placeholder_id='fetch-incidents-placeholder' %}
+{% elif incident_results or incident_not_found %}
+{% include 'servicenow/partials/lookup_section_incidents.html' with incident_results=incident_results not_found=incident_not_found %}
 {% endif %}
 
-<!-- ── Incidents ── -->
-{% if incident_results %}
-<div class="glass-card overflow-hidden mb-4">
-  <div class="flex items-center gap-3 px-5 py-3 border-b border-edge">
-    <svg class="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-    </svg>
-    <h3 class="text-sm font-semibold text-ink-primary">Incidents</h3>
-    <span class="text-xs text-ink-muted">{{ incident_results|length }} record{{ incident_results|length|pluralize }}</span>
-  </div>
-  <table class="w-full">
-    <thead class="border-b border-edge">
-      <tr>
-        <th class="th">Number</th>
-        <th class="th">Description</th>
-        <th class="th">Priority</th>
-        <th class="th">State</th>
-        <th class="th">Group / Assignee</th>
-        <th class="th">Age</th>
-        <th class="th w-20"></th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-edge-subtle">
-      {% for inc in incident_results %}
-      <tr class="table-row">
-        <td class="td">
-          <a href="/servicenow/incidents/{{ inc.number }}/"
-             class="font-mono text-brand-light hover:text-brand hover:underline text-xs font-medium">
-            {{ inc.number }}
-          </a>
-        </td>
-        <td class="td max-w-xs">
-          <a href="/servicenow/incidents/{{ inc.number }}/"
-             class="text-ink-primary hover:text-white font-medium leading-snug line-clamp-2 transition-colors">
-            {{ inc.short_description }}
-          </a>
-          {% if inc.sla_warning %}
-          <span class="text-[10px] text-danger font-medium">⚠ SLA at risk</span>
-          {% endif %}
-        </td>
-        <td class="td">
-          {% if inc.priority == "1" %}<span class="badge-p1">P1</span>
-          {% elif inc.priority == "2" %}<span class="badge-p2">P2</span>
-          {% elif inc.priority == "3" %}<span class="badge-p3">P3</span>
-          {% else %}<span class="badge-p4">P4</span>{% endif %}
-        </td>
-        <td class="td">
-          {% if inc.state_code == "in_progress" %}<span class="badge badge-info">In Progress</span>
-          {% elif inc.state_code == "resolved" %}<span class="badge badge-ok">Resolved</span>
-          {% elif inc.state_code == "open" %}<span class="badge badge-muted">Open</span>
-          {% else %}<span class="badge badge-muted">{{ inc.state }}</span>{% endif %}
-        </td>
-        <td class="td">
-          <p class="text-xs text-ink-primary">{{ inc.assignment_group }}</p>
-          <p class="text-xs text-ink-muted">{{ inc.assigned_to|default:"Unassigned" }}</p>
-        </td>
-        <td class="td">
-          <span class="text-xs {% if inc.sla_warning %}text-danger font-semibold{% else %}text-ink-muted{% endif %}">
-            {{ inc.age }}
-          </span>
-        </td>
-        <td class="td">
-          <a href="/servicenow/incidents/{{ inc.number }}/"
-             class="btn-ghost text-xs py-1 px-2">View</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-<!-- ── Changes ── -->
-{% if change_results %}
-<div class="glass-card overflow-hidden">
-  <div class="flex items-center gap-3 px-5 py-3 border-b border-edge">
-    <svg class="w-4 h-4 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
-    </svg>
-    <h3 class="text-sm font-semibold text-ink-primary">Changes</h3>
-    <span class="text-xs text-ink-muted">{{ change_results|length }} record{{ change_results|length|pluralize }}</span>
-  </div>
-  <table class="w-full">
-    <thead class="border-b border-edge">
-      <tr>
-        <th class="th">Number</th>
-        <th class="th">Description</th>
-        <th class="th">Type</th>
-        <th class="th">State</th>
-        <th class="th">CTASKs</th>
-        <th class="th">Group</th>
-        <th class="th">Scheduled</th>
-        <th class="th w-20"></th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-edge-subtle">
-      {% for chg in change_results %}
-      <tr class="table-row">
-        <td class="td">
-          <a href="/servicenow/changes/{{ chg.number }}/"
-             class="font-mono text-brand-light hover:text-brand hover:underline text-xs font-medium">
-            {{ chg.number }}
-          </a>
-        </td>
-        <td class="td max-w-xs">
-          <a href="/servicenow/changes/{{ chg.number }}/"
-             class="text-ink-primary hover:text-white font-medium leading-snug line-clamp-2 transition-colors">
-            {{ chg.short_description }}
-          </a>
-        </td>
-        <td class="td">
-          <span class="badge badge-muted">{{ chg.type }}</span>
-        </td>
-        <td class="td">
-          {% if chg.state_code == "implement" %}<span class="badge badge-info">Implementing</span>
-          {% elif chg.state_code == "scheduled" %}<span class="badge badge-muted">Scheduled</span>
-          {% elif chg.state_code == "review" %}<span class="badge badge-warn">Review</span>
-          {% elif chg.state_code == "approved" %}<span class="badge badge-ok">Approved</span>
-          {% elif chg.state_code == "closed" %}<span class="badge badge-ok">Closed</span>
-          {% else %}<span class="badge badge-muted">{{ chg.state }}</span>{% endif %}
-        </td>
-        <td class="td">
-          {% with total=chg.ctasks|length %}
-          {% if total > 0 %}
-          <div class="flex items-center gap-2 min-w-[72px]">
-            <div class="flex-1 h-1.5 bg-surface-5 rounded-full overflow-hidden">
-              <div class="h-full bg-ok rounded-full" style="width: {{ chg.ctask_pct }}%"></div>
-            </div>
-            <span class="text-[11px] text-ink-muted whitespace-nowrap">{{ chg.ctask_closed }}/{{ total }}</span>
-          </div>
-          {% else %}
-          <span class="text-xs text-ink-muted">—</span>
-          {% endif %}
-          {% endwith %}
-        </td>
-        <td class="td">
-          <p class="text-xs text-ink-primary">{{ chg.assignment_group }}</p>
-          <p class="text-xs text-ink-muted">{{ chg.assigned_to|default:"Unassigned" }}</p>
-        </td>
-        <td class="td">
-          <span class="text-xs text-ink-secondary">{{ chg.scheduled }}</span>
-        </td>
-        <td class="td">
-          <a href="/servicenow/changes/{{ chg.number }}/"
-             class="btn-ghost text-xs py-1 px-2">View</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<!-- Changes section -->
+{% if live_change_task_id %}
+{% include 'servicenow/partials/live_loading.html' with shape='fetch-changes' task_id=live_change_task_id extras=live_change_extras label='Fetching changes from ServiceNow…' placeholder_id='fetch-changes-placeholder' %}
+{% elif change_results or change_not_found %}
+{% include 'servicenow/partials/lookup_section_changes.html' with change_results=change_results not_found=change_not_found %}
 {% endif %}
 
 {% endif %}

@@ -36,6 +36,9 @@ urlpatterns = [
     # ─── Data mode toggle ───────────────────────
     path("mode/toggle/",           pages.data_mode_toggle,      name="data-mode-toggle"),
 
+    # ─── Live-mode async polling ────────────────
+    path("live/poll/<str:shape>/<str:task_id>/", pages.live_poll, name="live-poll"),
+
     # ─── Preferences panel ──────────────────────
     path("preferences/",           pages.preferences_modal,     name="preferences-modal"),
     path("preferences/save/",      pages.preferences_save,      name="preferences-save"),

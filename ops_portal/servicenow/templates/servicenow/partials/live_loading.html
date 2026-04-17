@@ -1,0 +1,11 @@
+<div id="{{ placeholder_id|default:'live-placeholder' }}"
+     hx-get="/servicenow/live/poll/{{ shape }}/{{ task_id }}/{% if extras %}?{{ extras }}{% endif %}"
+     hx-trigger="load delay:400ms, every 2s"
+     hx-swap="outerHTML"
+     class="glass-card px-5 py-10 text-center">
+  <div class="flex flex-col items-center gap-2.5">
+    <div class="w-6 h-6 border-2 border-brand/30 border-t-brand rounded-full animate-spin"></div>
+    <p class="text-sm text-ink-secondary">{{ label|default:"Fetching from ServiceNow…" }}</p>
+    <p class="text-[10px] text-ink-muted font-mono">task {{ task_id|truncatechars:14 }}</p>
+  </div>
+</div>

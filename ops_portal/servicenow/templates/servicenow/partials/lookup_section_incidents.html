@@ -1,0 +1,72 @@
+{% if incident_results %}
+<div class="glass-card overflow-hidden mb-4">
+  <div class="flex items-center gap-3 px-5 py-3 border-b border-edge">
+    <svg class="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+    <h3 class="text-sm font-semibold text-ink-primary">Incidents</h3>
+    <span class="text-xs text-ink-muted">{{ incident_results|length }} record{{ incident_results|length|pluralize }}</span>
+  </div>
+  <table class="w-full">
+    <thead class="border-b border-edge">
+      <tr>
+        <th class="th">Number</th>
+        <th class="th">Description</th>
+        <th class="th">Priority</th>
+        <th class="th">State</th>
+        <th class="th">Group / Assignee</th>
+        <th class="th">Age</th>
+        <th class="th w-20"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-edge-subtle">
+      {% for inc in incident_results %}
+      <tr class="table-row">
+        <td class="td">
+          <a href="/servicenow/incidents/{{ inc.number }}/"
+             class="font-mono text-brand-light hover:text-brand hover:underline text-xs font-medium">{{ inc.number }}</a>
+        </td>
+        <td class="td max-w-xs">
+          <a href="/servicenow/incidents/{{ inc.number }}/"
+             class="text-ink-primary hover:text-white font-medium leading-snug line-clamp-2 transition-colors">{{ inc.short_description }}</a>
+          {% if inc.sla_warning %}<span class="text-[10px] text-danger font-medium">⚠ SLA at risk</span>{% endif %}
+        </td>
+        <td class="td">
+          {% if inc.priority == "1" %}<span class="badge-p1">P1</span>
+          {% elif inc.priority == "2" %}<span class="badge-p2">P2</span>
+          {% elif inc.priority == "3" %}<span class="badge-p3">P3</span>
+          {% else %}<span class="badge-p4">P{{ inc.priority|default:"—" }}</span>{% endif %}
+        </td>
+        <td class="td">
+          {% if inc.state_code == "in_progress" %}<span class="badge badge-info">In Progress</span>
+          {% elif inc.state_code == "resolved" %}<span class="badge badge-ok">Resolved</span>
+          {% elif inc.state_code == "open" %}<span class="badge badge-muted">Open</span>
+          {% else %}<span class="badge badge-muted">{{ inc.state }}</span>{% endif %}
+        </td>
+        <td class="td">
+          <p class="text-xs text-ink-primary">{{ inc.assignment_group }}</p>
+          <p class="text-xs text-ink-muted">{{ inc.assigned_to|default:"Unassigned" }}</p>
+        </td>
+        <td class="td">
+          <span class="text-xs {% if inc.sla_warning %}text-danger font-semibold{% else %}text-ink-muted{% endif %}">{{ inc.age }}</span>
+        </td>
+        <td class="td">
+          <a href="/servicenow/incidents/{{ inc.number }}/" class="btn-ghost text-xs py-1 px-2">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not_found %}
+<div class="glass-card px-5 py-3.5 mb-4 border-danger/20 bg-danger/5">
+  <p class="text-[10px] font-bold text-danger uppercase tracking-wider mb-1">Incidents not found</p>
+  <p class="text-sm text-ink-secondary font-mono">{{ not_found|join:"  ·  " }}</p>
+</div>
+{% endif %}
+
+{% if not incident_results and not not_found %}
+<p class="text-xs text-ink-muted px-1">No incident numbers in your input.</p>
+{% endif %}

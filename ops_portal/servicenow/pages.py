@@ -648,6 +648,251 @@ def _adapt_live_attachment(rec) -> dict:
     }
 
 
+# ─── Live async polling ──────────────────────────────────────────
+# Each read view in live mode dispatches a Celery task via .delay(),
+# renders the page with a placeholder that polls live_poll, and the
+# poll endpoint dispatches to a shape-specific renderer that returns
+# the final swap-in HTML. Shapes are small and explicit — easier to
+# reason about than a generic dispatcher.
+
+def _render_live_error(request, title, detail='', hint=''):
+    from django.http import HttpResponse
+    resp = render(request, 'servicenow/partials/live_error.html', {
+        'title':  title,
+        'detail': detail,
+        'hint':   hint,
+    })
+    # Returning 200 stops HTMX polling; the element is replaced with the error.
+    return resp
+
+
+def _render_fetch_incidents(request, payload, extras):
+    """Bulk incident lookup result → render as the incidents section of lookup_results."""
+    rows = _unwrap_list(payload)
+    incidents = [_adapt_live_incident(r) for r in rows if r]
+    requested = _csv_to_list(extras.get('numbers', ''))
+    found_numbers = {i.get('number', '').upper() for i in incidents}
+    not_found = [n for n in requested if n and n.upper() not in found_numbers]
+    return render(request, 'servicenow/partials/lookup_section_incidents.html', {
+        'incident_results': incidents,
+        'not_found':        not_found,
+    })
+
+
+def _render_fetch_changes(request, payload, extras):
+    rows = _unwrap_list(payload)
+    changes_raw = [_adapt_live_change(r) for r in rows if r]
+    changes = _annotate_ctask_pct(list(changes_raw))
+    requested = _csv_to_list(extras.get('numbers', ''))
+    found_numbers = {c.get('number', '').upper() for c in changes}
+    not_found = [n for n in requested if n and n.upper() not in found_numbers]
+    return render(request, 'servicenow/partials/lookup_section_changes.html', {
+        'change_results': changes,
+        'not_found':      not_found,
+    })
+
+
+def _render_incidents_list_body(request, payload, extras):
+    raw = _unwrap_list(payload)
+    incidents = [_adapt_live_incident(r) for r in raw if r]
+    matched = len(incidents)
+    incidents = incidents[:DEFAULT_LIST_LIMIT]
+    return render(request, 'servicenow/partials/incidents_list_body.html', {
+        'incidents': incidents,
+        'matched':   matched,
+        'limit':     DEFAULT_LIST_LIMIT,
+        'truncated': matched > DEFAULT_LIST_LIMIT,
+        'total':     len(incidents),
+    })
+
+
+def _render_changes_list_body(request, payload, extras):
+    raw = _unwrap_list(payload)
+    changes = [_adapt_live_change(r) for r in raw if r]
+    matched = len(changes)
+    changes = changes[:DEFAULT_LIST_LIMIT]
+    changes = _annotate_ctask_pct(list(changes))
+    return render(request, 'servicenow/partials/changes_list_body.html', {
+        'changes':   changes,
+        'matched':   matched,
+        'limit':     DEFAULT_LIST_LIMIT,
+        'truncated': matched > DEFAULT_LIST_LIMIT,
+        'total':     len(changes),
+    })
+
+
+def _render_search_results(request, payload, extras):
+    raw = _unwrap_list(payload)
+    domain = extras.get('domain', 'incident')
+    if domain == 'change':
+        results = [_adapt_live_change(r) for r in raw if r]
+        matched = len(results)
+        results = results[:DEFAULT_LIST_LIMIT]
+        results = _annotate_ctask_pct(list(results))
+    else:
+        results = [_adapt_live_incident(r) for r in raw if r]
+        matched = len(results)
+        results = results[:DEFAULT_LIST_LIMIT]
+    return render(request, 'servicenow/partials/search_results.html', {
+        'domain':           domain,
+        'results':          results,
+        'searched':         True,
+        'any_filters':      True,
+        'total':            len(results),
+        'matched':          matched,
+        'truncated':        matched > DEFAULT_LIST_LIMIT,
+        'limit':            DEFAULT_LIST_LIMIT,
+        'cmdb_ci':          extras.get('cmdb_ci', ''),
+        'requested_by':     extras.get('requested_by', ''),
+        'assignment_group': extras.get('assignment_group', ''),
+        'days':             extras.get('days', DEFAULT_DAYS),
+    })
+
+
+def _render_incident_context(request, payload, extras):
+    incident = _shape_incident_from_context(payload)
+    if not incident:
+        return _render_live_error(request, 'Incident not found',
+                                  'The task finished but no incident record came back.')
+    return render(request, 'servicenow/partials/incident_detail_body.html', {
+        'incident': incident,
+    })
+
+
+def _render_change_context(request, payload, extras):
+    change = _shape_change_from_context(payload)
+    if not change:
+        return _render_live_error(request, 'Change not found',
+                                  'The task finished but no change record came back.')
+    closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
+    total = len(change['ctasks'])
+    pct = int((closed / total) * 100) if total else 0
+    return render(request, 'servicenow/partials/change_detail_body.html', {
+        'change':       change,
+        'ctask_closed': closed,
+        'ctask_total':  total,
+        'ctask_pct':    pct,
+    })
+
+
+def _render_bulk_review_card(request, payload, extras):
+    change = _shape_change_from_context(payload)
+    if not change:
+        number = extras.get('number', '')
+        return render(request, 'servicenow/partials/bulk_review_card.html', {
+            'not_found': True,
+            'number':    number,
+        })
+    closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
+    total = len(change['ctasks'])
+    pct = int((closed / total) * 100) if total else 0
+    review = _heuristic_review(change, pct, closed, total)
+    prompt = _build_briefing_prompt(change, closed, total, pct)
+    return render(request, 'servicenow/partials/bulk_review_card.html', {
+        'change':       change,
+        'ctask_closed': closed,
+        'ctask_total':  total,
+        'ctask_pct':    pct,
+        'review':       review,
+        'prompt':       prompt,
+        'not_found':    False,
+    })
+
+
+# Shape name → renderer function. Keep the strings stable; they appear
+# in URLs rendered into templates (live/poll/<shape>/<task_id>/).
+LIVE_POLL_RENDERERS = {
+    'fetch-incidents':   _render_fetch_incidents,
+    'fetch-changes':     _render_fetch_changes,
+    'incidents-list':    _render_incidents_list_body,
+    'changes-list':      _render_changes_list_body,
+    'search-results':    _render_search_results,
+    'incident-context':  _render_incident_context,
+    'change-context':    _render_change_context,
+    'bulk-review-card':  _render_bulk_review_card,
+    # 'preset-result' — registered when preset refactor lands
+}
+
+
+def _csv_to_list(s: str) -> list:
+    return [p for p in (x.strip() for x in (s or '').split(',')) if p]
+
+
+def _shape_change_from_context(payload):
+    """Adapt a change_context_task result into the shape templates expect."""
+    if not payload or not isinstance(payload, dict) or payload.get('error'):
+        return None
+    bundle = payload.get('result') or {}
+    raw = bundle.get('change')
+    if not raw:
+        return None
+    change = _adapt_live_change(raw)
+    if not change:
+        return None
+    ctasks = []
+    for ct in bundle.get('ctasks') or []:
+        adapted = _adapt_live_ctask(ct)
+        adapted['attachments'] = [_adapt_live_attachment(a) for a in (ct.get('attachments') or [])]
+        ctasks.append(adapted)
+    change['ctasks'] = ctasks
+    change['attachments'] = [_adapt_live_attachment(a) for a in (bundle.get('change_attachments') or [])]
+    return change
+
+
+def _shape_incident_from_context(payload):
+    """Adapt an incident_context_task result into the shape templates expect."""
+    if not payload or not isinstance(payload, dict) or payload.get('error'):
+        return None
+    bundle = payload.get('result') or {}
+    raw = bundle.get('incident')
+    if not raw:
+        return None
+    incident = _adapt_live_incident(raw)
+    if not incident:
+        return None
+    tasks = []
+    for tw in bundle.get('tasks') or []:
+        task_rec = tw.get('task') or {}
+        adapted = _adapt_live_incident_task(task_rec)
+        adapted['attachments'] = [_adapt_live_attachment(a) for a in (tw.get('attachments') or [])]
+        tasks.append(adapted)
+    incident['tasks'] = tasks
+    incident['attachments'] = [
+        _adapt_live_attachment(a) for a in (bundle.get('incident_attachments') or [])
+    ]
+    return incident
+
+
+def live_poll(request, shape, task_id):
+    """Generic poll endpoint.
+    - task pending → 204 (HTMX keeps the existing polling element in place)
+    - task failed  → error partial
+    - task ready   → shape-specific renderer (swaps out the polling element)
+    """
+    from celery.result import AsyncResult
+    from django.http import HttpResponse
+    if shape not in LIVE_POLL_RENDERERS:
+        return HttpResponse(f'Unknown shape: {shape}', status=404)
+
+    result = AsyncResult(task_id)
+    if not result.ready():
+        return HttpResponse(status=204)  # no-swap: existing placeholder continues polling
+    if result.failed():
+        return _render_live_error(request, 'Task failed', detail=str(result.result)[:400])
+
+    payload = result.result
+    if isinstance(payload, dict) and payload.get('error'):
+        return _render_live_error(
+            request,
+            title=str(payload.get('error', 'Error')),
+            detail=str(payload.get('detail', '')),
+            hint='Session required — check the pill up top.',
+        )
+
+    renderer = LIVE_POLL_RENDERERS[shape]
+    return renderer(request, payload, request.GET)
+
+
 def _get_change_context_live(number: str) -> dict | None:
     """Fetch a change + its ctasks (with attachments) + change attachments in ONE task.
 
@@ -2374,38 +2619,71 @@ def create_from_template_submit(request):
 def record_lookup(request):
     incident_results = []
     change_results = []
-    not_found = []
+    incident_not_found = []
+    change_not_found = []
+    unrecognised = []
     numbers_input = ''
     searched = False
+    live_incident_task_id = ''
+    live_change_task_id = ''
+    live_incident_extras = ''
+    live_change_extras = ''
 
     if request.method == 'POST':
         searched = True
         numbers_input = request.POST.get('numbers', '')
-        for num in _parse_numbers(numbers_input):
-            if num.startswith('INC'):
-                rec = _get_incident_modal(request, num)
+        parsed = _parse_numbers(numbers_input)
+        inc_numbers = [n for n in parsed if n.startswith('INC')]
+        chg_numbers = [n for n in parsed if n.startswith('CHG')]
+        unrecognised = [n for n in parsed if not (n.startswith('INC') or n.startswith('CHG'))]
+
+        if _is_live(request):
+            # Dispatch bulk tasks; the poll endpoint renders each section when ready.
+            from .tasks import incident_bulk_get_by_field_task, changes_bulk_get_by_number_task
+            if inc_numbers:
+                task = incident_bulk_get_by_field_task.delay({
+                    'field':         'number',
+                    'values':        inc_numbers,
+                    'display_value': True,
+                })
+                live_incident_task_id = task.id
+                live_incident_extras = f"numbers={','.join(inc_numbers)}"
+            if chg_numbers:
+                task = changes_bulk_get_by_number_task.delay({
+                    'numbers':       chg_numbers,
+                    'display_value': True,
+                })
+                live_change_task_id = task.id
+                live_change_extras = f"numbers={','.join(chg_numbers)}"
+        else:
+            # Demo path — synchronous lookup
+            for num in inc_numbers:
+                rec = _get_incident(num)
                 if rec:
                     incident_results.append(rec)
                 else:
-                    not_found.append(num)
-            elif num.startswith('CHG'):
-                rec = _get_change_modal(request, num)
+                    incident_not_found.append(num)
+            for num in chg_numbers:
+                rec = _get_change(num)
                 if rec:
                     change_results.append(dict(rec))
                 else:
-                    not_found.append(num)
-            else:
-                not_found.append(num)
-
-        _annotate_ctask_pct(change_results)
+                    change_not_found.append(num)
+            _annotate_ctask_pct(change_results)
 
     total_found = len(incident_results) + len(change_results)
     ctx = {
-        'incident_results': incident_results,
-        'change_results': change_results,
-        'not_found': not_found,
-        'numbers_input': numbers_input,
-        'searched': searched,
+        'incident_results':        incident_results,
+        'change_results':          change_results,
+        'incident_not_found':      incident_not_found,
+        'change_not_found':        change_not_found,
+        'unrecognised':            unrecognised,
+        'numbers_input':           numbers_input,
+        'searched':                searched,
+        'live_incident_task_id':   live_incident_task_id,
+        'live_change_task_id':     live_change_task_id,
+        'live_incident_extras':    live_incident_extras,
+        'live_change_extras':      live_change_extras,
         'total_found': total_found,
     }
     # HTMX partial swap — only for form POSTs, not hx-boost GET navigations
