@@ -315,6 +315,19 @@ def _changes_source(request):
     return [] if _is_live(request) else DEMO_CHANGES
 
 
+def _dv(val):
+    """Extract the display string from a ServiceNow field value.
+
+    Reference fields often come back as {'display_value': '...', 'link': '...'}
+    instead of a plain string depending on the instance's display_value setting.
+    Choice fields are usually plain strings but may also be dicts with
+    'display_value'. This helper normalises both shapes to a str.
+    """
+    if isinstance(val, dict):
+        return str(val.get('display_value') or val.get('value') or '')
+    return str(val) if val else ''
+
+
 def _sla_is_at_risk(sla_due_display: str) -> bool:
     """Cheap heuristic — mark SLA at-risk if the display value suggests breach.
 
@@ -351,25 +364,25 @@ def _adapt_live_incident(rec):
     """Shape a live ServiceNow incident record to the dict our templates expect."""
     if not rec:
         return None
-    state_display = str(rec.get('state', '') or '')
-    priority     = str(rec.get('priority', '') or '')
-    sla_due      = str(rec.get('sla_due', '') or '')
+    state_display = _dv(rec.get('state'))
+    priority      = _dv(rec.get('priority'))
+    sla_due       = _dv(rec.get('sla_due'))
     return {
-        'sys_id':            rec.get('sys_id', ''),
-        'number':            rec.get('number', ''),
-        'short_description': rec.get('short_description', ''),
+        'sys_id':            _dv(rec.get('sys_id')),
+        'number':            _dv(rec.get('number')),
+        'short_description': _dv(rec.get('short_description')),
         'priority':          priority,
         'priority_label':    f'P{priority}' if priority else '',
         'state':             state_display,
         'state_code':        state_display.lower().replace(' ', '_'),
-        'assignment_group':  rec.get('assignment_group', ''),
-        'assigned_to':       rec.get('assigned_to', ''),
-        'opened':            rec.get('opened_at', '') or rec.get('sys_created_on', ''),
-        'age':               rec.get('sys_updated_on', '') or '',
+        'assignment_group':  _dv(rec.get('assignment_group')),
+        'assigned_to':       _dv(rec.get('assigned_to')),
+        'opened':            _dv(rec.get('opened_at')) or _dv(rec.get('sys_created_on')),
+        'age':               _dv(rec.get('sys_updated_on')),
         'sla_due':           sla_due,
         'sla_warning':       _sla_is_at_risk(sla_due),
-        'cmdb_ci':           rec.get('cmdb_ci', ''),
-        'opened_by':         rec.get('opened_by', ''),
+        'cmdb_ci':           _dv(rec.get('cmdb_ci')),
+        'opened_by':         _dv(rec.get('opened_by')),
         # Parse work_notes inline from the record's own field (available when
         # the fetch includes it). Deeper history would need a sys_journal_field
         # query we don't currently issue.
@@ -383,20 +396,20 @@ def _adapt_live_change(rec):
     """Shape a live ServiceNow change record to the dict our templates expect."""
     if not rec:
         return None
-    state_display = str(rec.get('state', '') or '')
+    state_display = _dv(rec.get('state'))
     return {
-        'sys_id':            rec.get('sys_id', ''),
-        'number':            rec.get('number', ''),
-        'short_description': rec.get('short_description', ''),
-        'type':              rec.get('type', '') or 'Normal',
+        'sys_id':            _dv(rec.get('sys_id')),
+        'number':            _dv(rec.get('number')),
+        'short_description': _dv(rec.get('short_description')),
+        'type':              _dv(rec.get('type')) or 'Normal',
         'state':             state_display,
         'state_code':        state_display.lower().replace(' ', '_'),
-        'risk':              rec.get('risk', ''),
-        'assignment_group':  rec.get('assignment_group', ''),
-        'assigned_to':       rec.get('assigned_to', ''),
-        'scheduled':         rec.get('start_date', ''),
-        'cmdb_ci':           rec.get('cmdb_ci', ''),
-        'opened_by':         rec.get('opened_by', ''),
+        'risk':              _dv(rec.get('risk')),
+        'assignment_group':  _dv(rec.get('assignment_group')),
+        'assigned_to':       _dv(rec.get('assigned_to')),
+        'scheduled':         _dv(rec.get('start_date')),
+        'cmdb_ci':           _dv(rec.get('cmdb_ci')),
+        'opened_by':         _dv(rec.get('opened_by')),
         'ctasks':            [],          # populated by the change-context poll renderer on detail pages
         'ctask_closed':      0,
         'ctask_pct':         0,
@@ -563,28 +576,28 @@ def _parse_sn_journal(raw) -> list:
 
 def _adapt_live_ctask(rec) -> dict:
     return {
-        'sys_id':      rec.get('sys_id', ''),
-        'number':      rec.get('number', ''),
-        'description': rec.get('short_description', '') or rec.get('description', ''),
-        'state':       str(rec.get('state', '') or ''),
-        'assigned_to': rec.get('assigned_to', '') or '',
+        'sys_id':      _dv(rec.get('sys_id')),
+        'number':      _dv(rec.get('number')),
+        'description': _dv(rec.get('short_description')) or _dv(rec.get('description')),
+        'state':       _dv(rec.get('state')),
+        'assigned_to': _dv(rec.get('assigned_to')),
     }
 
 
 def _adapt_live_incident_task(rec) -> dict:
     """Child incident_task records (shown on incident detail page)."""
     return {
-        'sys_id':      rec.get('sys_id', ''),
-        'number':      rec.get('number', ''),
-        'description': rec.get('short_description', '') or '',
-        'state':       str(rec.get('state', '') or ''),
-        'assigned_to': rec.get('assigned_to', '') or '',
+        'sys_id':      _dv(rec.get('sys_id')),
+        'number':      _dv(rec.get('number')),
+        'description': _dv(rec.get('short_description')),
+        'state':       _dv(rec.get('state')),
+        'assigned_to': _dv(rec.get('assigned_to')),
     }
 
 
 def _adapt_live_attachment(rec) -> dict:
     """Translate SN sys_attachment fields to the template's attachment shape."""
-    size = rec.get('size_bytes', '') or rec.get('size', '')
+    size = _dv(rec.get('size_bytes')) or _dv(rec.get('size'))
     try:
         n = int(size)
         if n >= 1024 * 1024:
@@ -594,14 +607,14 @@ def _adapt_live_attachment(rec) -> dict:
         else:
             size_str = f'{n} B'
     except (ValueError, TypeError):
-        size_str = str(size or '')
+        size_str = size or ''
     return {
-        'sys_id':        rec.get('sys_id', ''),
-        'name':          rec.get('file_name', '') or rec.get('name', ''),
+        'sys_id':        _dv(rec.get('sys_id')),
+        'name':          _dv(rec.get('file_name')) or _dv(rec.get('name')),
         'size':          size_str,
-        'by':            rec.get('sys_created_by', '') or rec.get('by', ''),
-        'at':            rec.get('sys_created_on', '') or rec.get('at', ''),
-        'download_link': rec.get('download_link', ''),
+        'by':            _dv(rec.get('sys_created_by')) or _dv(rec.get('by')),
+        'at':            _dv(rec.get('sys_created_on')) or _dv(rec.get('at')),
+        'download_link': _dv(rec.get('download_link')),
     }
 
 
@@ -1599,8 +1612,9 @@ def _build_preset_result_context(preset_name, rendered, preset_cfg, columns, raw
     def get_field(record, field):
         # Live records use the raw SN field names directly — the FIELD_MAP
         # is only for the demo-data shape (priority_label, age, scheduled, …).
+        # _dv handles reference-field dicts that SN returns for dotted fields.
         if live:
-            return record.get(field, '—') or '—'
+            return _dv(record.get(field)) or '—'
         mapping = FIELD_MAP.get(field)
         if mapping is None:
             return record.get(field, '—') or '—'
