@@ -775,6 +775,26 @@ def _render_change_context(request, payload, extras):
     })
 
 
+def _render_change_briefing(request, payload, extras):
+    change = _shape_change_from_context(payload)
+    if not change:
+        return _render_live_error(request, 'Change not found',
+                                  'The task finished but no change record came back.')
+    closed = sum(1 for t in change['ctasks'] if t.get('state') == 'Closed Complete')
+    total = len(change['ctasks'])
+    pct = int((closed / total) * 100) if total else 0
+    prompt = _build_briefing_prompt(change, closed, total, pct)
+    return render(request, 'servicenow/partials/change_briefing_body.html', {
+        'change':       change,
+        'ctask_closed': closed,
+        'ctask_total':  total,
+        'ctask_pct':    pct,
+        'prompt':       prompt,
+        'prompt_lines': len(prompt.splitlines()),
+        'prompt_chars': len(prompt),
+    })
+
+
 def _render_bulk_review_card(request, payload, extras):
     change = _shape_change_from_context(payload)
     if not change:
@@ -809,6 +829,7 @@ LIVE_POLL_RENDERERS = {
     'search-results':    _render_search_results,
     'incident-context':  _render_incident_context,
     'change-context':    _render_change_context,
+    'change-briefing':   _render_change_briefing,
     'bulk-review-card':  _render_bulk_review_card,
     # 'preset-result' — registered when preset refactor lands
 }
@@ -1093,9 +1114,17 @@ def incidents_list(request):
 
 def incident_detail(request, number):
     if _is_live(request):
-        incident = _get_incident_context_live(number)
-    else:
-        incident = _get_incident(number)
+        from .tasks import incident_context_task
+        task = incident_context_task.delay({
+            'incident_number': number,
+            'display_value':   True,
+        })
+        # Render page with polling placeholder; live_poll will swap in the body.
+        return render(request, 'servicenow/incident_detail.html', {
+            'incident':     None,
+            'live_task_id': task.id,
+        })
+    incident = _get_incident(number)
     if not incident:
         from django.http import Http404
         raise Http404
@@ -1148,9 +1177,16 @@ def changes_list(request):
 
 def change_detail(request, number):
     if _is_live(request):
-        change = _get_change_context_live(number)
-    else:
-        change = _get_change(number)
+        from .tasks import change_context_task
+        task = change_context_task.delay({
+            'change_number': number,
+            'display_value': True,
+        })
+        return render(request, 'servicenow/change_detail.html', {
+            'change':       None,
+            'live_task_id': task.id,
+        })
+    change = _get_change(number)
     if not change:
         from django.http import Http404
         raise Http404
@@ -1240,9 +1276,16 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct):
 
 def change_briefing(request, number):
     if _is_live(request):
-        change = _get_change_context_live(number)
-    else:
-        change = _get_change(number)
+        from .tasks import change_context_task
+        task = change_context_task.delay({
+            'change_number': number,
+            'display_value': True,
+        })
+        return render(request, 'servicenow/change_briefing.html', {
+            'change':       None,
+            'live_task_id': task.id,
+        })
+    change = _get_change(number)
     if not change:
         from django.http import Http404
         raise Http404
@@ -1395,14 +1438,25 @@ def bulk_change_review_item(request):
         return HttpResponse(status=405)
 
     number = request.POST.get('number', '').strip().upper()
-    # Bulk review scores changes on CTASK completeness, so it needs the full
-    # context (ctasks + attachments) — route live mode through the bundled
-    # context task instead of three separate .apply() calls per row.
     if _is_live(request):
-        change = _get_change_context_live(number)
-    else:
-        change = _get_change(number)
+        # Async: dispatch the bundled context task, return a polling
+        # placeholder. The poll endpoint renders the full bulk-review card
+        # (including heuristic review + prompt) when the task completes.
+        from urllib.parse import urlencode
+        from .tasks import change_context_task
+        task = change_context_task.delay({
+            'change_number': number,
+            'display_value': True,
+        })
+        return render(request, 'servicenow/partials/live_loading.html', {
+            'shape':          'bulk-review-card',
+            'task_id':        task.id,
+            'extras':         urlencode({'number': number}),
+            'label':          f'Reviewing {number}…',
+            'placeholder_id': f'bulk-card-{number}',
+        })
 
+    change = _get_change(number)
     if not change:
         return render(request, 'servicenow/partials/bulk_review_card.html', {
             'not_found': True,
