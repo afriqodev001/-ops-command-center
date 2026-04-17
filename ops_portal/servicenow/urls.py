@@ -39,6 +39,9 @@ urlpatterns = [
     # ─── Live-mode async polling ────────────────
     path("live/poll/<str:shape>/<str:task_id>/", pages.live_poll, name="live-poll"),
 
+    # ─── AI-assisted creation ───────────────────
+    path("ai/suggest/",            pages.ai_suggest_fields,     name="ai-suggest"),
+
     # ─── Preferences panel ──────────────────────
     path("preferences/",           pages.preferences_modal,     name="preferences-modal"),
     path("preferences/save/",      pages.preferences_save,      name="preferences-save"),

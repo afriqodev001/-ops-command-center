@@ -80,6 +80,27 @@
     </div>
   </section>
 
+  <!-- AI config -->
+  <section>
+    <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">AI assist</p>
+    <div class="p-3 rounded-lg bg-surface-3 border border-edge">
+      <div class="flex items-center gap-2">
+        {% if user_prefs.ai_configured %}
+        <span class="w-1.5 h-1.5 rounded-full bg-ok flex-shrink-0"></span>
+        <p class="text-xs text-ink-primary">API key configured</p>
+        <span class="text-[10px] text-ink-muted font-mono ml-auto">{{ user_prefs.ai_model }}</span>
+        {% else %}
+        <span class="w-1.5 h-1.5 rounded-full bg-warn flex-shrink-0"></span>
+        <p class="text-xs text-ink-secondary">No API key set</p>
+        <span class="text-[10px] text-ink-muted ml-auto">Set <code>AI_API_KEY</code> in .env</span>
+        {% endif %}
+      </div>
+      <p class="text-[10px] text-ink-muted mt-1.5">
+        Powers the "Suggest fields with AI" button on incident + change creation forms.
+      </p>
+    </div>
+  </section>
+
   <!-- Local stores -->
   <section>
     <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Local stores</p>

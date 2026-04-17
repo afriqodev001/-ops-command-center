@@ -1,7 +1,8 @@
 <form hx-post="/servicenow/templates/submit/"
       hx-target="#create-template-result"
       hx-swap="innerHTML"
-      class="space-y-3">
+      class="space-y-3"
+      x-data="createFormAI('{{ kind|escapejs }}')">
   {% csrf_token %}
   <input type="hidden" name="template_key" value="{{ key }}">
 
@@ -15,6 +16,45 @@
       <p class="text-[10px] font-mono text-ink-muted">{{ key }} · {{ kind }}</p>
     </div>
   </div>
+
+  {% if kind != 'standard_change' %}
+  <!-- AI suggest button -->
+  <div class="flex items-center gap-3 p-3 rounded-lg border border-brand/20 bg-brand-subtle/30">
+    <button type="button" @click="suggestFields($el.closest('form'))"
+            :disabled="suggesting"
+            class="btn-primary text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-wait">
+      <template x-if="!suggesting">
+        <span class="inline-flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+          Suggest fields with AI
+        </span>
+      </template>
+      <template x-if="suggesting">
+        <span class="inline-flex items-center gap-1.5">
+          <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          Thinking…
+        </span>
+      </template>
+    </button>
+    <div class="flex-1 min-w-0">
+      <p class="text-[10px] text-ink-muted" x-show="!suggestResult">
+        Fill in the short description and/or CI first, then click to auto-fill remaining fields.
+      </p>
+      <p class="text-[10px] text-ok" x-show="suggestResult === 'success'" x-cloak>
+        ✓ <span x-text="suggestCount"></span> field(s) filled — review before submitting.
+      </p>
+      <p class="text-[10px] text-warn" x-show="suggestResult === 'empty'" x-cloak>
+        No suggestions returned. AI API key may not be configured yet.
+      </p>
+      <p class="text-[10px] text-danger" x-show="suggestResult === 'error'" x-cloak>
+        AI suggestion failed. Check the console for details.
+      </p>
+    </div>
+  </div>
+  {% endif %}
 
   {% if kind == 'standard_change' %}
   <!-- Standard changes: URL-only. No editable fields — the SN template does everything. -->
@@ -86,3 +126,67 @@
 </form>
 
 <div id="create-template-result" class="mt-4"></div>
+
+<script>
+function _defineCreateFormAI() {
+  Alpine.data('createFormAI', (kind) => ({
+    kind: kind,
+    suggesting: false,
+    suggestResult: '',   // '' | 'success' | 'empty' | 'error'
+    suggestCount: 0,
+
+    async suggestFields(form) {
+      this.suggesting = true;
+      this.suggestResult = '';
+
+      // Read current field values from the form
+      const filled = {};
+      const formData = new FormData(form);
+      for (const [k, v] of formData.entries()) {
+        if (v && k !== 'csrfmiddlewaretoken' && k !== 'template_key') {
+          filled[k] = v;
+        }
+      }
+
+      try {
+        const resp = await fetch('/servicenow/ai/suggest/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+          },
+          body: JSON.stringify({ kind: this.kind, filled }),
+        });
+        const data = await resp.json();
+        const suggestions = data.suggestions || {};
+        const keys = Object.keys(suggestions);
+
+        if (keys.length === 0) {
+          this.suggestResult = 'empty';
+        } else {
+          // Populate empty form fields with suggestions
+          let count = 0;
+          for (const [field, value] of Object.entries(suggestions)) {
+            const el = form.querySelector(`[name="${field}"]`);
+            if (el && !el.value.trim()) {
+              el.value = value;
+              // Trigger Alpine/HTMX reactivity if needed
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              count++;
+            }
+          }
+          this.suggestCount = count;
+          this.suggestResult = count > 0 ? 'success' : 'empty';
+        }
+      } catch (e) {
+        console.error('AI suggest error:', e);
+        this.suggestResult = 'error';
+      } finally {
+        this.suggesting = false;
+      }
+    },
+  }));
+}
+if (window.Alpine) _defineCreateFormAI();
+else document.addEventListener('alpine:init', _defineCreateFormAI);
+</script>

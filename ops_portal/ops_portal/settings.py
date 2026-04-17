@@ -198,6 +198,13 @@ CELERY_RESULT_EXPIRES = int(os.environ.get('CELERY_RESULT_EXPIRES', 3600))
 
 
 # =========================
+# AI-assisted creation
+# =========================
+AI_API_KEY = os.environ.get('AI_API_KEY', '')
+AI_MODEL = os.environ.get('AI_MODEL', 'claude-sonnet-4-20250514')
+
+
+# =========================
 # ServiceNow
 # =========================
 SERVICENOW_BASE = os.environ.get(

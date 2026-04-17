@@ -2850,6 +2850,49 @@ def create_from_template_submit(request):
     }, status=200)
 
 
+# ─────────────────────────────────────────────────────────────
+# AI-assisted field suggestion
+# ─────────────────────────────────────────────────────────────
+
+def ai_suggest_fields(request):
+    """POST (JSON): accept kind + filled fields, return AI suggestions.
+
+    Request body:  {"kind": "incident", "filled": {"short_description": "...", "cmdb_ci": "..."}}
+    Response:      {"suggestions": {"category": "...", "assignment_group": "..."}, "ai_available": false}
+    """
+    from django.http import JsonResponse, HttpResponse
+    import json as _json
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    try:
+        body = _json.loads(request.body or '{}')
+    except _json.JSONDecodeError:
+        return JsonResponse({'error': 'invalid_json'}, status=400)
+
+    kind = (body.get('kind') or '').strip()
+    filled = body.get('filled') or {}
+    if not kind:
+        return JsonResponse({'error': 'kind is required'}, status=400)
+
+    from .services.ai_assist import suggest_fields
+    from django.conf import settings as dj_settings
+
+    suggestions = suggest_fields(kind, filled)
+    ai_key = getattr(dj_settings, 'AI_API_KEY', '') or ''
+
+    _push_activity(request,
+                   type='ai_suggest',
+                   title=f'AI suggest for {kind.replace("_", " ")}',
+                   detail=f'{len(suggestions)} field(s) suggested',
+                   severity='info')
+
+    return JsonResponse({
+        'suggestions':  suggestions,
+        'ai_available': bool(ai_key),
+    })
+
+
 def record_lookup(request):
     incident_results = []
     change_results = []
