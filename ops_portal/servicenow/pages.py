@@ -1083,60 +1083,17 @@ def _default_group_filter(request) -> str:
 
 
 def incidents_list(request):
-    priority_filter = request.GET.get('priority', '')
-    state_filter = request.GET.get('state', '')
-    search = request.GET.get('q', '').lower()
-    days = request.GET.get('days', DEFAULT_DAYS)
-    # Group filter: from GET param (allows clear) or default from preferences.
-    # Explicitly passing ?group= (empty) clears the default for this request.
-    if 'group' in request.GET:
-        group_filter = request.GET.get('group', '').strip()
-    else:
-        group_filter = _default_group_filter(request)
-
-    live_task_id = ''
-    if _is_live(request):
-        from django.conf import settings as dj_settings
-        from .tasks import table_list_task
-        table = getattr(dj_settings, 'SERVICENOW_INCIDENT_TABLE', 'incident')
-        query = _build_incident_list_query(priority_filter, state_filter, search, days,
-                                            group_parent=group_filter)
-        task = table_list_task.delay({
-            'table':         table,
-            'query':         query,
-            'fields':        _INCIDENT_LIST_FIELDS,
-            'limit':         DEFAULT_LIST_LIMIT + 1,
-            'display_value': True,
-        })
-        live_task_id = task.id
-        incidents, matched = [], 0
-    else:
-        incidents = _filter_by_days(_incidents_source(request), '_opened_dt', days)
-        if priority_filter:
-            incidents = [i for i in incidents if i['priority'] == priority_filter]
-        if state_filter:
-            incidents = [i for i in incidents if i['state_code'] == state_filter]
-        if search:
-            incidents = [i for i in incidents if search in i['short_description'].lower() or search in i['number'].lower()]
-        if group_filter:
-            incidents = [i for i in incidents
-                         if group_filter.lower() in (i.get('assignment_group') or '').lower()]
-        matched = len(incidents)
-        incidents = incidents[:DEFAULT_LIST_LIMIT]
-
+    from .services.activity import list_all
+    recent = [e for e in list_all(request.session)
+              if 'incident' in (e.get('type') or '').lower()
+              or 'INC' in (e.get('title') or '').upper()][:8]
+    from .services.query_presets import get_all_presets
+    incident_presets = {k: v for k, v in get_all_presets().items()
+                        if v.get('domain') == 'incident'}
     return render(request, 'servicenow/incidents.html', {
-        'incidents':       incidents,
-        'priority_filter': priority_filter,
-        'state_filter':    state_filter,
-        'search':          search,
-        'days':            days,
-        'group_filter':    group_filter,
-        'time_ranges':     TIME_RANGES,
-        'limit':           DEFAULT_LIST_LIMIT,
-        'total':           len(incidents),
-        'matched':         matched,
-        'truncated':       matched > DEFAULT_LIST_LIMIT,
-        'live_task_id':    live_task_id,
+        'recent_activity': recent,
+        'preset_count':    len(incident_presets),
+        'group_filter':    _default_group_filter(request),
     })
 
 
@@ -1160,55 +1117,17 @@ def incident_detail(request, number):
 
 
 def changes_list(request):
-    state_filter = request.GET.get('state', '')
-    search = request.GET.get('q', '').lower()
-    days = request.GET.get('days', DEFAULT_DAYS)
-    if 'group' in request.GET:
-        group_filter = request.GET.get('group', '').strip()
-    else:
-        group_filter = _default_group_filter(request)
-
-    live_task_id = ''
-    if _is_live(request):
-        from django.conf import settings as dj_settings
-        from .tasks import table_list_task
-        table = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
-        query = _build_change_list_query(state_filter, search, days,
-                                          group_parent=group_filter)
-        task = table_list_task.delay({
-            'table':         table,
-            'query':         query,
-            'fields':        _CHANGE_LIST_FIELDS,
-            'limit':         DEFAULT_LIST_LIMIT + 1,
-            'display_value': True,
-        })
-        live_task_id = task.id
-        changes, matched = [], 0
-    else:
-        changes = _filter_by_days(_changes_source(request), '_scheduled_dt', days)
-        if state_filter:
-            changes = [c for c in changes if c['state_code'] == state_filter]
-        if search:
-            changes = [c for c in changes if search in c['short_description'].lower() or search in c['number'].lower()]
-        if group_filter:
-            changes = [c for c in changes
-                       if group_filter.lower() in (c.get('assignment_group') or '').lower()]
-        matched = len(changes)
-        changes = changes[:DEFAULT_LIST_LIMIT]
-    changes = _annotate_ctask_pct(list(changes))
-
+    from .services.activity import list_all
+    recent = [e for e in list_all(request.session)
+              if 'change' in (e.get('type') or '').lower()
+              or 'CHG' in (e.get('title') or '').upper()][:8]
+    from .services.query_presets import get_all_presets
+    change_presets = {k: v for k, v in get_all_presets().items()
+                      if v.get('domain') == 'change'}
     return render(request, 'servicenow/changes.html', {
-        'changes':      changes,
-        'state_filter': state_filter,
-        'search':       search,
-        'days':         days,
-        'group_filter': group_filter,
-        'time_ranges':  TIME_RANGES,
-        'limit':        DEFAULT_LIST_LIMIT,
-        'total':        len(changes),
-        'matched':      matched,
-        'truncated':    matched > DEFAULT_LIST_LIMIT,
-        'live_task_id': live_task_id,
+        'recent_activity': recent,
+        'preset_count':    len(change_presets),
+        'group_filter':    _default_group_filter(request),
     })
 
 

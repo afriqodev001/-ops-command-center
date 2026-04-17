@@ -1,79 +1,156 @@
 {% extends "base.html" %}
 
 {% block page_title %}Changes{% endblock %}
-{% block page_subtitle %}ServiceNow · {{ total }} record{{ total|pluralize }}{% endblock %}
-
-{% block header_actions %}
-  <a href="/servicenow/changes/bulk-review/" class="btn-ghost">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-3 7l2 2 4-4"/>
-    </svg>
-    Bulk Review
-  </a>
-  <button class="btn-primary" @click="$dispatch('open-from-template', { kind: 'change' })">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-    </svg>
-    New Change
-  </button>
-{% endblock %}
+{% block page_subtitle %}Create, review, and manage change records{% endblock %}
 
 {% block content %}
-<div class="space-y-4 animate-fade-in">
-
-  <!-- State tabs + search -->
-  <div class="glass-card px-4 py-3 flex flex-wrap items-center gap-3">
-    {% with gp=group_filter %}
-    <div class="flex gap-1 p-1 bg-surface-4 rounded-lg">
-      <a href="/servicenow/changes/?days={{ days }}{% if gp %}&group={{ gp }}{% endif %}"                     class="{% if not state_filter %}tab-active{% else %}tab-inactive{% endif %}">All</a>
-      <a href="/servicenow/changes/?state=scheduled&days={{ days }}{% if gp %}&group={{ gp }}{% endif %}"     class="{% if state_filter == 'scheduled' %}tab-active{% else %}tab-inactive{% endif %}">Scheduled</a>
-      <a href="/servicenow/changes/?state=implement&days={{ days }}{% if gp %}&group={{ gp }}{% endif %}"     class="{% if state_filter == 'implement' %}tab-active{% else %}tab-inactive{% endif %}">Implementing</a>
-      <a href="/servicenow/changes/?state=review&days={{ days }}{% if gp %}&group={{ gp }}{% endif %}"        class="{% if state_filter == 'review' %}tab-active{% else %}tab-inactive{% endif %}">Review</a>
-      <a href="/servicenow/changes/?state=approved&days={{ days }}{% if gp %}&group={{ gp }}{% endif %}"      class="{% if state_filter == 'approved' %}tab-active{% else %}tab-inactive{% endif %}">Approved</a>
-    </div>
-    {% endwith %}
-
-    <form method="get" class="flex items-center gap-2 ml-auto">
-      {% if state_filter %}<input type="hidden" name="state" value="{{ state_filter }}" />{% endif %}
-      {% if group_filter %}<input type="hidden" name="group" value="{{ group_filter }}" />{% endif %}
-      <select name="days" class="select-dark" title="Time range — filters by scheduled start date">
-        {% for val, label in time_ranges %}
-        <option value="{{ val }}" {% if days == val %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-      <div class="relative">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-        </svg>
-        <input type="text" name="q" value="{{ search }}" placeholder="Search changes…" class="input-dark pl-9 w-56" />
-      </div>
-      <button type="submit" class="btn-ghost">Apply</button>
-    </form>
-  </div>
+<div class="space-y-6 animate-fade-in">
 
   {% if group_filter %}
-  <div class="flex items-center gap-2 text-[11px] px-1">
+  <div class="flex items-center gap-2 text-[11px]">
     <span class="px-2 py-1 rounded bg-brand-subtle text-brand-light border border-brand/20 font-medium inline-flex items-center gap-1.5">
       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
       </svg>
-      Group: {{ group_filter }}
-      <a href="/servicenow/changes/?group=&days={{ days }}{% if state_filter %}&state={{ state_filter }}{% endif %}"
-         title="Remove group filter"
-         class="ml-0.5 hover:text-white transition-colors">&times;</a>
+      {{ group_filter }}
     </span>
-    <span class="text-ink-muted">from Preferences — <a href="/servicenow/changes/?group=" class="text-brand-light hover:text-brand">clear</a></span>
+    <span class="text-ink-muted">default group scope from Preferences</span>
   </div>
   {% endif %}
 
-  {% if live_task_id %}
-  {% include 'servicenow/partials/live_loading.html' with shape='changes-list' task_id=live_task_id label='Fetching changes from ServiceNow…' placeholder_id='changes-live-placeholder' extras='' %}
-  {% else %}
-  {% include 'servicenow/partials/changes_list_body.html' %}
-  {% endif %}
-</div>
-{% endblock %}
+  <!-- ═ ACTION CARDS ════════════════════════════════════════════ -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
-{% block modals %}
-  {% include "servicenow/partials/create_change_modal.html" %}
+    <!-- Create new change -->
+    <button type="button"
+            @click="$dispatch('open-from-template', { kind: 'change' })"
+            class="glass-card p-5 text-left hover:border-brand/30 hover:bg-white/[.03] transition-all group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-brand-subtle border border-brand/20 flex items-center justify-center flex-shrink-0 group-hover:bg-brand/20 transition-colors">
+          <svg class="w-5 h-5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-ink-primary">New Change</p>
+          <p class="text-xs text-ink-muted mt-0.5">Normal, Emergency, or Standard — AI-assisted</p>
+        </div>
+      </div>
+    </button>
+
+    <!-- Bulk create -->
+    <a href="/servicenow/changes/bulk-create/"
+       class="glass-card p-5 text-left hover:border-brand/30 hover:bg-white/[.03] transition-all group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-surface-4 border border-edge flex items-center justify-center flex-shrink-0 group-hover:bg-surface-5 transition-colors">
+          <svg class="w-5 h-5 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M17 8l-5-5m0 0L7 8m5-5v12"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-ink-primary">Bulk Create</p>
+          <p class="text-xs text-ink-muted mt-0.5">Paste or CSV-upload multiple changes at once</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Bulk review -->
+    <a href="/servicenow/changes/bulk-review/"
+       class="glass-card p-5 text-left hover:border-brand/30 hover:bg-white/[.03] transition-all group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-surface-4 border border-edge flex items-center justify-center flex-shrink-0 group-hover:bg-surface-5 transition-colors">
+          <svg class="w-5 h-5 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2m-3 7l2 2 4-4"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-ink-primary">Bulk Review</p>
+          <p class="text-xs text-ink-muted mt-0.5">Pre-approve many CHGs for CAB in one pass</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Fetch by number -->
+    <a href="/servicenow/lookup/"
+       class="glass-card p-5 text-left hover:border-brand/30 hover:bg-white/[.03] transition-all group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-surface-4 border border-edge flex items-center justify-center flex-shrink-0 group-hover:bg-surface-5 transition-colors">
+          <svg class="w-5 h-5 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-ink-primary">Fetch by Number</p>
+          <p class="text-xs text-ink-muted mt-0.5">Paste CHG numbers to get full details</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Search records -->
+    <a href="/servicenow/search/?domain=change"
+       class="glass-card p-5 text-left hover:border-brand/30 hover:bg-white/[.03] transition-all group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-surface-4 border border-edge flex items-center justify-center flex-shrink-0 group-hover:bg-surface-5 transition-colors">
+          <svg class="w-5 h-5 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m-1.5 5l2.5-2.5m0 0a3.5 3.5 0 10-5-5 3.5 3.5 0 005 5z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-ink-primary">Search</p>
+          <p class="text-xs text-ink-muted mt-0.5">Find changes by CI, requester, or group</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Run presets -->
+    <a href="/servicenow/presets/"
+       class="glass-card p-5 text-left hover:border-brand/30 hover:bg-white/[.03] transition-all group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-surface-4 border border-edge flex items-center justify-center flex-shrink-0 group-hover:bg-surface-5 transition-colors">
+          <svg class="w-5 h-5 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-ink-primary">Run Preset</p>
+          <p class="text-xs text-ink-muted mt-0.5">{{ preset_count }} saved change quer{{ preset_count|pluralize:"y,ies" }}</p>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- ═ RECENT ACTIVITY ════════════════════════════════════════ -->
+  <div class="glass-card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-ink-primary">Recent change activity</h2>
+      <button onclick="document.getElementById('activity-modal').showModal(); htmx.ajax('GET','/servicenow/activity/',{target:'#activity-modal-body',swap:'innerHTML'})"
+              class="text-[10px] text-brand-light hover:text-brand transition-colors">View all →</button>
+    </div>
+    {% if recent_activity %}
+    <ul class="space-y-1.5">
+      {% for e in recent_activity %}
+      <li class="flex items-start gap-2.5 p-2 rounded-lg bg-surface-3/50">
+        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5
+          {% if e.severity == 'success' %}bg-ok
+          {% elif e.severity == 'warning' %}bg-warn
+          {% elif e.severity == 'danger' %}bg-danger
+          {% else %}bg-info{% endif %}"></span>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs text-ink-primary truncate">{{ e.title }}</p>
+          {% if e.detail %}<p class="text-[10px] text-ink-muted truncate">{{ e.detail }}</p>{% endif %}
+        </div>
+        <span class="text-[10px] text-ink-muted flex-shrink-0 font-mono">{{ e.at|slice:"11:16" }}</span>
+        {% if e.link %}
+        <a href="{{ e.link }}" class="text-[10px] text-brand-light hover:text-brand flex-shrink-0">open</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-xs text-ink-muted text-center py-4">No recent change activity. Created records, bulk operations, and reviews will appear here.</p>
+    {% endif %}
+  </div>
+
+</div>
 {% endblock %}
