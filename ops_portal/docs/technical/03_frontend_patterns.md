@@ -174,7 +174,31 @@ HTMX performs a full-page navigation to the given URL.
 
 ## Polling for Celery task results
 
-Standard pattern used across bulk-create and create-from-template:
+### Server-side polling (live-mode read pages)
+
+Every read page in live mode dispatches a Celery task via `.delay()` and renders a placeholder div. The placeholder polls a generic endpoint; the endpoint routes the result to a shape-specific renderer that returns the final partial.
+
+```html
+<!-- Placeholder — included by the page template when live_task_id is set -->
+<div hx-get="/servicenow/live/poll/{{ shape }}/{{ task_id }}/"
+     hx-trigger="load delay:400ms, every 2s"
+     hx-swap="outerHTML"
+     class="glass-card p-10 text-center">
+  <div class="spinner…"></div>
+  Fetching from ServiceNow…
+</div>
+```
+
+The poll endpoint (`live_poll` in `pages.py`):
+- **Task pending** → `204 No Content` (HTMX keeps the existing element in place, polling continues)
+- **Task succeeded** → shape renderer returns the final partial (HTMX swaps it in via `outerHTML`, polling stops because the new element has no `hx-trigger`)
+- **Task failed** → error partial with a terminal message
+
+Shape registry (`LIVE_POLL_RENDERERS` dict in `pages.py`) maps shape names to renderer functions. Current shapes: `fetch-incidents`, `fetch-changes`, `incidents-list`, `changes-list`, `search-results`, `incident-context`, `change-context`, `change-briefing`, `bulk-review-card`, `preset-result`, `dashboard-recent-incidents`, `dashboard-today-changes`.
+
+### Client-side polling (write operations)
+
+Used by bulk-create and create-from-template flows where the client manages the polling in JS:
 
 ```javascript
 async _pollTask(item) {

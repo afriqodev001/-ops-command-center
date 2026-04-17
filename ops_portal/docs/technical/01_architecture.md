@@ -74,7 +74,24 @@ Browser ── hx-post ──▶ URL route
                     <div> fragment swapped into hx-target
 ```
 
-### 3. Async write (JSON API)
+### 3. Async read (live-mode pages)
+```
+Browser ── GET /incidents/ ──▶ pages.py view (live mode)
+                                    ▼
+                              task.delay(query)
+                                    ▼
+                              render page with placeholder div
+                              (hx-get="/live/poll/<shape>/<task_id>/")
+                                    ▼
+Placeholder polls every 2s ──▶ live_poll endpoint
+                                    │ task not ready? → 204 (keep polling)
+                                    │ task ready?     → shape renderer → HTML partial
+                                    ▼
+                              HTMX swaps partial into placeholder (outerHTML)
+                              → polling stops (new element has no hx-trigger)
+```
+
+### 4. Async write (JSON API)
 ```
 Browser ── fetch POST ──▶ views.py view
                               ▼
@@ -129,7 +146,7 @@ Go to the Table API via Celery tasks (`changes_create_task`, `incidents_create_t
 | --------------------------------------------- | --- |
 | HTMX + Alpine over SPA                        | Keeps server as source of truth; avoids duplicating domain logic in JS. Alpine provides enough local reactivity for modals, toggles, and form state. |
 | File-backed JSON (not DB) for user content    | Presets and templates are few-to-dozens, rarely written. File storage is diffable, exportable, trivially auditable. |
-| Celery for write operations                   | Table API calls can be slow or stall on auth — returning a task id lets the UI show progress without blocking. |
+| Celery for all ServiceNow operations           | Table API calls can be slow or stall on auth — returning a task id lets the UI show progress without blocking. Live-mode reads also dispatch via Celery so the page renders instantly with a polling spinner. |
 | Split `pages.py` / `views.py`                 | Keeps HTML-returning and JSON-returning handlers from tangling their response conventions. |
 | `Alpine.data('name', factory)` registration   | Survives `hx-boost` re-navigation cleanly; plain `function presetsPage()` inline definitions race with Alpine's MutationObserver. |
 | `json_script` over raw `{{ json_dump }}`      | Prevents Django auto-escape from corrupting JSON inside `<script>` tags (raw-text elements don't decode entities). |

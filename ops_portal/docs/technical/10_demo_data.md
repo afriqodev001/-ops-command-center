@@ -156,18 +156,13 @@ def data_mode_toggle(request):
 
 Route: `POST /servicenow/mode/toggle/`. The chip in `base.html`'s header is a single-button HTMX form with `hx-swap="none"` — the server's `HX-Refresh: true` response header does a full reload.
 
-### Single-point swap for future live wiring
+### Live mode is fully async
 
-When you're ready to wire live reads, you edit *only* the helper bodies:
+Live-mode views no longer call through the `_incidents_source` / `_changes_source` helpers at all. Instead, each view dispatches its own Celery task via `.delay()`, renders a placeholder div that polls `/servicenow/live/poll/<shape>/<task_id>/`, and the poll endpoint's shape renderer adapts the task result into the same partial the demo path uses.
 
-```python
-def _incidents_source(request):
-    if _is_live(request):
-        return fetch_live_incidents(request)   # new: sync Table API call
-    return DEMO_INCIDENTS
-```
+The `_incidents_source` / `_changes_source` / `_get_incident` / `_get_change` helpers are now demo-only — they exist inside `else:` branches that only run when `_is_live(request)` is `False`.
 
-No view changes needed — every read view already calls through these helpers and threads `request` to them. The banner disappears automatically the first time live reads start returning records (but you may want to also remove or re-purpose it once live is legitimately functional).
+The live-mode banner in `base.html` confirms the user is on real data and reminds them the session pill must be green.
 
 ## Who reads the demo data
 

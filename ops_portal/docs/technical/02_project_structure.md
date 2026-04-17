@@ -61,11 +61,13 @@ ops-command-center/
 | Celery task            | `tasks.py`   | `<feature>_<action>_task`            |
 
 ### Template names
-| Kind                  | Location                              |
-| --------------------- | ------------------------------------- |
-| Full page             | `templates/servicenow/<feature>.html` |
-| HTMX swap partial     | `templates/servicenow/partials/<name>.html` |
-| Result/status partial | `templates/servicenow/partials/<feature>_result.html` or similar |
+| Kind                     | Location                              |
+| ------------------------ | ------------------------------------- |
+| Full page                | `templates/servicenow/<feature>.html` |
+| HTMX swap partial        | `templates/servicenow/partials/<name>.html` |
+| Result/status partial    | `templates/servicenow/partials/<feature>_result.html` or similar |
+| Extracted detail body    | `templates/servicenow/partials/<page>_body.html` — the content block split out so the live-poll renderer can return the same markup the parent template includes in demo mode |
+| Live-poll infrastructure | `templates/servicenow/partials/live_loading.html` (spinner placeholder), `live_error.html` (terminal error state) |
 
 ### Django blocks (defined in `base.html`)
 | Block                | Purpose |

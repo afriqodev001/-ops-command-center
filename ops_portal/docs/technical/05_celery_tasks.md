@@ -6,6 +6,7 @@ All ServiceNow write operations and any operation that might block (attachments,
 - Table API calls go through a browser session that may need to re-auth (seconds to tens of seconds).
 - A blocked HTTP handler is a frozen UI.
 - We want per-row progress in bulk flows.
+- In live mode, **every read page** also dispatches tasks via `.delay()` — the view renders a loading placeholder instantly and polls via HTMX until the task completes. This keeps pages responsive even on slow instances.
 
 ## Task catalog
 
@@ -115,7 +116,22 @@ const data  = await resp.json();
 // data = { task_id, state, ready, result?: {...}, error?: "..." }
 ```
 
-### From a page view (HTMX flow)
+### From a page view — live-mode read (HTMX live_poll flow)
+
+```python
+# pages.py — e.g. incidents_list (live branch)
+from .tasks import table_list_task
+
+task = table_list_task.delay({...query...})
+return render(request, 'servicenow/incidents.html', {
+    'live_task_id': task.id,
+    ...filters for the form...
+})
+```
+
+The template renders a `live_loading.html` placeholder div; HTMX polls `/servicenow/live/poll/incidents-list/<task_id>/` every 2s. The endpoint returns `204` while pending, the rendered rows partial on success, or an error partial on failure.
+
+### From a page view — write (Alpine polling)
 
 ```python
 # pages.py — e.g. create_from_template_submit

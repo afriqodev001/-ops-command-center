@@ -184,6 +184,17 @@ Two entries:
 
 Update both index files (`index.md`) to link to new entries.
 
+### Adding a live-mode read surface
+
+Every new read page needs a live branch. The pattern:
+
+1. **Extract the body partial** — move the content block's data-rendering markup into `partials/<feature>_body.html`. The parent template includes it (demo) or shows a placeholder (live).
+2. **Dispatch the task** — in the view, `if _is_live(request): task = table_list_task.delay({...}); render page with live_task_id`.
+3. **Register a shape renderer** — add a function to `LIVE_POLL_RENDERERS` in `pages.py` that adapts the task payload and renders the body partial.
+4. **Template conditional** — `{% if live_task_id %}{% include 'live_loading.html' with shape='...' %}{% else %}{% include 'partials/..._body.html' %}{% endif %}`.
+
+The generic `live_poll` endpoint handles everything else (pending → 204, failure → error partial, success → your renderer).
+
 ## Common traps
 
 ### Forgetting URL order

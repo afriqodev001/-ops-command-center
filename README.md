@@ -2,7 +2,7 @@
 
 A Django-based operations portal for ServiceNow-backed workflows: browse incidents and changes, run saved queries, create records in bulk from CSV, launch standard changes from saved URL templates, and review CABs.
 
-Designed as a thin, fast UI over a Selenium-driven ServiceNow session — write paths (create / patch) hit the real Table API via Celery tasks; read paths currently show seeded demo data (togglable to Live from the top bar).
+Designed as a thin, fast UI over a Selenium-driven ServiceNow session. Both read and write paths go through Celery tasks that hit the real Table API; read pages dispatch asynchronously and poll for results so the UI never blocks. A Demo / Live mode toggle in the header switches between seeded demo data and live ServiceNow — the Celery worker must be running for Live mode.
 
 ## Stack
 
@@ -10,7 +10,7 @@ Designed as a thin, fast UI over a Selenium-driven ServiceNow session — write 
 - **HTMX 2** — partial swaps, no SPA
 - **Alpine.js 3** — local reactive state in modals and forms
 - **Tailwind CSS** — via CDN, custom utility classes in `base.html`
-- **Celery** — filesystem broker, async write tasks against ServiceNow
+- **Celery** — filesystem broker, async read + write tasks against ServiceNow
 - **Selenium** (headed Edge) — authenticated ServiceNow session via user profile
 
 ## Features
@@ -62,7 +62,7 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-Open http://localhost:8000/ in your browser. The app starts in **Demo mode** with seeded records — click the "Mode" chip in the header to switch to Live when you wire real ServiceNow reads.
+Open http://localhost:8000/ in your browser. The app starts in **Demo mode** with seeded records — click the "Mode" chip in the header to switch to Live. In Live mode, every read page dispatches a Celery task and shows a loading spinner until ServiceNow responds; the Celery worker must be running for results to arrive.
 
 ### Running Celery (for create/patch operations)
 

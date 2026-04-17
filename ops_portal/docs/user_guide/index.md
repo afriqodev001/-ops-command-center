@@ -23,9 +23,11 @@ Quick reference for every page in the Ops Command Center. Each guide covers what
   dot) or **Live** (green dot). Click to flip between them:
   - **Demo** — every read page renders the built-in seeded dataset. Safe for
     exploring, training, and screenshots. This is the default.
-  - **Live** — read pages clear out and wait for real ServiceNow API wiring
-    (a banner at the top of the page explains this while you're in Live mode).
-    Write actions (bulk create, create-from-template) already call the real
+  - **Live** — read pages dispatch a Celery task and show a loading spinner
+    until ServiceNow responds. Each panel/table/card polls independently,
+    so data fills in progressively without blocking the UI. Requires the
+    Celery worker to be running (`celery -A ops_portal worker -P solo -l info`).
+    Write actions (bulk create, create-from-template) also call the real
     API whenever a session is connected, regardless of the mode chip.
 - **HTMX swaps** — most actions update part of the page without a full reload.
   A small purple bar at the top flashes while a request is in flight.

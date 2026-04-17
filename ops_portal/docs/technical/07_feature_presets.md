@@ -142,26 +142,33 @@ Paste accepts both flat (`{name, description, ...}`) and wrapped (`{"preset_name
 
 ## Running a preset (end-to-end)
 
+### Demo mode
 ```
-User selects preset in sidebar  →  selectedPreset state updates
-                                ↓
-Required params inputs appear (if any)
-                                ↓
-User clicks "Run preset"        →  form @submit="injectParams($event)"
-                                ↓
-injectParams() creates hidden <input> for each paramValues entry
-                                ↓
-HTMX hx-post="/presets/run/ui/" submits the form
-                                ↓
+User selects preset  →  clicks "Run preset"  →  HTMX POST to /presets/run/ui/
+    ↓
 preset_run_ui validates + calls _run_preset_for_display
-                                ↓
-Currently: filters DEMO_INCIDENTS / DEMO_CHANGES in Python
-Future:    dispatch presets_run_task → poll → swap result
-                                ↓
-Response = preset_result.html partial
-                                ↓
-HTMX swaps into #preset-results
+    ↓
+Filters DEMO_INCIDENTS / DEMO_CHANGES in Python
+    ↓
+Response = preset_result.html partial → HTMX swaps into #preset-results
 ```
+
+### Live mode
+```
+User clicks "Run preset"  →  HTMX POST to /presets/run/ui/
+    ↓
+preset_run_ui dispatches presets_run_task.delay({preset, params})
+    ↓
+Returns live_loading.html placeholder with shape='preset-result'
+    ↓
+Placeholder polls /live/poll/preset-result/<task_id>/ every 2s
+    ↓
+Poll endpoint → 204 while pending → rendered preset_result.html on success
+    ↓
+HTMX swaps final table into #preset-results
+```
+
+The initial page load in live mode skips pre-rendering the default preset (the result area is empty until the user clicks Run).
 
 ## Gotchas
 

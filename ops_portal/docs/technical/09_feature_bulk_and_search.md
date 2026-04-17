@@ -196,12 +196,11 @@ A parallel, lightweight feature that stores named shortcuts for filter values �
 ### Demo-data dependency
 The `cmdb_ci`, `opened_by`, `_opened_dt`, `_scheduled_dt` fields on demo records are populated via the enrichment blocks after the demo-data declarations (see [Demo Data](10_demo_data.md)).
 
-### Live-API migration path
-Swap `_filter_records(DEMO_*, ...)` for `table_bulk_get_by_field_task.delay(...)` or `table_list_task.delay(...)` with an encoded query that combines attribute filters with time range:
+### Live mode — fully async
 
-```
-cmdb_ci.nameLIKE{ci}^assignment_group.nameLIKE{group}^opened_by.nameLIKE{user}^opened_at>=javascript:gs.daysAgoStart({days})
-```
+In live mode, `search_records` dispatches `table_list_task.delay()` with a query built by `_build_incident_search_query` or `_build_change_search_query`. The view returns a `live_loading.html` placeholder that polls `/servicenow/live/poll/search-results/<task_id>/`. Filter state is encoded into the poll URL's query string so the renderer can echo filter chips correctly.
+
+`record_lookup` (Fetch by Number) dispatches at most two bulk tasks (`incident_bulk_get_by_field_task`, `changes_bulk_get_by_number_task`) — one for INC numbers, one for CHG numbers. Each section has its own polling placeholder.
 
 ## Fetch by Number
 
