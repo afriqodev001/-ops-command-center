@@ -22,26 +22,30 @@
           <span class="badge bg-danger/15 text-danger border border-danger/20">{{ change.risk }} Risk</span>
           {% elif change.risk == "Moderate" %}
           <span class="badge badge-warn">{{ change.risk }} Risk</span>
-          {% else %}
+          {% elif change.risk %}
           <span class="badge badge-muted">{{ change.risk }} Risk</span>
           {% endif %}
         </div>
 
         <h1 class="text-lg font-semibold text-ink-primary leading-snug">{{ change.short_description }}</h1>
 
+        {% if change.description %}
+        <p class="text-sm text-ink-secondary leading-relaxed mt-2">{{ change.description }}</p>
+        {% endif %}
+
         <!-- Meta grid -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3 mt-4">
-          <div>
-            <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-0.5">Scheduled</p>
-            <p class="text-xs text-ink-secondary">{{ change.scheduled }}</p>
-          </div>
           <div>
             <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-0.5">Group</p>
             <p class="text-xs text-ink-secondary">{{ change.assignment_group }}</p>
           </div>
           <div>
-            <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-0.5">Assignee</p>
-            <p class="text-xs text-ink-secondary">{{ change.assigned_to|default:"Unassigned" }}</p>
+            <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-0.5">Planned start</p>
+            <p class="text-xs text-ink-secondary">{{ change.start_date|default:change.scheduled|default:'—' }}</p>
+          </div>
+          <div>
+            <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-0.5">Planned end</p>
+            <p class="text-xs text-ink-secondary">{{ change.end_date|default:'—' }}</p>
           </div>
           <div>
             <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-0.5">CTASKs</p>
@@ -69,8 +73,7 @@
       <!-- Right: actions -->
       <div class="flex flex-wrap gap-2 flex-shrink-0">
         {% if change.state_code == "implement" %}
-        <button class="btn-primary"
-                @click="tab = 'ctasks'">
+        <button class="btn-primary" @click="tab = 'ctasks'">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
           </svg>
@@ -78,7 +81,7 @@
         </button>
         {% endif %}
         <button class="btn-ghost"
-                @click="tab = 'notes'; $nextTick(() => document.getElementById('new-note').focus())">
+                @click="tab = 'notes'; $nextTick(() => document.getElementById('new-note')?.focus())">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
           </svg>
@@ -98,8 +101,47 @@
     </div>
   </div>
 
+  <!-- ── Planning section ── -->
+  {% if change.justification or change.implementation_plan or change.backout_plan or change.test_plan or change.outage %}
+  <div class="glass-card p-5">
+    <h2 class="text-sm font-semibold text-ink-primary mb-4">Planning</h2>
+    <div class="space-y-4">
+      {% if change.justification %}
+      <div>
+        <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-1">Justification</p>
+        <p class="text-sm text-ink-secondary leading-relaxed whitespace-pre-line">{{ change.justification }}</p>
+      </div>
+      {% endif %}
+      {% if change.outage %}
+      <div>
+        <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-1">Outage</p>
+        <p class="text-sm text-ink-secondary leading-relaxed whitespace-pre-line">{{ change.outage }}</p>
+      </div>
+      {% endif %}
+      {% if change.implementation_plan %}
+      <div>
+        <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-1">Implementation plan</p>
+        <p class="text-sm text-ink-secondary leading-relaxed whitespace-pre-line">{{ change.implementation_plan }}</p>
+      </div>
+      {% endif %}
+      {% if change.backout_plan %}
+      <div>
+        <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-1">Backout plan</p>
+        <p class="text-sm text-ink-secondary leading-relaxed whitespace-pre-line">{{ change.backout_plan }}</p>
+      </div>
+      {% endif %}
+      {% if change.test_plan %}
+      <div>
+        <p class="text-[11px] text-ink-muted uppercase tracking-wider font-semibold mb-1">Test plan</p>
+        <p class="text-sm text-ink-secondary leading-relaxed whitespace-pre-line">{{ change.test_plan }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ── Tabs + content ── -->
-  <div class="glass-card overflow-hidden">
+  <div class="glass-card overflow-visible">
 
     <!-- Tab nav -->
     <div class="flex gap-1 p-3 border-b border-edge">
@@ -140,50 +182,88 @@
       {% endif %}
     </div>
 
-    <!-- CTASKs tab -->
+    <!-- CTASKs tab — expandable rows -->
     {% if change.ctasks %}
     <div x-show="tab === 'ctasks'" class="divide-y divide-edge-subtle">
       {% for task in change.ctasks %}
-      <div class="flex items-center gap-3 px-5 py-3.5">
-        <!-- State indicator -->
-        <div class="flex-shrink-0">
-          {% if task.state == "Closed Complete" %}
-          <div class="w-6 h-6 rounded-full bg-ok/15 border border-ok/30 flex items-center justify-center">
-            <svg class="w-3.5 h-3.5 text-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+      <div x-data="{ expanded: false }">
+        <button type="button" @click="expanded = !expanded"
+                class="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/[.02] transition-colors text-left">
+          <div class="flex-shrink-0">
+            {% if task.state == "Closed Complete" %}
+            <div class="w-6 h-6 rounded-full bg-ok/15 border border-ok/30 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            {% elif task.state == "In Progress" %}
+            <div class="w-6 h-6 rounded-full bg-info/15 border border-info/30 flex items-center justify-center">
+              <div class="w-2.5 h-2.5 rounded-full bg-info animate-pulse"></div>
+            </div>
+            {% else %}
+            <div class="w-6 h-6 rounded-full border-2 border-edge-strong"></div>
+            {% endif %}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm {% if task.state == 'Closed Complete' %}text-ink-muted line-through{% else %}text-ink-primary{% endif %} font-medium truncate">
+              {{ task.description }}
+            </p>
+            <p class="text-xs text-ink-muted mt-0.5">{{ task.number }}</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            {% if task.state == "Closed Complete" %}<span class="badge badge-ok text-[10px]">Done</span>
+            {% elif task.state == "In Progress" %}<span class="badge badge-info text-[10px]">In Progress</span>
+            {% else %}<span class="badge badge-muted text-[10px]">Open</span>{% endif %}
+            <svg class="w-3.5 h-3.5 text-ink-muted transition-transform" :class="expanded ? 'rotate-180' : ''"
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </div>
-          {% elif task.state == "In Progress" %}
-          <div class="w-6 h-6 rounded-full bg-info/15 border border-info/30 flex items-center justify-center">
-            <div class="w-2.5 h-2.5 rounded-full bg-info animate-pulse"></div>
+        </button>
+        <!-- Expanded detail -->
+        <div x-show="expanded" x-collapse class="px-5 pb-4 ml-9">
+          <div class="rounded-lg bg-surface-3 border border-edge p-3 space-y-2">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <p class="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">Assigned to</p>
+                <p class="text-xs text-ink-secondary">{{ task.assigned_to|default:'Unassigned' }}</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">State</p>
+                <p class="text-xs text-ink-secondary">{{ task.state }}</p>
+              </div>
+            </div>
+            {% if task.description %}
+            <div>
+              <p class="text-[10px] text-ink-muted uppercase tracking-wider font-semibold">Description</p>
+              <p class="text-xs text-ink-secondary whitespace-pre-line">{{ task.description }}</p>
+            </div>
+            {% endif %}
+            {% if task.attachments %}
+            <div>
+              <p class="text-[10px] text-ink-muted uppercase tracking-wider font-semibold mb-1">Attachments</p>
+              {% for att in task.attachments %}
+              <div class="flex items-center gap-2 py-1">
+                <svg class="w-3 h-3 text-ink-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                </svg>
+                {% if att.download_link %}
+                <a href="{{ att.download_link }}" target="_blank" class="text-xs text-brand-light hover:text-brand truncate">{{ att.name }}</a>
+                {% else %}
+                <span class="text-xs text-ink-secondary truncate">{{ att.name }}</span>
+                {% endif %}
+                <span class="text-[10px] text-ink-muted flex-shrink-0">{{ att.size }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if task.state != "Closed Complete" %}
+            <button class="btn-primary text-xs px-3 py-1.5 mt-1"
+                    @click="$dispatch('show-toast', { message: 'CTASK update queued', type: 'success' })">
+              Mark complete
+            </button>
+            {% endif %}
           </div>
-          {% else %}
-          <div class="w-6 h-6 rounded-full border-2 border-edge-strong"></div>
-          {% endif %}
-        </div>
-
-        <!-- Task info -->
-        <div class="flex-1 min-w-0">
-          <p class="text-sm {% if task.state == 'Closed Complete' %}text-ink-muted line-through{% else %}text-ink-primary{% endif %} font-medium">
-            {{ task.description }}
-          </p>
-          <p class="text-xs text-ink-muted mt-0.5">
-            {{ task.number }}{% if task.assigned_to %} · {{ task.assigned_to }}{% endif %}
-          </p>
-        </div>
-
-        <!-- State badge + action -->
-        <div class="flex items-center gap-2 flex-shrink-0">
-          {% if task.state == "Closed Complete" %}<span class="badge badge-ok text-[10px]">Done</span>
-          {% elif task.state == "In Progress" %}<span class="badge badge-info text-[10px]">In Progress</span>
-          {% else %}<span class="badge badge-muted text-[10px]">Open</span>{% endif %}
-
-          {% if task.state != "Closed Complete" %}
-          <button class="btn-ghost text-xs py-1 px-2"
-                  @click="$dispatch('show-toast', { message: 'CTASK update queued', type: 'success' })">
-            Complete
-          </button>
-          {% endif %}
         </div>
       </div>
       {% endfor %}
@@ -209,7 +289,6 @@
       </div>
       {% endfor %}
 
-      <!-- Add note form -->
       {% if change.state_code != "closed" %}
       <div class="px-5 py-4 bg-surface-2/40">
         <p class="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-2">Add Work Note</p>
@@ -226,7 +305,7 @@
       {% endif %}
     </div>
 
-    <!-- Attachments tab -->
+    <!-- Attachments tab — with real download links -->
     {% if change.attachments %}
     <div x-show="tab === 'attachments'" class="divide-y divide-edge-subtle">
       {% for att in change.attachments %}
@@ -240,10 +319,17 @@
           <p class="text-sm text-ink-primary font-medium truncate">{{ att.name }}</p>
           <p class="text-xs text-ink-muted">{{ att.size }} · {{ att.by }} · {{ att.at }}</p>
         </div>
-        <button class="btn-ghost text-xs py-1"
-                @click="$dispatch('show-toast', { message: 'Download feature coming soon', type: 'info' })">
+        {% if att.download_link %}
+        <a href="{{ att.download_link }}" target="_blank"
+           class="btn-ghost text-xs py-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+          </svg>
           Download
-        </button>
+        </a>
+        {% else %}
+        <span class="text-[10px] text-ink-muted">No link</span>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
