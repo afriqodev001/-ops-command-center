@@ -631,13 +631,23 @@ def _adapt_live_attachment(rec) -> dict:
             size_str = f'{n} B'
     except (ValueError, TypeError):
         size_str = size or ''
+
+    sys_id = _dv(rec.get('sys_id'))
+    download = _dv(rec.get('download_link'))
+    # ServiceNow sometimes doesn't return download_link — construct it from sys_id
+    if not download and sys_id:
+        from django.conf import settings as dj_settings
+        base = getattr(dj_settings, 'SERVICENOW_BASE', '').rstrip('/')
+        if base:
+            download = f'{base}/api/now/attachment/{sys_id}/file'
+
     return {
-        'sys_id':        _dv(rec.get('sys_id')),
+        'sys_id':        sys_id,
         'name':          _dv(rec.get('file_name')) or _dv(rec.get('name')),
         'size':          size_str,
         'by':            _dv(rec.get('sys_created_by')) or _dv(rec.get('by')),
         'at':            _dv(rec.get('sys_created_on')) or _dv(rec.get('at')),
-        'download_link': _dv(rec.get('download_link')),
+        'download_link': download,
     }
 
 

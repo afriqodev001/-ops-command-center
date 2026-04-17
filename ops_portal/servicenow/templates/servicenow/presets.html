@@ -377,7 +377,7 @@ function presetFormData() {
     form: {
       name: '', description: '', domain: 'change', table: 'change_request',
       query: '', fields: '', required_params_str: '', limit: 25, is_builtin: false,
-      show_actions: false, action_download: false, action_email: false,
+      show_actions: false, action_download: false, action_email: false, action_bulk_review: false,
       email_recipients: '', email_subject: '', email_body: '',
     },
     // JSON copy/paste panel state
@@ -404,6 +404,7 @@ function presetFormData() {
       function _buildActions(f) {
         const acts = [];
         if (f.action_download) acts.push({ type: 'download' });
+        if (f.action_bulk_review) acts.push({ type: 'bulk_review' });
         if (f.action_email) acts.push({
           type: 'email',
           recipients: f.email_recipients || '',
@@ -488,6 +489,7 @@ function presetFormData() {
           show_actions:        acts.length > 0,
           action_download:     acts.some(a => a.type === 'download'),
           action_email:        acts.some(a => a.type === 'email'),
+          action_bulk_review:  acts.some(a => a.type === 'bulk_review'),
           email_recipients:    emailAct.recipients || '',
           email_subject:       emailAct.subject_template || '',
           email_body:          emailAct.body_template || '',
@@ -513,6 +515,7 @@ function presetFormData() {
           show_actions:        acts.length > 0,
           action_download:     acts.some(a => a.type === 'download'),
           action_email:        acts.some(a => a.type === 'email'),
+          action_bulk_review:  acts.some(a => a.type === 'bulk_review'),
           email_recipients:    emailAct.recipients || '',
           email_subject:       emailAct.subject_template || '',
           email_body:          emailAct.body_template || '',
@@ -768,6 +771,11 @@ document.addEventListener('htmx:afterSettle', _registerPresetModalBackdrop);
               <input type="checkbox" x-model="form.action_download" class="rounded bg-surface-4 border-edge text-brand">
               <label class="text-xs text-ink-primary">Download CSV</label>
             </div>
+            <div class="flex items-center gap-2">
+              <input type="checkbox" x-model="form.action_bulk_review" class="rounded bg-surface-4 border-edge text-brand">
+              <label class="text-xs text-ink-primary">Bulk Review</label>
+              <span class="text-[10px] text-ink-muted">(change presets only — extracts CHG numbers and opens bulk review)</span>
+            </div>
             <div class="space-y-2">
               <div class="flex items-center gap-2">
                 <input type="checkbox" x-model="form.action_email" class="rounded bg-surface-4 border-edge text-brand">
@@ -820,6 +828,7 @@ document.addEventListener('htmx:afterSettle', _registerPresetModalBackdrop);
       <input type="hidden" name="actions" :value="JSON.stringify((() => {
         const a = [];
         if (form.action_download) a.push({type:'download'});
+        if (form.action_bulk_review) a.push({type:'bulk_review'});
         if (form.action_email) a.push({type:'email', recipients:form.email_recipients, subject_template:form.email_subject, body_template:form.email_body});
         return a;
       })())">
