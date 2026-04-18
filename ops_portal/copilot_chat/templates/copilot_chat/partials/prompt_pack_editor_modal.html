@@ -2,7 +2,7 @@
       hx-target="#packs-list"
       hx-swap="innerHTML"
       class="space-y-4"
-      @htmx:after-request="if(event.detail.successful) document.getElementById('pack-editor-modal').close()">
+      @htmx:after-request="if(event.detail.successful && event.detail.pathInfo.requestPath === '/copilot/partials/prompt-packs/save/') document.getElementById('pack-editor-modal').close()">
   {% csrf_token %}
   {% if pack %}
   <input type="hidden" name="pack_id" value="{{ pack.id }}">
