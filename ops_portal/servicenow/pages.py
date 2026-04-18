@@ -1380,8 +1380,15 @@ def change_briefing_generate(request, number):
 
     system = (
         "You are an experienced IT change management reviewer. "
-        "Provide a structured assessment with clear sections: "
-        "Readiness, Risk Assessment, Planning Review, and Recommendation."
+        "Respond in well-structured Markdown. Use these exact sections:\n\n"
+        "## Readiness\nAre pre-conditions met? Are CTASKs in expected state?\n\n"
+        "## Risk Assessment\nConcerns given risk level, scope, and impact?\n\n"
+        "## Planning Review\nAre implementation, backout, and test plans adequate?\n\n"
+        "## Recommendation\n"
+        "Start with one of: **APPROVE**, **HOLD**, or **REJECT** in bold, "
+        "followed by a one-paragraph justification.\n\n"
+        "Use bullet points for specific findings. Keep it concise and actionable. "
+        "Use ✅ for positive findings and ⚠️ for concerns."
     )
 
     from .services.ai_assist import _call_llm
@@ -1391,10 +1398,21 @@ def change_briefing_generate(request, number):
     ai_response = None
     try:
         parsed = json.loads(raw)
-        if isinstance(parsed, dict) and '_ai_error' in parsed:
-            ai_error = parsed['_ai_error']
+        if isinstance(parsed, dict):
+            if '_ai_error' in parsed:
+                ai_error = parsed['_ai_error']
+            else:
+                # Extract text from common LLM response shapes
+                ai_response = (
+                    parsed.get('answer')
+                    or parsed.get('response')
+                    or parsed.get('text')
+                    or parsed.get('content')
+                    or parsed.get('message')
+                    or raw
+                )
         else:
-            ai_response = raw
+            ai_response = str(parsed)
     except (json.JSONDecodeError, TypeError):
         ai_response = raw
 
