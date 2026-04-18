@@ -305,7 +305,7 @@ def _call_tachyon(system: str, user: str, cfg: Dict) -> str:
             # Tachyon returns nested response shapes
             data = result.get('data') or result
             if isinstance(data, dict):
-                return data.get('response') or data.get('text') or json.dumps(data)
+                return data.get('answer') or data.get('response') or data.get('text') or json.dumps(data)
             return str(data)
         return str(result) if result else '{}'
     except Exception:
