@@ -33,6 +33,47 @@ If you are unsure about a field, use an empty string rather than guessing incorr
 For text fields like description, justification, implementation_plan, backout_plan, and test_plan,
 provide practical, concise content that an operations team would actually use."""
 
+INCIDENT_SYSTEM_PROMPT = """You are an experienced IT operations engineer who creates ServiceNow incident records daily.
+A user has described an issue in plain language. Your job is to fill in ALL the structured incident fields from their description.
+
+Respond ONLY with a JSON object. Use these exact field names:
+- short_description: A concise one-line summary (max 160 chars)
+- description: Detailed description of the issue, including symptoms, impact, and any relevant context
+- category: Must be one of the provided categories ONLY
+- subcategory: Must be one of the subcategories under the chosen category ONLY
+- service: Must be from the provided services list ONLY. If no services are provided or none fit, use an empty string.
+- assignment_group: Must be from the provided assignment groups list ONLY. If no groups are provided or none fit, use an empty string.
+
+Rules:
+- category and subcategory MUST come from the provided options — do not invent new ones
+- service and assignment_group MUST come from the provided lists — do not invent values
+- If no service or assignment_group list is provided, leave those fields as empty strings
+- short_description should be professional and specific, not generic
+- description should expand on the issue with practical detail an ops team can act on
+- If the issue doesn't clearly fit a category, pick the closest match"""
+
+CHANGE_SYSTEM_PROMPT = """You are an experienced IT change management engineer who creates ServiceNow change records daily.
+A user has described a change in plain language. Your job is to fill in ALL the structured change fields from their description.
+
+Respond ONLY with a JSON object. Use these exact field names:
+- short_description: A concise one-line summary of the change (max 160 chars)
+- description: Detailed description of what is being changed, why, and expected impact
+- category: Must be one of the provided categories ONLY
+- reason: Must be one of the provided reasons ONLY
+- cmdb_ci: The configuration item being changed. Must be from the provided list ONLY, or empty string if none fit.
+- assignment_group: Must be from the provided list ONLY, or empty string if none fit.
+- justification: Brief business justification for why this change is needed
+- implementation_plan: Step-by-step plan for implementing the change
+- backout_plan: Steps to roll back if the change fails
+- test_plan: How the change will be verified after implementation (emergency changes only, include if requested)
+
+Rules:
+- category and reason MUST come from the provided options — do not invent new ones
+- cmdb_ci and assignment_group MUST come from the provided lists — do not invent values
+- If no list is provided for a field, leave it as an empty string
+- Plans should be practical and concise — numbered steps work best
+- short_description should be professional and specific"""
+
 
 def _build_user_prompt(kind: str, filled: Dict[str, str], empty_fields: List[str]) -> str:
     """Build the user-facing prompt from what the user has provided so far."""
@@ -56,6 +97,116 @@ def _build_user_prompt(kind: str, filled: Dict[str, str], empty_fields: List[str
     lines.append("")
     lines.append("Respond with a JSON object like:")
     example = {f: f"<suggested {f}>" for f in empty_fields[:3]}
+    lines.append(json.dumps(example, indent=2))
+
+    return "\n".join(lines)
+
+
+def _build_incident_from_description_prompt(
+    issue_text: str,
+    filled: Dict[str, str],
+    categories: Dict[str, List[str]],
+    target_fields: List[str],
+    service_options: List[str] | None = None,
+    group_options: List[str] | None = None,
+) -> str:
+    """Build a prompt that generates incident fields from a free-text issue description."""
+    lines = [
+        f"The user described this issue:\n\"{issue_text}\"",
+        "",
+    ]
+
+    if filled:
+        lines.append("They have already filled in:")
+        for k, v in filled.items():
+            label = FIELD_LABELS.get(k, k.replace('_', ' ').title())
+            lines.append(f"  - {label}: {v}")
+        lines.append("")
+
+    lines.append("Available categories and their subcategories:")
+    for cat, subs in sorted(categories.items()):
+        lines.append(f"  {cat}: {', '.join(subs)}")
+
+    if service_options:
+        lines.append("")
+        lines.append("Available services (pick from this list ONLY, or use empty string if none fit):")
+        for s in service_options:
+            lines.append(f"  - {s}")
+
+    if group_options:
+        lines.append("")
+        lines.append("Available assignment groups (pick from this list ONLY, or use empty string if none fit):")
+        for g in group_options:
+            lines.append(f"  - {g}")
+
+    lines.append("")
+    lines.append("Generate values for these fields:")
+    for f in target_fields:
+        label = FIELD_LABELS.get(f, f.replace('_', ' ').title())
+        lines.append(f"  - {f} ({label})")
+
+    lines.append("")
+    lines.append("Respond with a JSON object:")
+    example = {f: f"<value>" for f in target_fields[:4]}
+    lines.append(json.dumps(example, indent=2))
+
+    return "\n".join(lines)
+
+
+def _build_change_from_description_prompt(
+    change_text: str,
+    kind: str,
+    filled: Dict[str, str],
+    categories: Dict[str, str],
+    reasons: List[str],
+    target_fields: List[str],
+    group_options: List[str] | None = None,
+    cmdb_ci_options: List[str] | None = None,
+) -> str:
+    """Build a prompt that generates change fields from a free-text description."""
+    kind_label = 'Emergency Change' if kind == 'emergency_change' else 'Normal Change'
+    lines = [
+        f"The user is creating a {kind_label} and described it as:\n\"{change_text}\"",
+        "",
+    ]
+
+    if filled:
+        lines.append("They have already filled in:")
+        for k, v in filled.items():
+            label = FIELD_LABELS.get(k, k.replace('_', ' ').title())
+            lines.append(f"  - {label}: {v}")
+        lines.append("")
+
+    lines.append("Available categories (pick the value, description is for context):")
+    for cat, desc in sorted(categories.items()):
+        lines.append(f"  - {cat} ({desc})")
+
+    lines.append("")
+    lines.append("Available reasons (pick from this list ONLY):")
+    for r in reasons:
+        lines.append(f"  - {r}")
+
+    if cmdb_ci_options:
+        lines.append("")
+        lines.append("Available configuration items (pick from this list ONLY, or empty string if none fit):")
+        for ci in cmdb_ci_options:
+            lines.append(f"  - {ci}")
+
+    if group_options:
+        lines.append("")
+        lines.append("Available assignment groups (pick from this list ONLY, or empty string if none fit):")
+        for g in group_options:
+            lines.append(f"  - {g}")
+
+    lines.append("")
+    lines.append("Generate values for these fields:")
+    for f in target_fields:
+        label = FIELD_LABELS.get(f, f.replace('_', ' ').title())
+        lines.append(f"  - {f} ({label})")
+
+    lines.append("")
+    lines.append("Respond with a JSON object:")
+    example = {f: "<value>" for f in target_fields[:4]}
     lines.append(json.dumps(example, indent=2))
 
     return "\n".join(lines)
@@ -245,6 +396,121 @@ def suggest_fields(kind: str, filled: Dict[str, str]) -> Dict[str, str]:
         # Only return fields we actually asked for
         return {k: str(v) for k, v in suggestions.items()
                 if k in empty_fields and v}
+    except (json.JSONDecodeError, Exception):
+        return {}
+
+
+def suggest_from_description(
+    issue_text: str,
+    filled: Dict[str, str],
+    categories: Dict[str, List[str]],
+) -> Dict[str, str]:
+    """Generate all incident fields from a free-text issue description.
+
+    Loads saved service/group options and constrains the AI to pick from them.
+    Returns a dict of {field_name: suggested_value}. Empty dict on failure.
+    """
+    from .creation_templates import load_combobox_options
+
+    skip = {'impact', 'urgency', 'caller'}
+    all_fields = KIND_FIELDS.get('incident', [])
+    target_fields = [f for f in all_fields
+                     if f not in skip and not (filled.get(f) or '').strip()]
+
+    if not target_fields:
+        return {}
+
+    service_options = load_combobox_options('service')
+    group_options = load_combobox_options('assignment_group')
+
+    system = INCIDENT_SYSTEM_PROMPT
+    user = _build_incident_from_description_prompt(
+        issue_text, filled, categories, target_fields,
+        service_options=service_options,
+        group_options=group_options,
+    )
+
+    try:
+        raw = _call_llm(system, user)
+        suggestions = json.loads(raw)
+        if not isinstance(suggestions, dict):
+            return {}
+        if '_ai_error' in suggestions:
+            return {'_ai_error': suggestions['_ai_error']}
+        # Validate category/subcategory against allowed values
+        if 'category' in suggestions:
+            if suggestions['category'] not in categories:
+                suggestions['category'] = ''
+        if 'subcategory' in suggestions and 'category' in suggestions:
+            cat = suggestions['category']
+            allowed_subs = categories.get(cat, [])
+            if suggestions['subcategory'] not in allowed_subs:
+                suggestions['subcategory'] = ''
+        # Validate service/assignment_group against saved options
+        if 'service' in suggestions and service_options:
+            if suggestions['service'] not in service_options:
+                suggestions['service'] = ''
+        if 'assignment_group' in suggestions and group_options:
+            if suggestions['assignment_group'] not in group_options:
+                suggestions['assignment_group'] = ''
+        return {k: str(v) for k, v in suggestions.items()
+                if k in target_fields and v}
+    except (json.JSONDecodeError, Exception):
+        return {}
+
+
+def suggest_change_from_description(
+    change_text: str,
+    kind: str,
+    filled: Dict[str, str],
+    categories: Dict[str, str],
+    reasons: List[str],
+) -> Dict[str, str]:
+    """Generate change fields from a free-text description.
+
+    Loads saved group/CI options and constrains the AI to pick from them.
+    """
+    from .creation_templates import load_combobox_options
+
+    all_fields = KIND_FIELDS.get(kind, [])
+    target_fields = [f for f in all_fields
+                     if not (filled.get(f) or '').strip()]
+
+    if not target_fields:
+        return {}
+
+    group_options = load_combobox_options('assignment_group')
+    cmdb_ci_options = load_combobox_options('cmdb_ci')
+
+    system = CHANGE_SYSTEM_PROMPT
+    user = _build_change_from_description_prompt(
+        change_text, kind, filled, categories, reasons, target_fields,
+        group_options=group_options,
+        cmdb_ci_options=cmdb_ci_options,
+    )
+
+    try:
+        raw = _call_llm(system, user)
+        suggestions = json.loads(raw)
+        if not isinstance(suggestions, dict):
+            return {}
+        if '_ai_error' in suggestions:
+            return {'_ai_error': suggestions['_ai_error']}
+        # Validate constrained fields
+        if 'category' in suggestions:
+            if suggestions['category'] not in categories:
+                suggestions['category'] = ''
+        if 'reason' in suggestions:
+            if suggestions['reason'] not in reasons:
+                suggestions['reason'] = ''
+        if 'assignment_group' in suggestions and group_options:
+            if suggestions['assignment_group'] not in group_options:
+                suggestions['assignment_group'] = ''
+        if 'cmdb_ci' in suggestions and cmdb_ci_options:
+            if suggestions['cmdb_ci'] not in cmdb_ci_options:
+                suggestions['cmdb_ci'] = ''
+        return {k: str(v) for k, v in suggestions.items()
+                if k in target_fields and v}
     except (json.JSONDecodeError, Exception):
         return {}
 

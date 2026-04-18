@@ -59,7 +59,6 @@
     var raw = document.getElementById('ai-review-raw').textContent;
     var target = document.getElementById('ai-review-rendered');
 
-    // Load marked.js if not already present
     if (typeof marked === 'undefined') {
       var s = document.createElement('script');
       s.src = 'https://cdn.jsdelivr.net/npm/marked@15/marked.min.js';
@@ -73,7 +72,6 @@
       try {
         target.innerHTML = marked.parse(raw);
       } catch(e) {
-        // Fallback: plain text
         target.innerHTML = '<pre style="white-space:pre-wrap">' + raw.replace(/</g,'&lt;') + '</pre>';
       }
     }
@@ -82,81 +80,152 @@
 </div>
 
 <style>
+  /* ── AI Review markdown styles ─────────────────────────────
+     Uses actual theme colors from tailwind.config.js           */
   .ai-review {
     font-size: 0.8125rem;
-    line-height: 1.7;
-    color: var(--ink-secondary, #c5c8d0);
+    line-height: 1.75;
+    color: #A1A1AA; /* ink-secondary */
   }
+
+  /* Headings */
+  .ai-review h1,
   .ai-review h2 {
     font-size: 0.875rem;
     font-weight: 700;
-    color: var(--ink-primary, #e8eaed);
-    margin-top: 1.25rem;
+    color: #FFFFFF; /* ink-primary */
+    margin-top: 1.5rem;
     margin-bottom: 0.5rem;
-    padding-bottom: 0.375rem;
-    border-bottom: 1px solid var(--edge-subtle, rgba(255,255,255,0.06));
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid hsla(0,0%,100%,0.06); /* edge-subtle */
   }
+  .ai-review h1:first-child,
   .ai-review h2:first-child {
     margin-top: 0;
   }
   .ai-review h3 {
     font-size: 0.8125rem;
     font-weight: 600;
-    color: var(--ink-primary, #e8eaed);
+    color: #FFFFFF;
     margin-top: 1rem;
     margin-bottom: 0.375rem;
   }
+
+  /* Paragraphs */
   .ai-review p {
-    margin-bottom: 0.625rem;
+    margin-bottom: 0.75rem;
   }
-  .ai-review ul, .ai-review ol {
-    margin-bottom: 0.625rem;
-    padding-left: 1.25rem;
+
+  /* Lists */
+  .ai-review ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .ai-review ol {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin-bottom: 0.75rem;
   }
   .ai-review li {
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.375rem;
+    padding-left: 0.25rem;
   }
   .ai-review li::marker {
-    color: var(--ink-muted, #8b8fa3);
+    color: #71717A; /* ink-muted */
   }
+  .ai-review ul ul,
+  .ai-review ol ol,
+  .ai-review ul ol,
+  .ai-review ol ul {
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+  }
+
+  /* Bold / emphasis */
   .ai-review strong {
-    color: var(--ink-primary, #e8eaed);
+    color: #FFFFFF; /* ink-primary */
     font-weight: 600;
   }
+  .ai-review em {
+    color: #A1A1AA;
+    font-style: italic;
+  }
+
+  /* Inline code */
   .ai-review code {
     font-size: 0.75rem;
     padding: 0.125rem 0.375rem;
     border-radius: 0.25rem;
-    background: var(--surface-4, rgba(255,255,255,0.06));
-    color: var(--brand-light, #a78bfa);
+    background: hsl(240,4%,18%); /* surface-4 */
+    color: #A37EF5; /* brand-light */
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
   }
+
+  /* Code blocks */
+  .ai-review pre {
+    background: hsl(240,5%,12%); /* surface-2 */
+    border: 1px solid hsla(0,0%,100%,0.06);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    overflow-x: auto;
+  }
+  .ai-review pre code {
+    background: none;
+    padding: 0;
+    color: #A1A1AA;
+    font-size: 0.75rem;
+  }
+
+  /* Blockquotes */
   .ai-review blockquote {
-    border-left: 3px solid var(--brand, #7c3aed);
+    border-left: 3px solid #8251EE; /* brand */
     padding-left: 0.75rem;
     margin: 0.75rem 0;
-    color: var(--ink-muted, #8b8fa3);
-    font-style: italic;
+    color: #71717A; /* ink-muted */
   }
+  .ai-review blockquote p {
+    margin-bottom: 0.25rem;
+  }
+
+  /* Horizontal rules */
   .ai-review hr {
     border: none;
-    border-top: 1px solid var(--edge-subtle, rgba(255,255,255,0.06));
-    margin: 1rem 0;
+    border-top: 1px solid hsla(0,0%,100%,0.06);
+    margin: 1.25rem 0;
   }
+
+  /* Tables */
   .ai-review table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 0.75rem;
     font-size: 0.75rem;
   }
-  .ai-review th, .ai-review td {
-    padding: 0.375rem 0.625rem;
-    border: 1px solid var(--edge, rgba(255,255,255,0.1));
+  .ai-review th,
+  .ai-review td {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid hsla(0,0%,100%,0.10); /* edge */
     text-align: left;
   }
   .ai-review th {
-    background: var(--surface-3, rgba(255,255,255,0.04));
+    background: hsl(240,5%,14%); /* surface-3 */
     font-weight: 600;
-    color: var(--ink-primary, #e8eaed);
+    color: #FFFFFF;
+  }
+  .ai-review td {
+    color: #A1A1AA;
+  }
+
+  /* Links */
+  .ai-review a {
+    color: #A37EF5; /* brand-light */
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .ai-review a:hover {
+    color: #9366F5; /* brand-hover */
   }
 </style>
 

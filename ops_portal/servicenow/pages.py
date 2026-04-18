@@ -2881,12 +2881,35 @@ def create_from_template_form(request, key: str):
          f in TEXTAREA_FIELDS)
         for f in KIND_FIELDS.get(kind, [])
     ]
-    return render(request, 'servicenow/partials/create_from_template_form.html', {
+    ctx = {
         'key':       key,
         'template':  tpl,
         'kind':      kind,
         'fields':    fields_with_values,
-    })
+    }
+
+    if kind == 'incident':
+        from .services.creation_templates import (
+            load_incident_categories, load_combobox_options,
+        )
+        categories = load_incident_categories()
+        ctx['categories_json'] = json.dumps(categories)
+        ctx['category_list'] = sorted(categories.keys())
+        ctx['service_options'] = load_combobox_options('service')
+        ctx['group_options'] = load_combobox_options('assignment_group')
+
+    if kind in ('normal_change', 'emergency_change'):
+        from .services.creation_templates import (
+            load_change_categories, load_change_reasons, load_combobox_options,
+        )
+        change_cats = load_change_categories()
+        ctx['change_categories'] = change_cats
+        ctx['change_categories_json'] = json.dumps(change_cats)
+        ctx['change_reasons'] = load_change_reasons()
+        ctx['group_options'] = load_combobox_options('assignment_group')
+        ctx['cmdb_ci_options'] = load_combobox_options('cmdb_ci')
+
+    return render(request, 'servicenow/partials/create_from_template_form.html', ctx)
 
 
 def create_from_template_submit(request):
@@ -2920,17 +2943,26 @@ def create_from_template_submit(request):
 
     # Map our form field names to ServiceNow Table API field names.
     if kind == 'incident':
-        from .services.creation_templates import INCIDENT_FIELD_DEFAULTS
+        from .services.creation_templates import (
+            INCIDENT_FIELD_DEFAULTS, add_combobox_option,
+        )
         for k, v in INCIDENT_FIELD_DEFAULTS.items():
             fields.setdefault(k, v)
+        # Remember new service/group values for future combobox suggestions
+        if fields.get('service'):
+            add_combobox_option('service', fields['service'])
+        if fields.get('assignment_group'):
+            add_combobox_option('assignment_group', fields['assignment_group'])
         if 'caller' in fields:
             fields['caller_id'] = fields.pop('caller')
         if 'service' in fields:
             fields['business_service'] = fields.pop('service')
     elif kind in ('normal_change', 'emergency_change', 'standard_change'):
-        # start_date/end_date are already the SN field names
-        # cmdb_ci → cmdb_ci (same name in SN)
-        # std_change_template → std_change_producer_version (SN field name)
+        from .services.creation_templates import add_combobox_option
+        if fields.get('assignment_group'):
+            add_combobox_option('assignment_group', fields['assignment_group'])
+        if fields.get('cmdb_ci'):
+            add_combobox_option('cmdb_ci', fields['cmdb_ci'])
         if 'std_change_template' in fields:
             fields['std_change_producer_version'] = fields.pop('std_change_template')
 
@@ -3006,33 +3038,45 @@ def create_from_template_submit(request):
 # AI-assisted field suggestion
 # ─────────────────────────────────────────────────────────────
 
+@csrf_exempt
+@require_POST
 def ai_suggest_fields(request):
     """POST (JSON): accept kind + filled fields, return AI suggestions.
 
-    Request body:  {"kind": "incident", "filled": {"short_description": "...", "cmdb_ci": "..."}}
-    Response:      {"suggestions": {"category": "...", "assignment_group": "..."}, "ai_available": false}
+    Two modes:
+    - Standard: {"kind": "incident", "filled": {...}} — suggests empty fields
+    - From description: {"kind": "incident", "issue_description": "...", "filled": {...}}
+      — generates ALL fields from a plain-text issue description
     """
-    from django.http import JsonResponse, HttpResponse
-    import json as _json
-    if request.method != 'POST':
-        return HttpResponse(status=405)
+    from django.http import JsonResponse
 
     try:
-        body = _json.loads(request.body or '{}')
-    except _json.JSONDecodeError:
+        body = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
         return JsonResponse({'error': 'invalid_json'}, status=400)
 
     kind = (body.get('kind') or '').strip()
     filled = body.get('filled') or {}
+    issue_description = (body.get('issue_description') or '').strip()
     if not kind:
         return JsonResponse({'error': 'kind is required'}, status=400)
 
-    from .services.ai_assist import suggest_fields
-    from django.conf import settings as dj_settings
+    if issue_description and kind == 'incident':
+        from .services.ai_assist import suggest_from_description
+        from .services.creation_templates import load_incident_categories
+        categories = load_incident_categories()
+        suggestions = suggest_from_description(issue_description, filled, categories)
+    elif issue_description and kind in ('normal_change', 'emergency_change'):
+        from .services.ai_assist import suggest_change_from_description
+        from .services.creation_templates import load_change_categories, load_change_reasons
+        suggestions = suggest_change_from_description(
+            issue_description, kind, filled,
+            load_change_categories(), load_change_reasons(),
+        )
+    else:
+        from .services.ai_assist import suggest_fields
+        suggestions = suggest_fields(kind, filled)
 
-    suggestions = suggest_fields(kind, filled)
-
-    # Surface provider errors to the frontend
     ai_error = suggestions.pop('_ai_error', '')
 
     _push_activity(request,
@@ -3044,7 +3088,6 @@ def ai_suggest_fields(request):
     return JsonResponse({
         'suggestions':  suggestions,
         'ai_error':     ai_error,
-        'ai_available': bool(ai_key),
     })
 
 

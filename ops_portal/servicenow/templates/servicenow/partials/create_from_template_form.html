@@ -17,46 +17,61 @@
     </div>
   </div>
 
-  {% if kind != 'standard_change' %}
-  <!-- AI suggest button -->
-  <div class="flex items-center gap-3 p-3 rounded-lg border border-brand/20 bg-brand-subtle/30">
-    <button type="button" @click="suggestFields($el.closest('form'))"
-            :disabled="suggesting"
-            class="btn-primary text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-wait">
-      <template x-if="!suggesting">
-        <span class="inline-flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-          </svg>
-          Suggest fields with AI
-        </span>
-      </template>
-      <template x-if="suggesting">
-        <span class="inline-flex items-center gap-1.5">
-          <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-          Thinking…
-        </span>
-      </template>
-    </button>
-    <div class="flex-1 min-w-0">
-      <p class="text-[10px] text-ink-muted" x-show="!suggestResult">
-        Fill in the short description and/or CI first, then click to auto-fill remaining fields.
-      </p>
-      <p class="text-[10px] text-ok" x-show="suggestResult === 'success'" x-cloak>
-        ✓ <span x-text="suggestCount"></span> field(s) filled — review before submitting.
-      </p>
-      <p class="text-[10px] text-warn" x-show="suggestResult === 'empty'" x-cloak>
-        No suggestions returned.
-      </p>
-      <p class="text-[10px] text-danger" x-show="suggestResult === 'error'" x-cloak x-text="suggestErrorMsg">
-      </p>
+  {% if kind == 'incident' or kind == 'normal_change' or kind == 'emergency_change' %}
+  <!-- ══ Describe — AI generates all fields ═════════════════ -->
+  <div class="space-y-2 p-3 rounded-lg border border-brand/20 bg-brand-subtle/30">
+    <label class="label flex items-center gap-1.5 !mb-0">
+      <svg class="w-3.5 h-3.5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+      </svg>
+      {% if kind == 'incident' %}Describe the issue{% else %}Describe the change{% endif %}
+    </label>
+    <textarea x-model="issueText" rows="3"
+              class="input-dark text-xs resize-none"
+              placeholder="{% if kind == 'incident' %}e.g. Users in the London office can't access the VPN since 9am. Getting timeout errors on Cisco AnyConnect. About 50 people affected.{% else %}e.g. Patching the production database servers DBPROD01-03 with Oracle Oct 2026 security update. Requires 30 min downtime window during maintenance hours.{% endif %}"></textarea>
+
+    <div class="flex items-center gap-3">
+      <button type="button" @click="generateFromDescription($el.closest('form'))"
+              :disabled="suggesting || issueText.trim().length < 10"
+              class="btn-primary text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+        <template x-if="!suggesting">
+          <span class="inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Generate fields
+          </span>
+        </template>
+        <template x-if="suggesting">
+          <span class="inline-flex items-center gap-1.5">
+            <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            Generating…
+          </span>
+        </template>
+      </button>
+      <div class="flex-1 min-w-0">
+        <p class="text-[10px] text-ink-muted" x-show="!suggestResult && issueText.trim().length < 10">
+          {% if kind == 'incident' %}Describe the issue{% else %}Describe the change{% endif %} and click to auto-fill all fields below.
+        </p>
+        <p class="text-[10px] text-ink-muted" x-show="!suggestResult && issueText.trim().length >= 10">
+          Ready — click Generate to fill in all fields automatically.
+        </p>
+        <p class="text-[10px] text-ok" x-show="suggestResult === 'success'" x-cloak>
+          ✓ <span x-text="suggestCount"></span> field(s) filled — review before submitting.
+        </p>
+        <p class="text-[10px] text-warn" x-show="suggestResult === 'empty'" x-cloak>
+          No suggestions returned. Try adding more detail.
+        </p>
+        <p class="text-[10px] text-danger" x-show="suggestResult === 'error'" x-cloak x-text="suggestErrorMsg">
+        </p>
+      </div>
     </div>
   </div>
   {% endif %}
 
   {% if kind == 'standard_change' %}
-  <!-- Standard changes: URL-only. No editable fields — the SN template does everything. -->
+  <!-- Standard changes: URL-only -->
   {% if template.url %}
   <div class="p-3 rounded-lg bg-surface-3 border border-edge">
     <p class="text-[10px] text-ink-muted mb-1">ServiceNow URL</p>
@@ -79,17 +94,97 @@
     <label class="label">
       {{ flabel }}{% if freq %} <span class="text-danger">*</span>{% endif %}
     </label>
+
+    {# ── Impact / Urgency dropdowns ──────────────────────── #}
     {% if fname == 'impact' or fname == 'urgency' %}
     <select name="{{ fname }}" class="select-dark w-full text-xs">
       <option value="1" {% if fval == '1' %}selected{% endif %}>1 - High</option>
       <option value="2" {% if fval == '2' %}selected{% endif %}>2 - Medium</option>
       <option value="3" {% if fval == '3' or not fval %}selected{% endif %}>3 - Low</option>
     </select>
+
+    {# ── Incident: Category dropdown ─────────────────────── #}
+    {% elif fname == 'category' and kind == 'incident' %}
+    <select name="category" x-model="category" class="select-dark w-full text-xs" {% if freq %}required{% endif %}>
+      <option value="">— Select category —</option>
+      {% for cat in category_list %}
+      <option value="{{ cat }}" {% if fval == cat %}selected{% endif %}>{{ cat }}</option>
+      {% endfor %}
+    </select>
+
+    {# ── Incident: Subcategory dropdown (linked to category) #}
+    {% elif fname == 'subcategory' and kind == 'incident' %}
+    <select name="subcategory" x-model="subcategory" class="select-dark w-full text-xs" {% if freq %}required{% endif %}>
+      <option value="">— Select subcategory —</option>
+      <template x-for="sub in subcategories" :key="sub">
+        <option :value="sub" x-text="sub" :selected="sub === subcategory"></option>
+      </template>
+    </select>
+    <p class="text-[10px] text-ink-muted mt-0.5" x-show="!category">Select a category first.</p>
+
+    {# ── Change: Category dropdown with descriptions ─────── #}
+    {% elif fname == 'category' and change_categories %}
+    <select name="category" x-model="changeCategory" class="select-dark w-full text-xs" {% if freq %}required{% endif %}>
+      <option value="">— Select category —</option>
+      {% for cat, desc in change_categories.items %}
+      <option value="{{ cat }}" {% if fval == cat %}selected{% endif %} title="{{ desc }}">{{ cat }}</option>
+      {% endfor %}
+    </select>
+    <p class="text-[10px] text-ink-muted mt-0.5 transition-all" x-show="changeCategoryDesc" x-text="changeCategoryDesc" x-cloak></p>
+
+    {# ── Change: Reason dropdown ─────────────────────────── #}
+    {% elif fname == 'reason' %}
+    <select name="reason" x-model="changeReason" class="select-dark w-full text-xs" {% if freq %}required{% endif %}>
+      <option value="">— Select reason —</option>
+      {% for reason in change_reasons %}
+      <option value="{{ reason }}" {% if fval == reason %}selected{% endif %}>{{ reason }}</option>
+      {% endfor %}
+    </select>
+
+    {# ── Incident: Service combobox ──────────────────────── #}
+    {% elif fname == 'service' and kind == 'incident' %}
+    <input type="text" name="service" value="{{ fval }}"
+           list="service-options" class="input-dark text-xs"
+           placeholder="Type to search or enter new..."
+           {% if freq %}required{% endif %}>
+    <datalist id="service-options">
+      {% for opt in service_options %}<option value="{{ opt }}">{% endfor %}
+    </datalist>
+
+    {# ── Assignment group combobox (all kinds) ───────────── #}
+    {% elif fname == 'assignment_group' and group_options %}
+    <input type="text" name="assignment_group" value="{{ fval }}"
+           list="group-options" class="input-dark text-xs"
+           placeholder="Type to search or enter new..."
+           {% if freq %}required{% endif %}>
+    <datalist id="group-options">
+      {% for opt in group_options %}<option value="{{ opt }}">{% endfor %}
+    </datalist>
+
+    {# ── CI combobox (changes) ───────────────────────────── #}
+    {% elif fname == 'cmdb_ci' and cmdb_ci_options %}
+    <input type="text" name="cmdb_ci" value="{{ fval }}"
+           list="ci-options" class="input-dark text-xs"
+           placeholder="Type to search or enter new..."
+           {% if freq %}required{% endif %}>
+    <datalist id="ci-options">
+      {% for opt in cmdb_ci_options %}<option value="{{ opt }}">{% endfor %}
+    </datalist>
+
+    {# ── Incident: Caller (defaults to current user) ─────── #}
+    {% elif fname == 'caller' and kind == 'incident' %}
+    <input type="text" name="caller" value="{{ fval|default:os_user.name }}"
+           class="input-dark text-xs" {% if freq %}required{% endif %}>
+
+    {# ── Textarea fields ─────────────────────────────────── #}
     {% elif ftextarea %}
-    <textarea name="{{ fname }}" rows="3" class="input-dark text-xs resize-none">{{ fval }}</textarea>
+    <textarea name="{{ fname }}" rows="3" class="input-dark text-xs resize-none" {% if freq %}required{% endif %}>{{ fval }}</textarea>
+
+    {# ── Default text input ──────────────────────────────── #}
     {% else %}
     <input type="text" name="{{ fname }}" value="{{ fval }}"
            class="input-dark text-xs"
+           {% if fname == 'short_description' %}x-model="shortDesc"{% endif %}
            {% if freq %}required{% endif %}>
     {% endif %}
   </div>
@@ -131,15 +226,47 @@ function _defineCreateFormAI() {
   Alpine.data('createFormAI', (kind) => ({
     kind: kind,
     suggesting: false,
-    suggestResult: '',   // '' | 'success' | 'empty' | 'error'
+    suggestResult: '',
     suggestCount: 0,
     suggestErrorMsg: '',
+    shortDesc: '',
+    issueText: '',
+    // Incident-specific
+    category: '',
+    subcategory: '',
+    _categories: {},
+    // Change-specific
+    changeCategory: '',
+    changeReason: '',
+    _changeCats: {},
 
-    async suggestFields(form) {
+    init() {
+      const catEl = document.getElementById('incident-categories-data');
+      if (catEl) {
+        try { this._categories = JSON.parse(catEl.textContent); } catch(e) {}
+      }
+      const chgEl = document.getElementById('change-categories-data');
+      if (chgEl) {
+        try { this._changeCats = JSON.parse(chgEl.textContent); } catch(e) {}
+      }
+    },
+
+    get canSuggest() {
+      return this.shortDesc.trim().length >= 5;
+    },
+
+    get subcategories() {
+      return this._categories[this.category] || [];
+    },
+
+    get changeCategoryDesc() {
+      return this._changeCats[this.changeCategory] || '';
+    },
+
+    async generateFromDescription(form) {
       this.suggesting = true;
       this.suggestResult = '';
 
-      // Read current field values from the form
       const filled = {};
       const formData = new FormData(form);
       for (const [k, v] of formData.entries()) {
@@ -151,40 +278,54 @@ function _defineCreateFormAI() {
       try {
         const resp = await fetch('/servicenow/ai/suggest/', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
-          },
-          body: JSON.stringify({ kind: this.kind, filled }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: this.kind,
+            issue_description: this.issueText,
+            filled: filled,
+          }),
         });
         const data = await resp.json();
-        // Check for provider-level errors (session not connected, no API key, etc.)
         if (data.ai_error) {
           this.suggestResult = 'error';
           this.suggestErrorMsg = data.ai_error;
           return;
         }
+        this._applySuggestions(form, data.suggestions || {});
+      } catch (e) {
+        console.error('AI generate error:', e);
+        this.suggestResult = 'error';
+        this.suggestErrorMsg = e.message || 'AI generation failed';
+      } finally {
+        this.suggesting = false;
+      }
+    },
 
-        const suggestions = data.suggestions || {};
-        const keys = Object.keys(suggestions);
+    async suggestFields(form) {
+      this.suggesting = true;
+      this.suggestResult = '';
 
-        if (keys.length === 0) {
-          this.suggestResult = 'empty';
-        } else {
-          // Populate empty form fields with suggestions
-          let count = 0;
-          for (const [field, value] of Object.entries(suggestions)) {
-            const el = form.querySelector(`[name="${field}"]`);
-            if (el && !el.value.trim()) {
-              el.value = value;
-              // Trigger Alpine/HTMX reactivity if needed
-              el.dispatchEvent(new Event('input', { bubbles: true }));
-              count++;
-            }
-          }
-          this.suggestCount = count;
-          this.suggestResult = count > 0 ? 'success' : 'empty';
+      const filled = {};
+      const formData = new FormData(form);
+      for (const [k, v] of formData.entries()) {
+        if (v && k !== 'csrfmiddlewaretoken' && k !== 'template_key') {
+          filled[k] = v;
         }
+      }
+
+      try {
+        const resp = await fetch('/servicenow/ai/suggest/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: this.kind, filled }),
+        });
+        const data = await resp.json();
+        if (data.ai_error) {
+          this.suggestResult = 'error';
+          this.suggestErrorMsg = data.ai_error;
+          return;
+        }
+        this._applySuggestions(form, data.suggestions || {});
       } catch (e) {
         console.error('AI suggest error:', e);
         this.suggestResult = 'error';
@@ -193,8 +334,69 @@ function _defineCreateFormAI() {
         this.suggesting = false;
       }
     },
+
+    _applySuggestions(form, suggestions) {
+      const keys = Object.keys(suggestions);
+      if (keys.length === 0) {
+        this.suggestResult = 'empty';
+        return;
+      }
+
+      let count = 0;
+      for (const [field, value] of Object.entries(suggestions)) {
+        if (!value) continue;
+
+        // Alpine-bound fields — incident
+        if (field === 'category' && this.kind === 'incident') {
+          if (!this.category) { this.category = value; count++; }
+          continue;
+        }
+        if (field === 'subcategory') {
+          const sub = value;
+          this.$nextTick(() => { this.subcategory = sub; });
+          count++;
+          continue;
+        }
+
+        // Alpine-bound fields — change
+        if (field === 'category' && (this.kind === 'normal_change' || this.kind === 'emergency_change')) {
+          if (!this.changeCategory) { this.changeCategory = value; count++; }
+          continue;
+        }
+        if (field === 'reason') {
+          if (!this.changeReason) { this.changeReason = value; count++; }
+          continue;
+        }
+
+        if (field === 'short_description') {
+          const el = form.querySelector('[name="short_description"]');
+          if (el && !el.value.trim()) {
+            this.shortDesc = value;
+            count++;
+          }
+          continue;
+        }
+
+        // Standard form fields
+        const el = form.querySelector(`[name="${field}"]`);
+        if (el && !el.value.trim()) {
+          el.value = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          count++;
+        }
+      }
+      this.suggestCount = count;
+      this.suggestResult = count > 0 ? 'success' : 'empty';
+    },
   }));
 }
 if (window.Alpine) _defineCreateFormAI();
 else document.addEventListener('alpine:init', _defineCreateFormAI);
 </script>
+
+{% if kind == 'incident' and categories_json %}
+<script id="incident-categories-data" type="application/json">{{ categories_json|safe }}</script>
+{% endif %}
+{% if change_categories_json %}
+<script id="change-categories-data" type="application/json">{{ change_categories_json|safe }}</script>
+{% endif %}

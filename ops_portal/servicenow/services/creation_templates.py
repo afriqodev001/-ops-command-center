@@ -77,9 +77,12 @@ KIND_FIELDS: Dict[str, List[str]] = {
 # Fields that are mandatory per kind (UI marks them with a red asterisk).
 KIND_REQUIRED: Dict[str, List[str]] = {
     'standard_change':  [],
-    'normal_change':    ['cmdb_ci', 'short_description'],
-    'emergency_change': ['cmdb_ci', 'short_description', 'assignment_group'],
-    'incident':         ['short_description'],
+    'normal_change':    ['cmdb_ci', 'short_description', 'category', 'reason',
+                         'description', 'assignment_group'],
+    'emergency_change': ['cmdb_ci', 'short_description', 'assignment_group',
+                         'category', 'reason', 'description'],
+    'incident':         ['caller', 'category', 'subcategory', 'service',
+                         'short_description', 'description', 'assignment_group'],
 }
 
 # Default field values injected into new templates of each kind.
@@ -101,7 +104,12 @@ FIELD_LABELS: Dict[str, str] = {
     'backout_plan':         'Backout plan',
     'test_plan':            'Test plan',
     'caller':               'Caller',
+    'category':             'Category',
     'subcategory':          'Subcategory',
+    'service':              'Service',
+    'description':          'Description',
+    'reason':               'Reason',
+    'justification':        'Justification',
     'impact':               'Impact',
     'urgency':              'Urgency',
 }
@@ -111,6 +119,157 @@ TEXTAREA_FIELDS = {
     'description', 'justification', 'implementation_plan',
     'backout_plan', 'test_plan',
 }
+
+# ── Incident category → subcategory tree ───────────────────────
+# Configurable via incident_field_options.json; these are the defaults.
+
+INCIDENT_CATEGORIES: Dict[str, List[str]] = {
+    'Data Center Migration': [
+        'Configuration and Software Issues', 'Data Integrity and Loss',
+        'Infrastructure Failures', 'Performance Degradation', 'Security Breaches',
+    ],
+    'Data Integrity': [
+        'Inaccessible data', 'Incorrect Data', 'Missing Data',
+    ],
+    'Hardware': [
+        'Peripheral Failures', 'Server Failures', 'Workstation Failures',
+    ],
+    'Network': [
+        'Bandwidth and Performance Issues', 'Connectivity Problems', 'DNS Issues',
+    ],
+    'SACM Data Quality': [
+        'Data Discrepancy', 'Unauthorized Install', 'Validation Discrepancy',
+    ],
+    'Software and Application': [
+        'Application Crashes', 'Installation/Update Failures', 'Licensing Issues',
+    ],
+    'Technology Faults': [
+        'Error/Fault Message', 'Major Alert/Alarm', 'Unexpected Behavior',
+    ],
+    'Technology Performance': [
+        'Capacity Management', 'Down/Unreachable', 'Frozen/Unresponsive',
+        'Jammed/Blocked', 'Slow/Times Out',
+    ],
+    'Technology Processing': [
+        'Incompatibility', 'Non-Compliant', 'Order/Request Issue', 'User Complaint',
+    ],
+    'Technology Security': [
+        'Access Issue', 'Equipment Theft/Loss', 'Other Security Concern',
+    ],
+    'Vendor/Third-Party': [
+        'Error/Fault Message', 'Major Alert/Alarm', 'Unexpected Behavior',
+    ],
+}
+
+# ── Change category + reason options ───────────────────────────
+# Category value is the word before the hyphen; description is for display.
+
+CHANGE_CATEGORIES: Dict[str, str] = {
+    'Application Software': 'Change to custom code, no code, or COTS software',
+    'Database':             'Change to data and database configuration',
+    'Data Center':          'Change to Data center hardware',
+    'Facilities':           'Change to facilities',
+    'Hardware':             'Change to infrastructure hardware',
+    'Network':              'Change to network configuration',
+    'Service':              'Change to company services',
+    'System Software':      'Change to Operating System or layered Product software',
+    'Telecom':              'Change to Telecommunications configuration',
+}
+
+CHANGE_REASONS: List[str] = [
+    'Commission', 'Configuration', 'Data Updates', 'DCMS', 'DCMS - Prod Staged',
+    'Decommission', 'Defect Fix', 'Diagnostics', 'Divestiture',
+    'Elevated Access Request', 'Enhancement', 'Facilities Maintenance',
+    'Hardware Update', 'Patching', 'Resiliency Exercise',
+    'Restart/Reboot/Restore', 'Software Install / Uninstall',
+    'Software Update', 'Trace and Validate',
+]
+
+
+# ── Combobox options (service, assignment_group, cmdb_ci) ─────
+# Stored in field_options.json so users can add their own values.
+
+_OPTIONS_FILE = Path(__file__).parent.parent / 'field_options.json'
+
+
+_LEGACY_OPTIONS_FILE = Path(__file__).parent.parent / 'incident_field_options.json'
+
+
+def _load_field_options() -> Dict[str, Any]:
+    # Migrate from old filename if needed
+    if not _OPTIONS_FILE.exists() and _LEGACY_OPTIONS_FILE.exists():
+        try:
+            data = json.loads(_LEGACY_OPTIONS_FILE.read_text(encoding='utf-8'))
+            _OPTIONS_FILE.write_text(json.dumps(data, indent=2), encoding='utf-8')
+            return data
+        except Exception:
+            pass
+    if not _OPTIONS_FILE.exists():
+        return {}
+    try:
+        return json.loads(_OPTIONS_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        return {}
+
+
+def _save_field_options(data: Dict[str, Any]) -> None:
+    _OPTIONS_FILE.write_text(json.dumps(data, indent=2), encoding='utf-8')
+
+
+def load_incident_categories() -> Dict[str, List[str]]:
+    opts = _load_field_options()
+    return opts.get('categories', INCIDENT_CATEGORIES)
+
+
+def load_change_categories() -> Dict[str, str]:
+    opts = _load_field_options()
+    return opts.get('change_categories', CHANGE_CATEGORIES)
+
+
+def load_change_reasons() -> List[str]:
+    opts = _load_field_options()
+    return opts.get('change_reasons', CHANGE_REASONS)
+
+
+def save_change_categories(categories: Dict[str, str]) -> None:
+    opts = _load_field_options()
+    opts['change_categories'] = categories
+    _save_field_options(opts)
+
+
+def save_change_reasons(reasons: List[str]) -> None:
+    opts = _load_field_options()
+    opts['change_reasons'] = sorted(set(reasons))
+    _save_field_options(opts)
+
+
+def load_combobox_options(field: str) -> List[str]:
+    opts = _load_field_options()
+    return opts.get(f'{field}_options', [])
+
+
+def save_combobox_options(field: str, values: List[str]) -> None:
+    opts = _load_field_options()
+    opts[f'{field}_options'] = sorted(set(values))
+    _save_field_options(opts)
+
+
+def add_combobox_option(field: str, value: str) -> None:
+    if not value.strip():
+        return
+    opts = _load_field_options()
+    current = opts.get(f'{field}_options', [])
+    if value.strip() not in current:
+        current.append(value.strip())
+        current.sort()
+        opts[f'{field}_options'] = current
+        _save_field_options(opts)
+
+
+def save_incident_categories(categories: Dict[str, List[str]]) -> None:
+    opts = _load_field_options()
+    opts['categories'] = categories
+    _save_field_options(opts)
 
 
 def _migrate_legacy_if_needed() -> None:

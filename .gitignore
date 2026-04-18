@@ -59,6 +59,8 @@ ops_portal/servicenow/creation_templates.json
 ops_portal/servicenow/standard_change_templates.json
 ops_portal/servicenow/search_presets.json
 ops_portal/servicenow/user_preferences.json
+ops_portal/servicenow/incident_field_options.json
+ops_portal/servicenow/field_options.json
 
 # ─── Personal notes (keep local) ────────────────────────────
 GIT_CHEATSHEET.md
