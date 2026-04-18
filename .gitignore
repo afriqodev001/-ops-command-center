@@ -79,3 +79,4 @@ package-lock.json
 .DS_Store
 Thumbs.db
 desktop.ini
+ops_portal/control/

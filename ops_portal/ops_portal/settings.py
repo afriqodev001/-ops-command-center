@@ -233,6 +233,25 @@ SERVICENOW_ATTACHMENT_FIELDS = (
 )
 
 
+# =========================
+# Tachyon
+# =========================
+TACHYON_BASE = os.environ.get(
+    'TACHYON_BASE',
+    'https://your-tachyon-instance.net',
+)
+
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+
+TACHYON_UPLOAD_TMP_DIR = str(MEDIA_ROOT / "tachyon_uploads")
+TACHYON_UPLOAD_MAX_BYTES = 10 * 1024 * 1024
+
+TACHYON_FETCH_TIMEOUT_MS = 60000
+TACHYON_SCRIPT_TIMEOUT_SECONDS = 90
+TACHYON_DEFAULT_USER_ID = "uxxxxxx"
+
+
 # ============================================================
 # Local overrides (gitignored)
 # ============================================================
