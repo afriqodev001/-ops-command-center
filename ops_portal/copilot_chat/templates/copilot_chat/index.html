@@ -96,7 +96,7 @@
           <template x-if="files.length > 0">
             <div class="flex flex-wrap gap-2">
               <template x-for="(file, idx) in files" :key="file.name + idx">
-                <div class="group relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-3 border border-edge text-xs">
+                <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-3 border border-edge text-xs">
                   <!-- Thumbnail or icon -->
                   <template x-if="file._preview">
                     <img :src="file._preview" class="w-8 h-8 rounded object-cover flex-shrink-0">
@@ -112,12 +112,11 @@
                     <p class="text-[11px] text-ink-primary truncate max-w-[120px]" x-text="file.name"></p>
                     <p class="text-[9px] text-ink-muted" x-text="formatSize(file.size)"></p>
                   </div>
-                  <!-- Remove button -->
                   <button type="button" @click="removeFile(idx)"
-                          class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Remove">
-                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                          class="ml-auto flex-shrink-0 p-1 rounded hover:bg-danger/20 text-ink-muted hover:text-danger transition-colors"
+                          title="Remove file">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                   </button>
                 </div>
