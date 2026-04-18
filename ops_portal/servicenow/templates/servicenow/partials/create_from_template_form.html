@@ -47,10 +47,9 @@
         ✓ <span x-text="suggestCount"></span> field(s) filled — review before submitting.
       </p>
       <p class="text-[10px] text-warn" x-show="suggestResult === 'empty'" x-cloak>
-        No suggestions returned. AI API key may not be configured yet.
+        No suggestions returned.
       </p>
-      <p class="text-[10px] text-danger" x-show="suggestResult === 'error'" x-cloak>
-        AI suggestion failed. Check the console for details.
+      <p class="text-[10px] text-danger" x-show="suggestResult === 'error'" x-cloak x-text="suggestErrorMsg">
       </p>
     </div>
   </div>
@@ -134,6 +133,7 @@ function _defineCreateFormAI() {
     suggesting: false,
     suggestResult: '',   // '' | 'success' | 'empty' | 'error'
     suggestCount: 0,
+    suggestErrorMsg: '',
 
     async suggestFields(form) {
       this.suggesting = true;
@@ -158,6 +158,13 @@ function _defineCreateFormAI() {
           body: JSON.stringify({ kind: this.kind, filled }),
         });
         const data = await resp.json();
+        // Check for provider-level errors (session not connected, no API key, etc.)
+        if (data.ai_error) {
+          this.suggestResult = 'error';
+          this.suggestErrorMsg = data.ai_error;
+          return;
+        }
+
         const suggestions = data.suggestions || {};
         const keys = Object.keys(suggestions);
 
@@ -181,6 +188,7 @@ function _defineCreateFormAI() {
       } catch (e) {
         console.error('AI suggest error:', e);
         this.suggestResult = 'error';
+        this.suggestErrorMsg = e.message || 'AI suggestion failed';
       } finally {
         this.suggesting = false;
       }

@@ -96,7 +96,24 @@ def _call_llm(system: str, user: str) -> str:
     elif provider == 'openai':
         return _call_openai(system, user, cfg)
     else:
-        return '{}'
+        return json.dumps({'_ai_error': 'No AI provider configured. Open Preferences → AI Provider to set one up.'})
+
+
+def _check_tachyon_session() -> str:
+    """Check if a Tachyon browser session is active.
+    Returns '' if OK, or an error message string if not."""
+    try:
+        from core.browser.registry import load_session
+        from core.browser.health import is_debug_alive
+        session = load_session('tachyon', 'localuser')
+        if not session:
+            return 'no_session'
+        port = session.get('debug_port')
+        if not port or not is_debug_alive(port):
+            return 'session_offline'
+        return ''
+    except Exception:
+        return 'check_failed'
 
 
 def _call_tachyon(system: str, user: str, cfg: Dict) -> str:
@@ -104,7 +121,18 @@ def _call_tachyon(system: str, user: str, cfg: Dict) -> str:
     Runs synchronously via .apply() since we need the result inline."""
     preset_slug = cfg.get('tachyon_preset_slug', '')
     if not preset_slug:
-        return '{}'
+        return json.dumps({'_ai_error': 'No Tachyon preset configured. Open Preferences → AI Provider → set the preset slug.'})
+
+    # Check session before dispatching — fail fast with a helpful message
+    session_issue = _check_tachyon_session()
+    if session_issue:
+        msgs = {
+            'no_session': 'Tachyon session not found. Click "Connect Tachyon" in the sidebar to log in.',
+            'session_offline': 'Tachyon browser is offline. Click "Reconnect" in the sidebar or connect a new session.',
+            'check_failed': 'Could not check Tachyon session status.',
+        }
+        return json.dumps({'_ai_error': msgs.get(session_issue, 'Tachyon session issue.')})
+
     try:
         from tachyon.tasks import run_tachyon_llm_task
         result = run_tachyon_llm_task.apply(kwargs={
@@ -135,7 +163,7 @@ def _call_claude(system: str, user: str, cfg: Dict) -> str:
     from django.conf import settings as dj_settings
     api_key = getattr(dj_settings, 'AI_API_KEY', '')
     if not api_key:
-        return '{}'
+        return json.dumps({'_ai_error': 'Claude API key not set. Add AI_API_KEY to your .env file.'})
     model = cfg.get('model') or getattr(dj_settings, 'AI_MODEL', 'claude-sonnet-4-20250514')
     try:
         from anthropic import Anthropic
@@ -158,7 +186,7 @@ def _call_openai(system: str, user: str, cfg: Dict) -> str:
     from django.conf import settings as dj_settings
     api_key = getattr(dj_settings, 'AI_API_KEY', '')
     if not api_key:
-        return '{}'
+        return json.dumps({'_ai_error': 'OpenAI API key not set. Add AI_API_KEY to your .env file.'})
     model = cfg.get('model') or 'gpt-4o'
     try:
         from openai import OpenAI
@@ -211,6 +239,9 @@ def suggest_fields(kind: str, filled: Dict[str, str]) -> Dict[str, str]:
         suggestions = json.loads(raw)
         if not isinstance(suggestions, dict):
             return {}
+        # Surface provider errors (session not connected, no API key, etc.)
+        if '_ai_error' in suggestions:
+            return {'_ai_error': suggestions['_ai_error']}
         # Only return fields we actually asked for
         return {k: str(v) for k, v in suggestions.items()
                 if k in empty_fields and v}

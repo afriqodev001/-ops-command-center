@@ -2990,16 +2990,19 @@ def ai_suggest_fields(request):
     from django.conf import settings as dj_settings
 
     suggestions = suggest_fields(kind, filled)
-    ai_key = getattr(dj_settings, 'AI_API_KEY', '') or ''
+
+    # Surface provider errors to the frontend
+    ai_error = suggestions.pop('_ai_error', '')
 
     _push_activity(request,
                    type='ai_suggest',
                    title=f'AI suggest for {kind.replace("_", " ")}',
-                   detail=f'{len(suggestions)} field(s) suggested',
-                   severity='info')
+                   detail=ai_error or f'{len(suggestions)} field(s) suggested',
+                   severity='warning' if ai_error else 'info')
 
     return JsonResponse({
         'suggestions':  suggestions,
+        'ai_error':     ai_error,
         'ai_available': bool(ai_key),
     })
 
