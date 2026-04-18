@@ -42,10 +42,11 @@ def ui_context(request):
     except Exception:
         prefs = {'default_data_mode': 'demo'}
 
-    # AI config visibility (read-only, from settings not preferences)
+    # AI config visibility (API key presence from settings, provider from preferences)
     from django.conf import settings as dj_settings
     prefs['ai_configured'] = bool(getattr(dj_settings, 'AI_API_KEY', ''))
-    prefs['ai_model'] = getattr(dj_settings, 'AI_MODEL', '')
+    # Don't overwrite ai_model from preferences — settings.AI_MODEL is the fallback,
+    # prefs['ai_model'] is the user's override (set in Preferences panel)
 
     return {
         'os_user':    {'name': name, 'initials': _initials(name)},

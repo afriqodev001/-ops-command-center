@@ -80,23 +80,77 @@
     </div>
   </section>
 
-  <!-- AI config -->
+  <!-- AI Provider -->
   <section>
-    <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">AI assist</p>
-    <div class="p-3 rounded-lg bg-surface-3 border border-edge">
-      <div class="flex items-center gap-2">
-        {% if user_prefs.ai_configured %}
+    <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">AI Provider</p>
+    <div class="p-3 rounded-lg bg-surface-3 border border-edge space-y-3">
+      <div class="flex items-center gap-2 mb-2">
+        {% if prefs.ai_provider and prefs.ai_provider != 'none' %}
         <span class="w-1.5 h-1.5 rounded-full bg-ok flex-shrink-0"></span>
-        <p class="text-xs text-ink-primary">API key configured</p>
-        <span class="text-[10px] text-ink-muted font-mono ml-auto">{{ user_prefs.ai_model }}</span>
+        <p class="text-xs text-ink-primary">{{ prefs.ai_provider|title }} active</p>
         {% else %}
         <span class="w-1.5 h-1.5 rounded-full bg-warn flex-shrink-0"></span>
-        <p class="text-xs text-ink-secondary">No API key set</p>
-        <span class="text-[10px] text-ink-muted ml-auto">Set <code>AI_API_KEY</code> in .env</span>
+        <p class="text-xs text-ink-secondary">No provider configured</p>
         {% endif %}
       </div>
-      <p class="text-[10px] text-ink-muted mt-1.5">
-        Powers the "Suggest fields with AI" button on incident + change creation forms.
+
+      <form hx-post="/servicenow/preferences/save/"
+            hx-target="#preferences-modal-body"
+            hx-swap="innerHTML"
+            class="space-y-3"
+            x-data="{ aiProvider: '{{ prefs.ai_provider|default:"none" }}' }">
+        {% csrf_token %}
+
+        <div>
+          <label class="label">Provider</label>
+          <select name="ai_provider" x-model="aiProvider" class="select-dark w-full text-xs">
+            <option value="none">None (AI disabled)</option>
+            <option value="tachyon" {% if prefs.ai_provider == 'tachyon' %}selected{% endif %}>Tachyon Playground</option>
+            <option value="claude" {% if prefs.ai_provider == 'claude' %}selected{% endif %}>Claude (Anthropic API)</option>
+            <option value="openai" {% if prefs.ai_provider == 'openai' %}selected{% endif %}>OpenAI</option>
+          </select>
+        </div>
+
+        <!-- Tachyon-specific: preset selector -->
+        <div x-show="aiProvider === 'tachyon'">
+          <label class="label">Tachyon preset</label>
+          <input type="text" name="ai_tachyon_preset_slug"
+                 value="{{ prefs.ai_tachyon_preset_slug|default:'' }}"
+                 placeholder="e.g. default"
+                 class="input-dark text-xs font-mono">
+          <p class="text-[10px] text-ink-muted mt-1">Slug of the preset from <a href="/tachyon/playground/" class="text-brand-light hover:text-brand">Tachyon Playground</a></p>
+        </div>
+
+        <!-- Claude/OpenAI: API key reminder -->
+        <div x-show="aiProvider === 'claude' || aiProvider === 'openai'">
+          <p class="text-[10px] text-ink-muted">
+            {% if user_prefs.ai_configured %}
+            ✓ <code>AI_API_KEY</code> is set in .env
+            {% else %}
+            Set <code>AI_API_KEY</code> in your .env file for this provider to work.
+            {% endif %}
+          </p>
+        </div>
+
+        <!-- Model override (all providers) -->
+        <div x-show="aiProvider !== 'none'">
+          <label class="label">Model override</label>
+          <input type="text" name="ai_model"
+                 value="{{ prefs.ai_model|default:'' }}"
+                 placeholder="Leave blank for provider default"
+                 class="input-dark text-xs font-mono">
+          <p class="text-[10px] text-ink-muted mt-1">
+            <span x-show="aiProvider === 'tachyon'">Overrides the Tachyon preset's default model</span>
+            <span x-show="aiProvider === 'claude'">e.g. claude-sonnet-4-20250514</span>
+            <span x-show="aiProvider === 'openai'">e.g. gpt-4o</span>
+          </p>
+        </div>
+
+        <button type="submit" class="btn-primary text-xs px-4 py-2">Save AI config</button>
+      </form>
+
+      <p class="text-[10px] text-ink-muted">
+        Used by: field suggestions on create forms, change briefing AI review.
       </p>
     </div>
   </section>

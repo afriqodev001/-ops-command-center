@@ -61,29 +61,121 @@ def _build_user_prompt(kind: str, filled: Dict[str, str], empty_fields: List[str
     return "\n".join(lines)
 
 
-# ─── LLM call (stub) ────────────────────────────────────────
+# ─── Unified LLM call — routes to the configured provider ────
+
+AI_PROVIDERS = ('none', 'tachyon', 'claude', 'openai')
+
+
+def _get_ai_config() -> Dict:
+    """Read the active AI provider config from user preferences."""
+    try:
+        from .user_preferences import load_preferences
+        prefs = load_preferences()
+    except Exception:
+        prefs = {}
+    return {
+        'provider':             prefs.get('ai_provider', 'none'),
+        'tachyon_preset_slug':  prefs.get('ai_tachyon_preset_slug', ''),
+        'model':                prefs.get('ai_model', ''),
+    }
+
 
 def _call_llm(system: str, user: str) -> str:
-    """Stub — replace with a real API call to Claude, OpenAI, etc.
+    """Route the LLM call to the configured provider.
 
-    Expected to return a JSON string like:
-        {"category": "Network", "assignment_group": "Network Ops", ...}
+    Returns the raw response text (expected to be JSON for field suggestion,
+    or free-text for briefing review).
+    """
+    cfg = _get_ai_config()
+    provider = cfg['provider']
 
-    When wiring the real call:
+    if provider == 'tachyon':
+        return _call_tachyon(system, user, cfg)
+    elif provider == 'claude':
+        return _call_claude(system, user, cfg)
+    elif provider == 'openai':
+        return _call_openai(system, user, cfg)
+    else:
+        return '{}'
+
+
+def _call_tachyon(system: str, user: str, cfg: Dict) -> str:
+    """Call Tachyon Playground via the existing Celery task infrastructure.
+    Runs synchronously via .apply() since we need the result inline."""
+    preset_slug = cfg.get('tachyon_preset_slug', '')
+    if not preset_slug:
+        return '{}'
+    try:
+        from tachyon.tasks import run_tachyon_llm_task
+        result = run_tachyon_llm_task.apply(kwargs={
+            'user_key': 'localuser',
+            'preset_slug': preset_slug,
+            'query': user,
+            'overrides': {
+                'systemInstruction': system,
+                **(({'modelId': cfg['model']} if cfg.get('model') else {})),
+            },
+        }).result
+
+        if isinstance(result, dict):
+            if result.get('error'):
+                return '{}'
+            # Tachyon returns nested response shapes
+            data = result.get('data') or result
+            if isinstance(data, dict):
+                return data.get('response') or data.get('text') or json.dumps(data)
+            return str(data)
+        return str(result) if result else '{}'
+    except Exception:
+        return '{}'
+
+
+def _call_claude(system: str, user: str, cfg: Dict) -> str:
+    """Call Anthropic Claude API directly."""
+    from django.conf import settings as dj_settings
+    api_key = getattr(dj_settings, 'AI_API_KEY', '')
+    if not api_key:
+        return '{}'
+    model = cfg.get('model') or getattr(dj_settings, 'AI_MODEL', 'claude-sonnet-4-20250514')
+    try:
         from anthropic import Anthropic
-        client = Anthropic(api_key=settings.AI_API_KEY)
+        client = Anthropic(api_key=api_key)
         response = client.messages.create(
-            model=settings.AI_MODEL,
-            max_tokens=1024,
+            model=model,
+            max_tokens=2048,
             system=system,
-            messages=[{"role": "user", "content": user}],
+            messages=[{'role': 'user', 'content': user}],
         )
         return response.content[0].text
+    except ImportError:
+        return '{}'
+    except Exception:
+        return '{}'
 
-    For now, returns empty JSON so the UI flow works end-to-end
-    without an API key.
-    """
-    return '{}'
+
+def _call_openai(system: str, user: str, cfg: Dict) -> str:
+    """Call OpenAI API directly."""
+    from django.conf import settings as dj_settings
+    api_key = getattr(dj_settings, 'AI_API_KEY', '')
+    if not api_key:
+        return '{}'
+    model = cfg.get('model') or 'gpt-4o'
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {'role': 'system', 'content': system},
+                {'role': 'user', 'content': user},
+            ],
+            max_tokens=2048,
+        )
+        return response.choices[0].message.content
+    except ImportError:
+        return '{}'
+    except Exception:
+        return '{}'
 
 
 # ─── Public API ──────────────────────────────────────────────

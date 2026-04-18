@@ -16,6 +16,10 @@ DEFAULTS = {
     'default_data_mode': 'demo',            # 'demo' or 'live'
     'default_group_filter': '',             # assignment_group.parent name applied to list pages
     'browser_idle_timeout_minutes': 30,     # auto-close browser after N minutes of no task activity
+    # AI provider config — set once in Preferences, used by all AI features
+    'ai_provider': 'none',                  # 'none' | 'tachyon' | 'claude' | 'openai'
+    'ai_tachyon_preset_slug': '',           # which TachyonPreset to use (slug from DB)
+    'ai_model': '',                         # model override (empty = use preset/settings default)
 }
 
 

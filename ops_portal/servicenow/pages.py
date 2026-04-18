@@ -2384,6 +2384,14 @@ def preferences_save(request):
             updates['browser_idle_timeout_minutes'] = max(0, int(request.POST.get('browser_idle_timeout_minutes', 30)))
         except (ValueError, TypeError):
             pass
+    if 'ai_provider' in request.POST:
+        provider = request.POST.get('ai_provider', 'none').strip()
+        if provider in ('none', 'tachyon', 'claude', 'openai'):
+            updates['ai_provider'] = provider
+    if 'ai_tachyon_preset_slug' in request.POST:
+        updates['ai_tachyon_preset_slug'] = request.POST.get('ai_tachyon_preset_slug', '').strip()
+    if 'ai_model' in request.POST:
+        updates['ai_model'] = request.POST.get('ai_model', '').strip()
 
     if updates:
         save_preferences(updates)
