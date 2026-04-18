@@ -181,6 +181,19 @@
           <div class="h-9 bg-surface-4 rounded-lg animate-pulse"></div>
         </div>
 
+        <!-- Tachyon session widget — visible when AI provider is Tachyon or on /tachyon/ pages -->
+        {% if user_prefs.ai_provider == 'tachyon' or '/tachyon/' in request.path %}
+        <div class="px-3 pb-1">
+          <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider mb-1.5 px-0.5">Tachyon</p>
+          <div id="tachyon-session-widget"
+               hx-get="/tachyon/session/widget/"
+               hx-trigger="load, every 20s"
+               hx-swap="innerHTML">
+            <div class="h-9 bg-surface-4 rounded-lg animate-pulse"></div>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- User identity -->
         <button type="button"
                 onclick="document.getElementById('preferences-modal').showModal(); htmx.ajax('GET','/servicenow/preferences/',{target:'#preferences-modal-body',swap:'innerHTML'})"

@@ -5,6 +5,12 @@ from . import views
 from . import pages
 
 urlpatterns = [
+    # ─── Session management ─────────────────────
+    path("session/widget/",         pages.tachyon_session_widget,       name="tachyon-session-widget"),
+    path("session/connect/",        pages.tachyon_session_connect,      name="tachyon-session-connect"),
+    path("session/close-browser/",  pages.tachyon_session_close_browser, name="tachyon-session-close"),
+    path("session/disconnect/",     pages.tachyon_session_disconnect,   name="tachyon-session-disconnect"),
+
     # ─── UI pages ───────────────────────────────
     path("playground/",             pages.playground,           name="tachyon-playground"),
     path("playground/presets/",     pages.preset_list_partial,  name="tachyon-preset-list"),
