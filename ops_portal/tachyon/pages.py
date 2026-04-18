@@ -161,7 +161,7 @@ def playground(request):
             description="General-purpose LLM preset",
             preset_id="default",
             default_model_id="gpt5.1",
-            parameters={"temperature": 0.3, "maxTokens": 4096},
+            parameters={"temperature": 0.3, "max_completion_tokens": 4096},
             system_instruction="You are a helpful assistant. Answer questions clearly and concisely.",
         )
 
