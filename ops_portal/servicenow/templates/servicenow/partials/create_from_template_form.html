@@ -179,7 +179,7 @@
 
     {# ── Textarea fields ─────────────────────────────────── #}
     {% elif ftextarea %}
-    <textarea name="{{ fname }}" rows="3" class="input-dark text-xs resize-none" {% if freq %}required{% endif %}>{{ fval }}</textarea>
+    <textarea name="{{ fname }}" rows="{% if fname == 'description' %}5{% else %}3{% endif %}" class="input-dark text-xs resize-y" {% if freq %}required{% endif %}>{{ fval }}</textarea>
 
     {# ── Default text input ──────────────────────────────── #}
     {% else %}
