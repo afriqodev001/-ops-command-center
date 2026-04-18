@@ -44,9 +44,10 @@
     <div class="flex items-center justify-between mb-2">
       <label class="label !mb-0">Prompts</label>
       <button type="button"
-              hx-get="/copilot/partials/prompt-packs/prompt-row/?order={{ next_order }}"
-              hx-target="#prompt-rows"
-              hx-swap="beforeend"
+              @click="
+                var n = document.querySelectorAll('#prompt-rows > div').length + 1;
+                htmx.ajax('GET', '/copilot/partials/prompt-packs/prompt-row/?order=' + n, {target: '#prompt-rows', swap: 'beforeend'});
+              "
               class="btn-ghost text-[10px] py-0.5 px-2">+ Add prompt</button>
     </div>
     <div id="prompt-rows" class="space-y-2">
