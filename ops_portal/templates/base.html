@@ -208,6 +208,19 @@
         </div>
         {% endif %}
 
+        <!-- Copilot session widget — visible on /copilot/ pages -->
+        {% if '/copilot/' in request.path %}
+        <div class="px-3 pb-1">
+          <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider mb-1.5 px-0.5">Copilot</p>
+          <div id="copilot-session-widget"
+               hx-get="/copilot/session/widget/"
+               hx-trigger="load, every 20s"
+               hx-swap="innerHTML">
+            <div class="h-9 bg-surface-4 rounded-lg animate-pulse"></div>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- User identity -->
         <button type="button"
                 onclick="document.getElementById('preferences-modal').showModal(); htmx.ajax('GET','/servicenow/preferences/',{target:'#preferences-modal-body',swap:'innerHTML'})"

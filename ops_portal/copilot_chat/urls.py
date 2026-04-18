@@ -1,7 +1,14 @@
 from django.urls import path
 from . import views
+from . import session_views
 
 urlpatterns = [
+    # ─── Session management (sidebar widget) ───
+    path("session/widget/",        session_views.session_widget,        name="copilot-session-widget"),
+    path("session/connect/",       session_views.session_connect,       name="copilot-session-connect"),
+    path("session/close-browser/", session_views.session_close_browser, name="copilot-session-close"),
+    path("session/disconnect/",    session_views.session_disconnect,    name="copilot-session-disconnect"),
+
     # UI
     path("", views.copilot_home, name="copilot_home"),
     path("partials/packs/", views.packs_list_partial, name="copilot_packs_list_partial"),
