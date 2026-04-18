@@ -75,20 +75,55 @@
                   class="input-dark text-xs resize-y"
                   placeholder="Describe what you want Copilot to do..."></textarea>
 
-        <div class="flex items-center gap-3">
-          <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-edge bg-surface-3 hover:border-brand/40 cursor-pointer transition-colors text-xs text-ink-secondary">
-            <svg class="w-3.5 h-3.5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
-            </svg>
-            <span x-text="fileNames.length ? fileNames.join(', ') : 'Attach files'"></span>
-            <input type="file" name="files" multiple class="hidden"
-                   @change="fileNames = Array.from($event.target.files).map(f => f.name)">
-          </label>
-          <label class="flex items-center gap-1.5 text-[10px] text-ink-muted cursor-pointer">
-            <input type="checkbox" name="clear_attachments" value="true" checked
-                   class="rounded border-edge bg-surface-4 text-brand focus:ring-brand/50 w-3.5 h-3.5">
-            Clear existing
-          </label>
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-edge bg-surface-3 hover:border-brand/40 cursor-pointer transition-colors text-xs text-ink-secondary">
+              <svg class="w-3.5 h-3.5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+              </svg>
+              <span x-text="files.length ? files.length + ' file(s)' : 'Attach files'"></span>
+              <input type="file" name="files" multiple class="hidden" x-ref="fileInput"
+                     @change="addFiles($event.target.files)">
+            </label>
+            <label class="flex items-center gap-1.5 text-[10px] text-ink-muted cursor-pointer">
+              <input type="checkbox" name="clear_attachments" value="true" checked
+                     class="rounded border-edge bg-surface-4 text-brand focus:ring-brand/50 w-3.5 h-3.5">
+              Clear existing
+            </label>
+          </div>
+
+          <!-- File thumbnails -->
+          <template x-if="files.length > 0">
+            <div class="flex flex-wrap gap-2">
+              <template x-for="(file, idx) in files" :key="file.name + idx">
+                <div class="group relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-3 border border-edge text-xs">
+                  <!-- Thumbnail or icon -->
+                  <template x-if="file._preview">
+                    <img :src="file._preview" class="w-8 h-8 rounded object-cover flex-shrink-0">
+                  </template>
+                  <template x-if="!file._preview">
+                    <div class="w-8 h-8 rounded bg-surface-4 border border-edge flex items-center justify-center flex-shrink-0">
+                      <svg class="w-4 h-4 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    </div>
+                  </template>
+                  <div class="min-w-0">
+                    <p class="text-[11px] text-ink-primary truncate max-w-[120px]" x-text="file.name"></p>
+                    <p class="text-[9px] text-ink-muted" x-text="formatSize(file.size)"></p>
+                  </div>
+                  <!-- Remove button -->
+                  <button type="button" @click="removeFile(idx)"
+                          class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove">
+                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              </template>
+            </div>
+          </template>
         </div>
 
         <div class="flex items-center gap-2">
@@ -100,7 +135,7 @@
             </svg>
             Run Prompt
           </button>
-          <button type="button" @click="promptText = ''; fileNames = []; $el.closest('form').reset()"
+          <button type="button" @click="promptText = ''; files.forEach(f => f._preview && URL.revokeObjectURL(f._preview)); files = []; _syncInput(); $el.closest('form').reset()"
                   class="btn-ghost text-xs py-2">Clear</button>
         </div>
       </form>
@@ -238,7 +273,37 @@
 function _defineCopilotPage() {
   Alpine.data('copilotPage', () => ({
     promptText: '',
-    fileNames: [],
+    files: [],
+
+    addFiles(fileList) {
+      for (const f of fileList) {
+        if (this.files.some(e => e.name === f.name && e.size === f.size)) continue;
+        if (f.type.startsWith('image/')) {
+          f._preview = URL.createObjectURL(f);
+        }
+        this.files.push(f);
+      }
+      this._syncInput();
+    },
+
+    removeFile(idx) {
+      const f = this.files[idx];
+      if (f._preview) URL.revokeObjectURL(f._preview);
+      this.files.splice(idx, 1);
+      this._syncInput();
+    },
+
+    _syncInput() {
+      const dt = new DataTransfer();
+      this.files.forEach(f => dt.items.add(f));
+      if (this.$refs.fileInput) this.$refs.fileInput.files = dt.files;
+    },
+
+    formatSize(bytes) {
+      if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+      if (bytes >= 1024) return Math.round(bytes / 1024) + ' KB';
+      return bytes + ' B';
+    },
   }));
 }
 if (window.Alpine) _defineCopilotPage();
