@@ -10,8 +10,8 @@
      x-init="pollSession()">
 
   <!-- ═══ LEFT: Prompt Packs ═══════════════════════════════════ -->
-  <div class="lg:col-span-3" x-data="packsBrowser()">
-    <div class="glass-card p-4 flex flex-col" style="max-height: calc(100vh - 120px)">
+  <div class="lg:col-span-3 min-w-0" x-data="packsBrowser()">
+    <div class="glass-card p-4 flex flex-col max-h-[60vh] lg:max-h-[calc(100vh-120px)]">
       <!-- Header -->
       <div class="flex items-center justify-between mb-3 flex-shrink-0">
         <h3 class="text-sm font-semibold text-ink-primary">Prompt Packs</h3>
@@ -66,7 +66,7 @@
   </div>
 
   <!-- ═══ CENTER: Session + Run + Batch ════════════════════════ -->
-  <div class="lg:col-span-5 space-y-4">
+  <div class="lg:col-span-5 min-w-0 space-y-4">
 
     <!-- Session warning -->
     <div x-show="!sessionAlive" x-cloak
@@ -232,7 +232,7 @@
   </div>
 
   <!-- ═══ RIGHT: Live Run + Recent Runs ════════════════════════ -->
-  <div class="lg:col-span-4 space-y-4">
+  <div class="lg:col-span-4 min-w-0 space-y-4">
 
     <!-- Live run area -->
     <div class="rounded-xl border border-edge bg-surface-2 shadow-card p-4">

@@ -1,4 +1,4 @@
-<div class="rounded-lg border border-edge bg-surface-2 p-4 animate-fade-in"
+<div class="rounded-lg border border-edge bg-surface-2 p-4 animate-fade-in overflow-hidden"
      {% if run.status == 'queued' or run.status == 'running' %}
      hx-get="/copilot/ui/poll/{{ run.task_id }}/"
      hx-trigger="load delay:2s"
@@ -41,7 +41,7 @@
   <!-- Prompt -->
   <div class="mb-2">
     <p class="text-[10px] text-ink-muted uppercase tracking-wider font-semibold mb-1">Prompt</p>
-    <p class="text-xs text-ink-secondary leading-relaxed">{{ run.prompt|truncatewords:50 }}</p>
+    <p class="text-xs text-ink-secondary leading-relaxed break-words">{{ run.prompt|truncatewords:50 }}</p>
   </div>
 
   <!-- Answer (rendered as markdown) -->
@@ -56,7 +56,7 @@
     </div>
     <div id="copilot-answer-{{ run.id }}"
          data-raw="{{ run.answer|escape }}"
-         class="copilot-md max-h-96 overflow-y-auto"></div>
+         class="copilot-md max-h-96 overflow-y-auto overflow-x-hidden"></div>
     <script>
     (function(){
       var el = document.getElementById('copilot-answer-{{ run.id }}');
@@ -94,7 +94,7 @@
 </div>
 
 <style>
-  .copilot-md { font-size: 0.8125rem; line-height: 1.75; color: #A1A1AA; }
+  .copilot-md { font-size: 0.8125rem; line-height: 1.75; color: #A1A1AA; word-break: break-word; }
   .copilot-md h1, .copilot-md h2 { font-size: 0.875rem; font-weight: 700; color: #FFFFFF; margin-top: 1.25rem; margin-bottom: 0.5rem; padding-bottom: 0.375rem; border-bottom: 1px solid hsla(0,0%,100%,0.06); }
   .copilot-md h1:first-child, .copilot-md h2:first-child { margin-top: 0; }
   .copilot-md h3 { font-size: 0.8125rem; font-weight: 600; color: #FFFFFF; margin-top: 1rem; margin-bottom: 0.375rem; }
