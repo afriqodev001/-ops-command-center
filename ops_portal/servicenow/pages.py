@@ -2960,6 +2960,13 @@ def create_from_template_submit(request):
             'kind':  kind,
         }, status=200)
 
+    # Convert datetime-local format (2026-04-20T09:00) to SN format (2026-04-20 09:00:00)
+    for dtf in ('start_date', 'end_date'):
+        if dtf in fields and 'T' in fields[dtf]:
+            fields[dtf] = fields[dtf].replace('T', ' ')
+            if len(fields[dtf]) == 16:
+                fields[dtf] += ':00'
+
     # Map form field names to ServiceNow Table API names + save combobox values
     if kind == 'incident':
         from .services.creation_templates import add_combobox_option

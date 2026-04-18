@@ -177,6 +177,13 @@
     <input type="text" name="caller" value="{{ fval|default:os_user.name }}"
            class="input-dark text-xs" {% if freq %}required{% endif %}>
 
+    {# ── Date/time picker fields ────────────────────────── #}
+    {% elif fname == 'start_date' or fname == 'end_date' %}
+    <input type="datetime-local" name="{{ fname }}" value="{{ fval }}"
+           class="input-dark text-xs"
+           {% if freq %}required{% endif %}>
+    <p class="text-[10px] text-ink-muted mt-0.5">Date and time in your local timezone.</p>
+
     {# ── Textarea fields ─────────────────────────────────── #}
     {% elif ftextarea %}
     <textarea name="{{ fname }}" rows="{% if fname == 'description' %}5{% else %}3{% endif %}" class="input-dark text-xs resize-y" {% if freq %}required{% endif %}>{{ fval }}</textarea>

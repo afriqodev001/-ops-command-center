@@ -23,7 +23,7 @@ def create_incident_via_table_api(driver, *, fields: Dict[str, Any]) -> Dict[str
     """
     table = getattr(settings, "SERVICENOW_INCIDENT_TABLE", "incident")
     base = getattr(settings, "SERVICENOW_BASE", "https://now.wf.com").rstrip("/")
-    url = f"{base}/api/now/table/{table}"
+    url = f"{base}/api/now/table/{table}?sysparm_input_display_value=true"
 
     payload = dict(fields or {})
 

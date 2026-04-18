@@ -21,7 +21,10 @@ def create_change_via_table_api(driver, *, kind: str, fields: dict):
         **(fields or {}),
     }
 
-    url = f"{settings.SERVICENOW_BASE}/api/now/table/{settings.SERVICENOW_CHANGE_TABLE}"
+    url = (
+        f"{settings.SERVICENOW_BASE}/api/now/table/{settings.SERVICENOW_CHANGE_TABLE}"
+        f"?sysparm_input_display_value=true"
+    )
     return fetch_json_in_browser(
         driver,
         method="POST",
