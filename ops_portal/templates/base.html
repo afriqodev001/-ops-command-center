@@ -333,7 +333,8 @@
   <dialog id="create-from-template-modal"
           class="bg-transparent p-0 m-auto w-full max-w-xl backdrop:bg-black/70 backdrop:backdrop-blur-sm"
           x-data="createFromTemplateModal()"
-          @open-from-template.window="handleOpen($event.detail)">
+          @open-from-template.window="handleOpen($event.detail)"
+          @cancel.prevent>
     <div class="glass-card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <div>
@@ -398,20 +399,22 @@
   if (window.Alpine) _defineCreateFromTemplateModal();
   else document.addEventListener('alpine:init', _defineCreateFromTemplateModal);
 
-  function _bindCreateFromTemplateBackdrop() {
-    const m = document.getElementById('create-from-template-modal');
-    if (m && !m._backdropBound) {
-      m.addEventListener('click', e => { if (e.target === m) m.close(); });
-      m._backdropBound = true;
-    }
+  // Prevent all dialogs from closing on backdrop click
+  function _lockDialogBackdrops() {
+    document.querySelectorAll('dialog').forEach(d => {
+      if (d._backdropLocked) return;
+      d.addEventListener('click', e => { if (e.target === d) e.stopPropagation(); });
+      d._backdropLocked = true;
+    });
   }
-  document.addEventListener('DOMContentLoaded', _bindCreateFromTemplateBackdrop);
+  document.addEventListener('DOMContentLoaded', _lockDialogBackdrops);
   document.addEventListener('htmx:afterSettle', _bindCreateFromTemplateBackdrop);
   </script>
 
   <!-- ── Session manager dialog ────────────────────────────── -->
   <dialog id="session-modal"
-          class="bg-transparent p-0 m-auto w-full max-w-lg backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+          class="bg-transparent p-0 m-auto w-full max-w-lg backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+          @cancel.prevent>
     <div class="glass-card p-6 animate-slide-up">
       <!-- Dialog header -->
       <div class="flex items-center justify-between mb-5">
@@ -440,7 +443,8 @@
 
   <!-- ── Activity log dialog ─────────────────────────────── -->
   <dialog id="activity-modal"
-          class="bg-transparent p-0 m-auto w-full max-w-xl backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+          class="bg-transparent p-0 m-auto w-full max-w-xl backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+          @cancel.prevent>
     <div class="glass-card p-6 animate-slide-up max-h-[85vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <div>
@@ -467,7 +471,8 @@
 
   <!-- ── Preferences dialog ──────────────────────────────── -->
   <dialog id="preferences-modal"
-          class="bg-transparent p-0 m-auto w-full max-w-2xl backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+          class="bg-transparent p-0 m-auto w-full max-w-2xl backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+          @cancel.prevent>
     <div class="glass-card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-5">
         <div>
@@ -543,10 +548,6 @@
           sessionModal.dispatchEvent(new Event('dialog-open', { bubbles: true }));
         }
       });
-      // Close on backdrop click
-      sessionModal.addEventListener('click', (e) => {
-        if (e.target === sessionModal) sessionModal.close();
-      });
     }
 
     // ── Preferences modal: same pattern ────────────────────────
@@ -557,25 +558,17 @@
           prefsModal.dispatchEvent(new Event('dialog-open', { bubbles: true }));
         }
       });
-      prefsModal.addEventListener('click', (e) => {
-        if (e.target === prefsModal) prefsModal.close();
-      });
     }
 
     // ── Activity modal: same pattern + refresh badge when it closes
-    // (opening the modal marks everything read server-side).
     const activityModal = document.getElementById('activity-modal');
     if (activityModal) {
       activityModal.addEventListener('toggle', () => {
         if (activityModal.open) {
           activityModal.dispatchEvent(new Event('dialog-open', { bubbles: true }));
         } else {
-          // Closed — re-poll the badge so it clears the unread count.
           document.body.dispatchEvent(new Event('activity-updated'));
         }
-      });
-      activityModal.addEventListener('click', (e) => {
-        if (e.target === activityModal) activityModal.close();
       });
     }
 
