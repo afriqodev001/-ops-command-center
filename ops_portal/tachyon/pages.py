@@ -19,6 +19,18 @@ from .models import TachyonPreset
 # ─── Main playground page ────────────────────────────────────
 
 def playground(request):
+    # Seed a default preset on first visit so the page is not empty
+    if not TachyonPreset.objects.exists():
+        TachyonPreset.objects.create(
+            slug="default",
+            title="Default (GPT 5.1)",
+            description="General-purpose LLM preset",
+            preset_id="default",
+            default_model_id="gpt5.1",
+            parameters={"temperature": 0.3, "maxTokens": 2048},
+            system_instruction="You are a helpful assistant. Answer questions clearly and concisely.",
+        )
+
     presets = list(TachyonPreset.objects.filter(enabled=True).order_by('title').values(
         'id', 'slug', 'title', 'description', 'preset_id',
         'default_model_id', 'parameters', 'system_instruction',

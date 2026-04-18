@@ -28,47 +28,57 @@
     <div class="glass-card p-4 space-y-3">
       <label class="label">Preset</label>
       <select x-model="selectedSlug" @change="loadPreset()" class="select-dark w-full text-xs">
-        <option value="">— select a preset —</option>
         <template x-for="p in presets" :key="p.slug">
           <option :value="p.slug" x-text="p.title + ' (' + p.slug + ')'"></option>
         </template>
       </select>
-      <p class="text-[10px] text-ink-muted" x-show="currentPreset" x-text="currentPreset?.description || ''"></p>
-    </div>
 
-    <!-- Model + parameters (editable overrides) -->
-    <div class="glass-card p-4 space-y-3" x-show="selectedSlug">
-      <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Model &amp; Parameters</p>
-
-      <div>
-        <label class="label">Model ID</label>
-        <input type="text" x-model="modelId" class="input-dark text-xs font-mono"
-               placeholder="e.g. gpt5.1">
+      <!-- Compact summary -->
+      <div x-show="selectedSlug" class="flex items-center gap-2 flex-wrap mt-1">
+        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-5 border border-edge text-ink-secondary" x-text="modelId"></span>
+        <span class="text-[10px] text-ink-muted truncate" x-text="currentPreset?.description || ''"></span>
       </div>
 
-      <div>
-        <label class="label">Parameters (JSON)</label>
-        <textarea x-model="parametersJson" rows="4"
-                  class="input-dark text-xs font-mono resize-none"
-                  placeholder='{"temperature": 0.3, "maxTokens": 2048}'></textarea>
-      </div>
-
-      <div>
-        <label class="label">System instruction</label>
-        <textarea x-model="systemInstruction" rows="3"
-                  class="input-dark text-xs resize-none"
-                  placeholder="Override the default system prompt…"></textarea>
-      </div>
-
-      <button type="button" @click="updatePresetConfig()"
-              class="btn-ghost text-xs w-full justify-center">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      <!-- Expand/collapse toggle -->
+      <button type="button" x-show="selectedSlug"
+              @click="configExpanded = !configExpanded"
+              class="w-full text-[10px] text-brand-light hover:text-brand flex items-center justify-center gap-1 pt-1 transition-colors">
+        <svg class="w-3 h-3 transition-transform" :class="configExpanded ? 'rotate-180' : ''"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
-        Save to preset
+        <span x-text="configExpanded ? 'Hide config' : 'Show model & parameters'"></span>
       </button>
-      <p class="text-[10px] text-ok" x-show="saveStatus === 'saved'" x-cloak>✓ Preset updated</p>
-      <p class="text-[10px] text-danger" x-show="saveStatus === 'error'" x-cloak x-text="saveError"></p>
+
+      <!-- Collapsible config panel -->
+      <div x-show="configExpanded" x-collapse class="space-y-3 pt-2 border-t border-edge mt-2">
+        <div>
+          <label class="label">Model ID</label>
+          <input type="text" x-model="modelId" class="input-dark text-xs font-mono"
+                 placeholder="e.g. gpt5.1">
+        </div>
+        <div>
+          <label class="label">Parameters (JSON)</label>
+          <textarea x-model="parametersJson" rows="3"
+                    class="input-dark text-xs font-mono resize-none"
+                    placeholder='{"temperature": 0.3, "maxTokens": 2048}'></textarea>
+        </div>
+        <div>
+          <label class="label">System instruction</label>
+          <textarea x-model="systemInstruction" rows="3"
+                    class="input-dark text-xs resize-none"
+                    placeholder="Override the default system prompt…"></textarea>
+        </div>
+        <button type="button" @click="updatePresetConfig()"
+                class="btn-ghost text-xs w-full justify-center">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          Save to preset
+        </button>
+        <p class="text-[10px] text-ok" x-show="saveStatus === 'saved'" x-cloak>✓ Preset updated</p>
+        <p class="text-[10px] text-danger" x-show="saveStatus === 'error'" x-cloak x-text="saveError"></p>
+      </div>
     </div>
 
     <!-- File attachment (optional) -->
@@ -182,6 +192,7 @@ function _defineTachyonPlayground() {
     presets: JSON.parse(document.getElementById('tachyon-presets-json').textContent || '[]'),
     selectedSlug: '',
     currentPreset: null,
+    configExpanded: false,
 
     // Override fields
     modelId: '',
@@ -206,6 +217,14 @@ function _defineTachyonPlayground() {
     resultMeta: '',
     taskId: '',
     copyLabel: 'Copy',
+
+    init() {
+      // Auto-select the first preset so the page isn't empty on load
+      if (this.presets.length > 0) {
+        this.selectedSlug = this.presets[0].slug;
+        this.loadPreset();
+      }
+    },
 
     loadPreset() {
       const p = this.presets.find(x => x.slug === this.selectedSlug);
