@@ -3,8 +3,6 @@
 {% block page_title %}Copilot Chat{% endblock %}
 {% block page_subtitle %}Prompt packs · single runs · batch execution · exports{% endblock %}
 
-{% endblock %}
-
 {% block content %}
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-5" x-data="copilotPage()"
      @use-prompt.window="promptText = $event.detail.text">
