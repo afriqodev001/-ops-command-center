@@ -1,0 +1,39 @@
+{% if presets %}
+<ul class="space-y-1.5">
+  {% for p in presets %}
+  <li class="flex items-start gap-2 p-2.5 rounded-lg bg-surface-3 border border-edge">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-5 border border-edge text-ink-secondary">{{ p.slug }}</span>
+        <span class="text-xs font-medium text-ink-primary truncate">{{ p.title }}</span>
+        <span class="text-[10px] font-mono text-ink-muted">{{ p.default_model_id }}</span>
+      </div>
+      {% if p.description %}
+      <p class="text-[10px] text-ink-muted truncate mt-0.5">{{ p.description }}</p>
+      {% endif %}
+      <div class="flex flex-wrap gap-1 mt-1">
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-surface-4 border border-edge text-ink-secondary font-mono">
+          preset: {{ p.preset_id }}
+        </span>
+        {% if p.owner_team %}
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-surface-4 border border-edge text-ink-secondary">
+          team: {{ p.owner_team }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    <button type="button"
+            onclick="if(confirm('Delete preset {{ p.slug }}?')){fetch('/tachyon/playground/presets/delete/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.cookie.split(';').find(c=>c.trim().startsWith('csrftoken=')).split('=')[1]},body:JSON.stringify({slug:'{{ p.slug }}'})}).then(()=>htmx.ajax('GET','/tachyon/playground/presets/',{target:'#tachyon-preset-list',swap:'innerHTML'}))}"
+            title="Delete"
+            class="p-1.5 rounded hover:bg-danger/10 text-ink-muted hover:text-danger transition-colors flex-shrink-0">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+      </svg>
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-xs text-ink-muted text-center py-4">No presets yet — add one above.</p>
+{% endif %}

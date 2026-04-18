@@ -1,0 +1,511 @@
+{% extends 'base.html' %}
+{% block title %}Tachyon Playground{% endblock %}
+{% block page_title %}Tachyon Playground{% endblock %}
+{% block page_subtitle %}Test LLM queries against Tachyon presets{% endblock %}
+
+{% block header_actions %}
+<button type="button"
+        onclick="document.getElementById('tachyon-preset-modal').showModal(); htmx.ajax('GET','/tachyon/playground/presets/',{target:'#tachyon-preset-list',swap:'innerHTML'})"
+        class="btn-ghost text-xs gap-1.5">
+  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0"/>
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+  </svg>
+  Manage presets
+</button>
+{% endblock %}
+
+{% block content %}
+{{ presets_json|json_script:"tachyon-presets-json" }}
+
+<div class="flex gap-5 h-full overflow-y-auto" x-data="tachyonPlayground()">
+
+  <!-- ═ LEFT: Config panel ═════════════════════════════════════ -->
+  <div class="w-80 flex-shrink-0 flex flex-col gap-4">
+
+    <!-- Preset selector -->
+    <div class="glass-card p-4 space-y-3">
+      <label class="label">Preset</label>
+      <select x-model="selectedSlug" @change="loadPreset()" class="select-dark w-full text-xs">
+        <option value="">— select a preset —</option>
+        <template x-for="p in presets" :key="p.slug">
+          <option :value="p.slug" x-text="p.title + ' (' + p.slug + ')'"></option>
+        </template>
+      </select>
+      <p class="text-[10px] text-ink-muted" x-show="currentPreset" x-text="currentPreset?.description || ''"></p>
+    </div>
+
+    <!-- Model + parameters (editable overrides) -->
+    <div class="glass-card p-4 space-y-3" x-show="selectedSlug">
+      <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Model &amp; Parameters</p>
+
+      <div>
+        <label class="label">Model ID</label>
+        <input type="text" x-model="modelId" class="input-dark text-xs font-mono"
+               placeholder="e.g. gpt5.1">
+      </div>
+
+      <div>
+        <label class="label">Parameters (JSON)</label>
+        <textarea x-model="parametersJson" rows="4"
+                  class="input-dark text-xs font-mono resize-none"
+                  placeholder='{"temperature": 0.3, "maxTokens": 2048}'></textarea>
+      </div>
+
+      <div>
+        <label class="label">System instruction</label>
+        <textarea x-model="systemInstruction" rows="3"
+                  class="input-dark text-xs resize-none"
+                  placeholder="Override the default system prompt…"></textarea>
+      </div>
+
+      <button type="button" @click="updatePresetConfig()"
+              class="btn-ghost text-xs w-full justify-center">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        Save to preset
+      </button>
+      <p class="text-[10px] text-ok" x-show="saveStatus === 'saved'" x-cloak>✓ Preset updated</p>
+      <p class="text-[10px] text-danger" x-show="saveStatus === 'error'" x-cloak x-text="saveError"></p>
+    </div>
+
+    <!-- File attachment (optional) -->
+    <div class="glass-card p-4 space-y-3" x-show="selectedSlug">
+      <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">File (optional)</p>
+      <label class="flex items-center gap-3 p-3 rounded-lg border border-dashed border-edge bg-surface-3 hover:border-brand/40 cursor-pointer transition-colors">
+        <svg class="w-4 h-4 text-ink-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+        <span class="text-xs text-ink-secondary" x-text="fileName || 'Choose a file to include'"></span>
+        <input type="file" @change="fileName = $event.target.files[0]?.name || ''; fileInput = $event.target"
+               class="hidden" x-ref="fileInput">
+      </label>
+      <button type="button" x-show="fileName" @click="fileName = ''; $refs.fileInput.value = ''"
+              class="text-[10px] text-ink-muted hover:text-danger transition-colors">
+        × Clear file
+      </button>
+    </div>
+  </div>
+
+  <!-- ═ RIGHT: Query + results ═════════════════════════════════ -->
+  <div class="flex-1 min-w-0 flex flex-col gap-4">
+
+    <!-- Query input -->
+    <div class="glass-card p-5">
+      <label class="label">Query</label>
+      <textarea x-model="query" rows="5"
+                placeholder="Type your query here…"
+                class="input-dark text-sm resize-none"></textarea>
+      <div class="flex items-center gap-3 mt-3">
+        <button type="button" @click="runQuery()"
+                :disabled="!selectedSlug || !query.trim() || running"
+                class="btn-primary text-xs px-5 py-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          <template x-if="!running">
+            <span class="inline-flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Run
+            </span>
+          </template>
+          <template x-if="running">
+            <span class="inline-flex items-center gap-1.5">
+              <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Running…
+            </span>
+          </template>
+        </button>
+        <span class="text-[10px] text-ink-muted" x-show="!selectedSlug">Select a preset to enable</span>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="glass-card p-5" x-show="resultStatus">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-ink-primary">Result</h2>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-mono text-ink-muted" x-text="resultMode"></span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                :class="{
+                  'bg-ok/10 text-ok border border-ok/20': resultStatus === 'success',
+                  'bg-danger/10 text-danger border border-danger/20': resultStatus === 'error',
+                  'bg-info/10 text-info border border-info/20': resultStatus === 'pending',
+                }"
+                x-text="resultStatus"></span>
+        </div>
+      </div>
+
+      <!-- Pending state -->
+      <div x-show="resultStatus === 'pending'" class="flex items-center gap-3 py-4">
+        <div class="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin"></div>
+        <span class="text-sm text-ink-secondary">Waiting for Celery task…</span>
+        <span class="text-[10px] font-mono text-ink-muted" x-text="'task: ' + taskId?.slice(0,12)"></span>
+      </div>
+
+      <!-- Success state -->
+      <div x-show="resultStatus === 'success'">
+        <div class="bg-surface-3 rounded-lg p-4 border border-edge overflow-auto max-h-[60vh]">
+          <pre class="text-xs text-ink-primary whitespace-pre-wrap font-mono leading-relaxed"
+               x-text="resultText"></pre>
+        </div>
+        <div class="flex items-center gap-2 mt-3">
+          <button type="button" @click="copyResult()"
+                  class="btn-ghost text-xs gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            <span x-text="copyLabel">Copy</span>
+          </button>
+          <span class="text-[10px] text-ink-muted" x-text="resultMeta"></span>
+        </div>
+      </div>
+
+      <!-- Error state -->
+      <div x-show="resultStatus === 'error'"
+           class="p-3 rounded-lg bg-danger/5 border border-danger/20">
+        <p class="text-xs text-danger font-semibold">Error</p>
+        <pre class="text-[11px] text-danger/80 mt-1 whitespace-pre-wrap font-mono"
+             x-text="resultError"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function _defineTachyonPlayground() {
+  Alpine.data('tachyonPlayground', () => ({
+    presets: JSON.parse(document.getElementById('tachyon-presets-json').textContent || '[]'),
+    selectedSlug: '',
+    currentPreset: null,
+
+    // Override fields
+    modelId: '',
+    parametersJson: '',
+    systemInstruction: '',
+    saveStatus: '',
+    saveError: '',
+
+    // File
+    fileName: '',
+    fileInput: null,
+
+    // Query
+    query: '',
+    running: false,
+
+    // Results
+    resultStatus: '',
+    resultText: '',
+    resultError: '',
+    resultMode: '',
+    resultMeta: '',
+    taskId: '',
+    copyLabel: 'Copy',
+
+    loadPreset() {
+      const p = this.presets.find(x => x.slug === this.selectedSlug);
+      this.currentPreset = p || null;
+      if (p) {
+        this.modelId = p.default_model_id || '';
+        this.parametersJson = JSON.stringify(p.parameters || {}, null, 2);
+        this.systemInstruction = p.system_instruction || '';
+      }
+      this.saveStatus = '';
+    },
+
+    async updatePresetConfig() {
+      if (!this.currentPreset) return;
+      this.saveStatus = '';
+      let params = {};
+      try {
+        params = this.parametersJson ? JSON.parse(this.parametersJson) : {};
+      } catch (e) {
+        this.saveStatus = 'error';
+        this.saveError = 'Parameters must be valid JSON';
+        return;
+      }
+      try {
+        const resp = await fetch('/tachyon/playground/presets/save/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this._csrf() },
+          body: JSON.stringify({
+            slug: this.currentPreset.slug,
+            title: this.currentPreset.title,
+            description: this.currentPreset.description,
+            preset_id: this.currentPreset.preset_id,
+            default_model_id: this.modelId,
+            parameters: params,
+            system_instruction: this.systemInstruction,
+            version: this.currentPreset.version,
+            owner_team: this.currentPreset.owner_team || '',
+          }),
+        });
+        const data = await resp.json();
+        if (data.ok) {
+          this.saveStatus = 'saved';
+          // Update local preset cache
+          const p = this.presets.find(x => x.slug === this.currentPreset.slug);
+          if (p) {
+            p.default_model_id = this.modelId;
+            p.parameters = params;
+            p.system_instruction = this.systemInstruction;
+          }
+          setTimeout(() => { this.saveStatus = ''; }, 2000);
+        } else {
+          this.saveStatus = 'error';
+          this.saveError = data.error || 'Save failed';
+        }
+      } catch (e) {
+        this.saveStatus = 'error';
+        this.saveError = e.message;
+      }
+    },
+
+    async runQuery() {
+      if (!this.selectedSlug || !this.query.trim() || this.running) return;
+      this.running = true;
+      this.resultStatus = 'pending';
+      this.resultText = '';
+      this.resultError = '';
+      this.taskId = '';
+
+      try {
+        let resp;
+        if (this.fileInput?.files?.length) {
+          // Multipart upload
+          const fd = new FormData();
+          fd.append('preset', this.selectedSlug);
+          fd.append('query', this.query);
+          fd.append('file', this.fileInput.files[0]);
+          if (this.modelId) fd.append('model_id', this.modelId);
+          if (this.parametersJson) fd.append('parameters', this.parametersJson);
+          if (this.systemInstruction) fd.append('system_instruction', this.systemInstruction);
+          resp = await fetch('/tachyon/playground/run/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': this._csrf() },
+            body: fd,
+          });
+        } else {
+          // JSON
+          let params = null;
+          try { params = this.parametersJson ? JSON.parse(this.parametersJson) : null; } catch (e) {}
+          resp = await fetch('/tachyon/playground/run/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this._csrf() },
+            body: JSON.stringify({
+              preset: this.selectedSlug,
+              query: this.query,
+              model_id: this.modelId || undefined,
+              parameters: params || undefined,
+              system_instruction: this.systemInstruction || undefined,
+            }),
+          });
+        }
+
+        const data = await resp.json();
+        if (data.error) {
+          this.resultStatus = 'error';
+          this.resultError = data.error;
+          this.running = false;
+          return;
+        }
+
+        this.taskId = data.task_id;
+        this.resultMode = data.mode;
+        await this._pollTask(data.task_id);
+      } catch (e) {
+        this.resultStatus = 'error';
+        this.resultError = e.message;
+      } finally {
+        this.running = false;
+      }
+    },
+
+    async _pollTask(taskId) {
+      for (let i = 0; i < 90; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          const resp = await fetch(`/tasks/${taskId}/result/`);
+          const data = await resp.json();
+          if (!data.ready) continue;
+          if (data.state === 'FAILURE') {
+            this.resultStatus = 'error';
+            this.resultError = data.error || 'Task failed';
+            return;
+          }
+          const result = data.result || {};
+          if (result.error) {
+            this.resultStatus = 'error';
+            this.resultError = JSON.stringify(result, null, 2);
+            return;
+          }
+          this.resultStatus = 'success';
+          // Extract the LLM response text
+          const llmResult = result.result || result;
+          if (typeof llmResult === 'string') {
+            this.resultText = llmResult;
+          } else if (llmResult?.data?.response) {
+            this.resultText = llmResult.data.response;
+          } else if (llmResult?.response) {
+            this.resultText = llmResult.response;
+          } else {
+            this.resultText = JSON.stringify(llmResult, null, 2);
+          }
+          const cache = result.cache;
+          if (cache) {
+            this.resultMeta = cache.reused ? 'Cache reused' : 'New upload';
+          }
+          return;
+        } catch (e) {
+          this.resultStatus = 'error';
+          this.resultError = 'Polling failed: ' + e.message;
+          return;
+        }
+      }
+      this.resultStatus = 'error';
+      this.resultError = 'Task timed out after 3 minutes';
+    },
+
+    async copyResult() {
+      try {
+        await navigator.clipboard.writeText(this.resultText);
+        this.copyLabel = '✓ Copied';
+        setTimeout(() => { this.copyLabel = 'Copy'; }, 1500);
+      } catch (e) {
+        this.copyLabel = 'Failed';
+        setTimeout(() => { this.copyLabel = 'Copy'; }, 2000);
+      }
+    },
+
+    _csrf() {
+      const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      if (el) return el.value;
+      const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+      return cookie ? cookie.split('=')[1] : '';
+    },
+  }));
+}
+if (window.Alpine) _defineTachyonPlayground();
+else document.addEventListener('alpine:init', _defineTachyonPlayground);
+</script>
+{% endblock %}
+
+{% block modals %}
+<!-- ══ Preset Manager Modal ═══════════════════════════════════ -->
+<dialog id="tachyon-preset-modal"
+        class="bg-transparent p-0 m-auto w-full max-w-2xl backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+  <div class="glass-card p-6 animate-slide-up max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-base font-semibold text-ink-primary">Tachyon Presets</h2>
+        <p class="text-xs text-ink-muted mt-0.5">Create, edit, and delete LLM presets</p>
+      </div>
+      <button onclick="document.getElementById('tachyon-preset-modal').close()"
+              class="p-1.5 rounded-lg hover:bg-white/10 text-ink-muted hover:text-ink-primary transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Add new form -->
+    <div x-data="presetForm()" class="space-y-3 pb-4 mb-4 border-b border-edge">
+      <div id="tachyon-preset-form-errors"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label">Slug <span class="text-danger">*</span></label>
+          <input type="text" x-model="slug" placeholder="e.g. change_review" class="input-dark text-xs font-mono">
+        </div>
+        <div>
+          <label class="label">Title</label>
+          <input type="text" x-model="title" placeholder="e.g. Change Review Assistant" class="input-dark text-xs">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label">Preset ID <span class="text-danger">*</span></label>
+          <input type="text" x-model="presetId" placeholder="Tachyon preset ID" class="input-dark text-xs font-mono">
+        </div>
+        <div>
+          <label class="label">Model ID</label>
+          <input type="text" x-model="modelId" placeholder="e.g. gpt5.1" class="input-dark text-xs font-mono">
+        </div>
+      </div>
+      <div>
+        <label class="label">Description</label>
+        <input type="text" x-model="description" class="input-dark text-xs">
+      </div>
+      <div>
+        <label class="label">System instruction</label>
+        <textarea x-model="sysInst" rows="2" class="input-dark text-xs resize-none"></textarea>
+      </div>
+      <div>
+        <label class="label">Parameters (JSON)</label>
+        <textarea x-model="params" rows="2" class="input-dark text-xs font-mono resize-none"
+                  placeholder='{"temperature": 0.3}'></textarea>
+      </div>
+      <button type="button" @click="save()" class="btn-primary text-xs px-4 py-2">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Save preset
+      </button>
+      <p class="text-[10px] text-ok" x-show="saved" x-cloak>✓ Saved — reload the playground to see it in the dropdown.</p>
+    </div>
+
+    <!-- Existing presets -->
+    <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Saved presets</p>
+    <div id="tachyon-preset-list">
+      {% include 'tachyon/partials/preset_list.html' %}
+    </div>
+  </div>
+</dialog>
+
+<script>
+function _definePresetForm() {
+  Alpine.data('presetForm', () => ({
+    slug: '', title: '', presetId: '', modelId: 'gpt5.1',
+    description: '', sysInst: '', params: '{}', saved: false,
+
+    async save() {
+      this.saved = false;
+      let parameters = {};
+      try { parameters = this.params ? JSON.parse(this.params) : {}; } catch (e) { return; }
+      const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value
+        || document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1] || '';
+      const resp = await fetch('/tachyon/playground/presets/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        body: JSON.stringify({
+          slug: this.slug, title: this.title || this.slug,
+          preset_id: this.presetId, default_model_id: this.modelId,
+          description: this.description, system_instruction: this.sysInst,
+          parameters,
+        }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        this.saved = true;
+        htmx.ajax('GET', '/tachyon/playground/presets/', { target: '#tachyon-preset-list', swap: 'innerHTML' });
+        setTimeout(() => { this.saved = false; }, 3000);
+      }
+    },
+  }));
+}
+if (window.Alpine) _definePresetForm();
+else document.addEventListener('alpine:init', _definePresetForm);
+</script>
+
+<script>
+// Backdrop click to close
+(function() {
+  const m = document.getElementById('tachyon-preset-modal');
+  if (m) m.addEventListener('click', e => { if (e.target === m) m.close(); });
+})();
+</script>
+{% endblock %}

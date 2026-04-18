@@ -1,0 +1,186 @@
+"""
+Tachyon Playground UI views — HTML pages + HTMX partials.
+
+Separated from views.py (JSON API endpoints) following the servicenow
+app pattern: pages.py for HTML, views.py for JSON.
+"""
+
+from __future__ import annotations
+import json
+
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST, require_http_methods
+
+from .models import TachyonPreset
+
+
+# ─── Main playground page ────────────────────────────────────
+
+def playground(request):
+    presets = list(TachyonPreset.objects.filter(enabled=True).order_by('title').values(
+        'id', 'slug', 'title', 'description', 'preset_id',
+        'default_model_id', 'parameters', 'system_instruction',
+        'version', 'owner_team',
+    ))
+    presets_json = json.dumps(presets, default=str)
+    return render(request, 'tachyon/playground.html', {
+        'presets': presets,
+        'presets_json': presets_json,
+    })
+
+
+# ─── Preset CRUD ─────────────────────────────────────────────
+
+def preset_list_partial(request):
+    presets = TachyonPreset.objects.filter(enabled=True).order_by('title')
+    return render(request, 'tachyon/partials/preset_list.html', {
+        'presets': presets,
+    })
+
+
+@csrf_exempt
+@require_POST
+def preset_save(request):
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    slug = (data.get('slug') or '').strip()
+    if not slug:
+        return JsonResponse({'error': 'slug is required'}, status=400)
+
+    preset, created = TachyonPreset.objects.update_or_create(
+        slug=slug,
+        defaults={
+            'title':              data.get('title', slug),
+            'description':        data.get('description', ''),
+            'preset_id':          data.get('preset_id', ''),
+            'default_model_id':   data.get('default_model_id', 'gpt5.1'),
+            'parameters':         data.get('parameters') or {},
+            'system_instruction': data.get('system_instruction', ''),
+            'version':            int(data.get('version', 1)),
+            'owner_team':         data.get('owner_team', ''),
+            'enabled':            bool(data.get('enabled', True)),
+        },
+    )
+    return JsonResponse({
+        'ok': True,
+        'created': created,
+        'slug': preset.slug,
+        'id': str(preset.id),
+    })
+
+
+@csrf_exempt
+@require_POST
+def preset_delete(request):
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    slug = (data.get('slug') or '').strip()
+    deleted, _ = TachyonPreset.objects.filter(slug=slug).delete()
+    return JsonResponse({'ok': True, 'deleted': bool(deleted)})
+
+
+# ─── Run query (dispatches Celery task, returns task_id) ─────
+
+@csrf_exempt
+@require_POST
+def run_query(request):
+    """Unified run endpoint for the playground UI.
+    Accepts JSON with mode='single' | 'with-file' | 'with-upload'.
+    Dispatches the appropriate Celery task and returns {task_id}.
+    """
+    content_type = request.content_type or ''
+
+    if 'multipart' in content_type:
+        # File upload mode
+        preset_slug = request.POST.get('preset', '')
+        query = request.POST.get('query', '')
+        model_id = request.POST.get('model_id', '')
+        params_raw = request.POST.get('parameters', '')
+        system_inst = request.POST.get('system_instruction', '')
+
+        if not preset_slug or not query:
+            return JsonResponse({'error': 'preset and query are required'}, status=400)
+
+        overrides = {}
+        if model_id:
+            overrides['modelId'] = model_id
+        if params_raw:
+            try:
+                overrides['parameters'] = json.loads(params_raw)
+            except json.JSONDecodeError:
+                return JsonResponse({'error': 'parameters must be valid JSON'}, status=400)
+        if system_inst:
+            overrides['systemInstruction'] = system_inst
+
+        up = request.FILES.get('file')
+        if up:
+            import uuid
+            from pathlib import Path
+            from django.conf import settings as dj_settings
+
+            tmp_dir = Path(getattr(dj_settings, 'TACHYON_UPLOAD_TMP_DIR', 'media/tachyon_uploads'))
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+            safe_name = up.name.replace('\\', '_').replace('/', '_')
+            tmp_path = tmp_dir / f'{uuid.uuid4().hex}_{safe_name}'
+            with open(tmp_path, 'wb') as f:
+                for chunk in up.chunks():
+                    f.write(chunk)
+
+            from .tasks import run_tachyon_llm_with_file_task
+            task = run_tachyon_llm_with_file_task.delay(
+                user_key='localuser',
+                preset_slug=preset_slug,
+                query=query,
+                file_path=str(tmp_path),
+                folder_name='uploads',
+                folder_id=None,
+                reuse_if_exists=True,
+                overrides=overrides,
+            )
+            return JsonResponse({'task_id': task.id, 'mode': 'with-upload'})
+
+        # No file — single mode
+        from .tasks import run_tachyon_llm_task
+        task = run_tachyon_llm_task.delay(
+            user_key='localuser',
+            preset_slug=preset_slug,
+            query=query,
+            overrides=overrides,
+        )
+        return JsonResponse({'task_id': task.id, 'mode': 'single'})
+
+    # JSON body
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    preset_slug = data.get('preset', '')
+    query = data.get('query', '')
+    if not preset_slug or not query:
+        return JsonResponse({'error': 'preset and query are required'}, status=400)
+
+    overrides = {}
+    if data.get('model_id'):
+        overrides['modelId'] = data['model_id']
+    if data.get('parameters'):
+        overrides['parameters'] = data['parameters']
+    if data.get('system_instruction'):
+        overrides['systemInstruction'] = data['system_instruction']
+
+    from .tasks import run_tachyon_llm_task
+    task = run_tachyon_llm_task.delay(
+        user_key='localuser',
+        preset_slug=preset_slug,
+        query=query,
+        overrides=overrides,
+    )
+    return JsonResponse({'task_id': task.id, 'mode': 'single'})
