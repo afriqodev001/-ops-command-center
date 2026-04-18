@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'core',
     'servicenow',
     'tachyon',
+    'copilot_chat',
     # celery results backend
     'django_celery_results',
 ]
@@ -250,6 +251,18 @@ TACHYON_UPLOAD_MAX_BYTES = 10 * 1024 * 1024
 TACHYON_FETCH_TIMEOUT_MS = 60000
 TACHYON_SCRIPT_TIMEOUT_SECONDS = 90
 TACHYON_DEFAULT_USER_ID = os.environ.get('TACHYON_DEFAULT_USER_ID', 'localuser')
+
+
+# =========================
+# Copilot Chat
+# =========================
+COPILOT_TEAMS_URL = os.environ.get(
+    'COPILOT_TEAMS_URL',
+    'https://teams.microsoft.com/v2/',
+)
+COPILOT_RESPONSE_MAX_WAIT_SEC = int(os.environ.get('COPILOT_RESPONSE_MAX_WAIT_SEC', 180))
+COPILOT_UPLOAD_TMP_DIR = str(MEDIA_ROOT / "copilot_uploads")
+COPILOT_DOWNLOAD_DIR = str(MEDIA_ROOT / "copilot_downloads")
 
 
 # ============================================================

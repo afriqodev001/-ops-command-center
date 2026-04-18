@@ -1,0 +1,32 @@
+{% if state == 'checking' %}
+<span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-info/10 text-info border border-info/20"
+      hx-get="/copilot/ui/auth/poll/{{ task_id }}/"
+      hx-trigger="load delay:2s"
+      hx-target="#copilot-auth-status"
+      hx-swap="innerHTML">
+  <div class="w-2.5 h-2.5 border-2 border-info/30 border-t-info rounded-full animate-spin"></div>
+  Checking…
+</span>
+
+{% elif state == 'ok' %}
+<span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-ok/10 text-ok border border-ok/20">
+  <span class="w-1.5 h-1.5 rounded-full bg-ok animate-pulse"></span>
+  Connected
+</span>
+
+{% elif state == 'login_required' %}
+<span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-warn/10 text-warn border border-warn/20">
+  <span class="w-1.5 h-1.5 rounded-full bg-warn"></span>
+  Login required
+</span>
+
+{% elif state == 'error' %}
+<span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-danger/10 text-danger border border-danger/20"
+      title="{{ error }}">
+  <span class="w-1.5 h-1.5 rounded-full bg-danger"></span>
+  Error
+</span>
+
+{% else %}
+<span class="text-[10px] px-2 py-1 rounded bg-surface-5 text-ink-muted border border-edge">{{ detail|default:'Unknown' }}</span>
+{% endif %}

@@ -1,0 +1,72 @@
+<form hx-post="/copilot/partials/prompt-packs/save/"
+      hx-target="#packs-list"
+      hx-swap="innerHTML"
+      class="space-y-4"
+      @htmx:after-request="if(event.detail.successful) document.getElementById('pack-editor-modal').close()">
+  {% csrf_token %}
+  {% if pack %}
+  <input type="hidden" name="pack_id" value="{{ pack.id }}">
+  {% endif %}
+
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="label">Pack name <span class="text-danger">*</span></label>
+      <input type="text" name="name" value="{{ pack.name|default:'' }}" required
+             placeholder="e.g. Morning Summary"
+             class="input-dark text-xs">
+    </div>
+    <div>
+      <label class="label">Tags</label>
+      <input type="text" name="tags" value="{{ pack.tags|default:'' }}"
+             placeholder="incident, triage, vendor"
+             class="input-dark text-xs">
+      <p class="text-[10px] text-ink-muted mt-0.5">Comma-separated situation tags</p>
+    </div>
+  </div>
+
+  <div>
+    <label class="label">Description</label>
+    <input type="text" name="description" value="{{ pack.description|default:'' }}"
+           placeholder="What this pack is for"
+           class="input-dark text-xs">
+  </div>
+
+  <div>
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" name="enabled" {% if pack.enabled or not pack %}checked{% endif %}
+             class="rounded border-edge bg-surface-4 text-brand focus:ring-brand/50 w-3.5 h-3.5">
+      <span class="text-xs text-ink-secondary">Enabled</span>
+    </label>
+  </div>
+
+  <!-- Prompts -->
+  <div>
+    <div class="flex items-center justify-between mb-2">
+      <label class="label !mb-0">Prompts</label>
+      <button type="button"
+              hx-get="/copilot/partials/prompt-packs/prompt-row/?order={{ next_order }}"
+              hx-target="#prompt-rows"
+              hx-swap="beforeend"
+              class="btn-ghost text-[10px] py-0.5 px-2">+ Add prompt</button>
+    </div>
+    <div id="prompt-rows" class="space-y-2">
+      {% for p in prompts %}
+      {% include "copilot_chat/partials/_prompt_pack_prompt_row.html" with prompt=p order=p.order %}
+      {% empty %}
+      {% include "copilot_chat/partials/_prompt_pack_prompt_row.html" with prompt=None order=1 %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2 pt-3 border-t border-edge">
+    <button type="submit" class="btn-primary text-xs px-4 py-2">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+      Save Pack
+    </button>
+    <button type="button"
+            onclick="document.getElementById('pack-editor-modal').close()"
+            class="btn-ghost text-xs">Cancel</button>
+  </div>
+</form>

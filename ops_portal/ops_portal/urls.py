@@ -22,4 +22,5 @@ urlpatterns = [
     path('', include('core.urls')),
     path('servicenow/', include('servicenow.urls')),
     path('tachyon/', include('tachyon.urls')),
+    path('copilot/', include('copilot_chat.urls')),
 ]

@@ -1,0 +1,49 @@
+<div class="space-y-4">
+  <div>
+    <h3 class="text-sm font-semibold text-ink-primary">{{ pack.name }}</h3>
+    {% if pack.description %}
+    <p class="text-xs text-ink-muted mt-1">{{ pack.description }}</p>
+    {% endif %}
+    {% if pack.tags %}
+    <div class="flex flex-wrap gap-1 mt-2">
+      {% for tag in pack.tag_list %}
+      <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-subtle text-brand-light border border-brand/20">{{ tag }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    <p class="text-[10px] text-ink-muted uppercase tracking-wider font-semibold mb-2">Prompts ({{ prompts|length }})</p>
+    <div class="space-y-2">
+      {% for p in prompts %}
+      <div class="p-3 rounded-lg bg-surface-3/60 border border-edge">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-[9px] font-mono text-ink-muted bg-surface-5 px-1.5 py-0.5 rounded">#{{ p.order }}</span>
+        </div>
+        <p class="text-xs text-ink-secondary leading-relaxed whitespace-pre-wrap">{{ p.text }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2 pt-3 border-t border-edge">
+    <button type="button"
+            class="btn-primary text-xs px-3 py-1.5"
+            @click="$dispatch('use-prompt', { text: '{{ pack.primary_prompt|escapejs }}' }); document.getElementById('pack-viewer-modal').close()">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+      </svg>
+      Use primary prompt
+    </button>
+    <button type="button"
+            hx-get="/copilot/partials/prompt-packs/{{ pack.id }}/edit/"
+            hx-target="#pack-editor-body"
+            hx-swap="innerHTML"
+            @click="document.getElementById('pack-viewer-modal').close(); document.getElementById('pack-editor-modal').showModal()"
+            class="btn-ghost text-xs">Edit</button>
+    <button type="button"
+            onclick="document.getElementById('pack-viewer-modal').close()"
+            class="btn-ghost text-xs">Close</button>
+  </div>
+</div>

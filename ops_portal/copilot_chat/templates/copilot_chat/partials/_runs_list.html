@@ -1,0 +1,35 @@
+{% if recent_runs %}
+<div class="space-y-1.5 max-h-[500px] overflow-y-auto">
+  {% for run in recent_runs %}
+  <div class="flex items-start gap-2 p-2.5 rounded-lg hover:bg-white/[.02] cursor-pointer transition-colors"
+       hx-get="/copilot/partials/runs/{{ run.id }}/"
+       hx-target="#live-run"
+       hx-swap="innerHTML">
+    <div class="mt-0.5 flex-shrink-0">
+      {% if run.status == 'ok' %}
+      <span class="w-1.5 h-1.5 rounded-full bg-ok block"></span>
+      {% elif run.status == 'running' or run.status == 'queued' %}
+      <span class="w-1.5 h-1.5 rounded-full bg-info animate-pulse block"></span>
+      {% elif run.status == 'timeout' %}
+      <span class="w-1.5 h-1.5 rounded-full bg-warn block"></span>
+      {% else %}
+      <span class="w-1.5 h-1.5 rounded-full bg-danger block"></span>
+      {% endif %}
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="text-xs text-ink-primary truncate">{{ run.prompt|truncatewords:15 }}</p>
+      <p class="text-[10px] text-ink-muted">{{ run.created_at|date:"M d, g:i a" }}</p>
+    </div>
+    <span class="text-[9px] px-1.5 py-0.5 rounded flex-shrink-0
+      {% if run.status == 'ok' %}bg-ok/10 text-ok
+      {% elif run.status == 'error' %}bg-danger/10 text-danger
+      {% elif run.status == 'timeout' %}bg-warn/10 text-warn
+      {% else %}bg-info/10 text-info{% endif %}">{{ run.status }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="py-6 text-center">
+  <p class="text-xs text-ink-muted">No runs yet.</p>
+</div>
+{% endif %}
