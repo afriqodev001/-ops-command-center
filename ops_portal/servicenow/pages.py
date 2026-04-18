@@ -2943,14 +2943,26 @@ def create_from_template_submit(request):
     allowed = KIND_FIELDS.get(kind, [])
     fields = {f: request.POST.get(f, '').strip() for f in allowed if request.POST.get(f, '').strip()}
 
-    # Map our form field names to ServiceNow Table API field names.
+    # Apply defaults
     if kind == 'incident':
-        from .services.creation_templates import (
-            INCIDENT_FIELD_DEFAULTS, add_combobox_option,
-        )
+        from .services.creation_templates import INCIDENT_FIELD_DEFAULTS
         for k, v in INCIDENT_FIELD_DEFAULTS.items():
             fields.setdefault(k, v)
-        # Remember new service/group values for future combobox suggestions
+
+    # Validate required fields BEFORE renaming to SN API names
+    from .services.creation_templates import KIND_REQUIRED, FIELD_LABELS as _FL
+    missing = [f for f in KIND_REQUIRED.get(kind, []) if not fields.get(f)]
+    if missing:
+        labels = {f: _FL.get(f, f.replace('_', ' ').title())
+                  for f in missing}
+        return render(request, 'servicenow/partials/create_from_template_result.html', {
+            'error': 'Missing required field(s): ' + ', '.join(labels.values()),
+            'kind':  kind,
+        }, status=200)
+
+    # Map form field names to ServiceNow Table API names + save combobox values
+    if kind == 'incident':
+        from .services.creation_templates import add_combobox_option
         if fields.get('service'):
             add_combobox_option('service', fields['service'])
         if fields.get('assignment_group'):
@@ -2967,16 +2979,6 @@ def create_from_template_submit(request):
             add_combobox_option('cmdb_ci', fields['cmdb_ci'])
         if 'std_change_template' in fields:
             fields['std_change_producer_version'] = fields.pop('std_change_template')
-
-    from .services.creation_templates import KIND_REQUIRED, FIELD_LABELS as _FL
-    missing = [f for f in KIND_REQUIRED.get(kind, []) if not fields.get(f)]
-    if missing:
-        labels = {f: _FL.get(f, f.replace('_', ' ').title())
-                  for f in missing}
-        return render(request, 'servicenow/partials/create_from_template_result.html', {
-            'error': 'Missing required field(s): ' + ', '.join(labels.values()),
-            'kind':  kind,
-        }, status=200)
 
     label = tpl.get('label', '')
     desc = fields.get('short_description', '')
