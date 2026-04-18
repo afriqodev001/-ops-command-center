@@ -634,12 +634,14 @@ def _adapt_live_attachment(rec) -> dict:
 
     sys_id = _dv(rec.get('sys_id'))
     download = _dv(rec.get('download_link'))
-    # ServiceNow sometimes doesn't return download_link — construct it from sys_id
-    if not download and sys_id:
+    # Always build the browser-friendly download URL from sys_id.
+    # The REST API path (/api/now/attachment/…/file) requires API auth;
+    # the sys_attachment.do URL works with the user's browser session cookie.
+    if sys_id:
         from django.conf import settings as dj_settings
         base = getattr(dj_settings, 'SERVICENOW_BASE', '').rstrip('/')
         if base:
-            download = f'{base}/api/now/attachment/{sys_id}/file'
+            download = f'{base}/sys_attachment.do?sys_id={sys_id}'
 
     return {
         'sys_id':        sys_id,
@@ -1358,10 +1360,7 @@ def change_briefing(request, number):
 
 
 def change_briefing_generate(request, number):
-    """
-    HTMX endpoint — generates the AI response panel.
-    Replace the body of this function with a real AI API call later.
-    """
+    """HTMX endpoint — generates the AI review for a change briefing."""
     from django.http import HttpResponse
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -1374,11 +1373,46 @@ def change_briefing_generate(request, number):
         from django.http import Http404
         raise Http404
 
-    # ── Placeholder until AI is wired in ──────────────────────
-    # To integrate: POST the prompt to Claude / OpenAI and stream
-    # the response back here. Replace everything below with the
-    # actual API call and return the rendered partial.
-    ctx = {'change': change, 'ai_pending': True}
+    ctasks = change.get('ctasks', [])
+    ctask_total = len(ctasks)
+    ctask_closed = sum(1 for t in ctasks if t.get('state') == 'Closed Complete')
+    ctask_pct = int(ctask_closed / ctask_total * 100) if ctask_total else 0
+
+    attachment_texts = {}
+    if _is_live(request):
+        attachment_texts = _extract_briefing_attachments(change)
+
+    prompt = _build_briefing_prompt(
+        change, ctask_closed, ctask_total, ctask_pct,
+        attachment_texts=attachment_texts,
+    )
+
+    system = (
+        "You are an experienced IT change management reviewer. "
+        "Provide a structured assessment with clear sections: "
+        "Readiness, Risk Assessment, Planning Review, and Recommendation."
+    )
+
+    from .services.ai_assist import _call_llm
+    raw = _call_llm(system, prompt)
+
+    ai_error = None
+    ai_response = None
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict) and '_ai_error' in parsed:
+            ai_error = parsed['_ai_error']
+        else:
+            ai_response = raw
+    except (json.JSONDecodeError, TypeError):
+        ai_response = raw
+
+    ctx = {
+        'change': change,
+        'ai_pending': False,
+        'ai_response': ai_response,
+        'ai_error': ai_error,
+    }
     return render(request, 'servicenow/partials/briefing_ai_response.html', ctx)
 
 

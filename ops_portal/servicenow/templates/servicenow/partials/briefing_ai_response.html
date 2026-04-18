@@ -10,6 +10,24 @@
   <p class="text-xs text-ink-muted opacity-60">Analysing tasks, work notes, and risk level</p>
 </div>
 
+{% elif ai_error %}
+<!-- Error state -->
+<div class="flex flex-col items-center gap-3 py-8 text-center">
+  <div class="w-10 h-10 rounded-xl bg-danger/10 border border-danger/20 flex items-center justify-center">
+    <svg class="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+    </svg>
+  </div>
+  <p class="text-sm font-medium text-danger">AI review failed</p>
+  <p class="text-xs text-ink-muted max-w-sm">{{ ai_error }}</p>
+</div>
+
+{% elif ai_response %}
+<!-- AI response rendered -->
+<div class="prose prose-sm prose-invert max-w-none">
+  <pre class="text-sm text-ink-secondary font-sans leading-relaxed whitespace-pre-wrap break-words" style="background: transparent; border: none; padding: 0; margin: 0;">{{ ai_response }}</pre>
+</div>
+
 {% else %}
 <!-- Empty state — shown before first generation -->
 <div class="flex flex-col items-center gap-3 py-10 text-center">
@@ -54,6 +72,5 @@
       </li>
     </ul>
   </div>
-  <p class="text-[11px] text-ink-muted mt-1 opacity-60">AI integration coming soon — prompt is ready to connect</p>
 </div>
 {% endif %}
