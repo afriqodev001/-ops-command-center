@@ -137,7 +137,7 @@ def packs_list_partial(request):
     else:
         situation = raw
 
-    packs = PromptPack.objects.all()
+    packs = PromptPack.objects.prefetch_related('prompts').all()
 
     if hasattr(PromptPack, "enabled"):
         packs = packs.filter(enabled=True)
