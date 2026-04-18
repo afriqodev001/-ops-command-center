@@ -339,13 +339,19 @@ def ui_login_open(request):
 
 @require_POST
 def ui_run_prompt(request):
+    from copilot_chat.session_views import is_session_alive
+
+    if not is_session_alive():
+        return render(request, "copilot_chat/partials/_run_card_error.html", {
+            "error": "Copilot session is not connected. Use the Connect button in the sidebar to open Teams and log in first.",
+        })
+
     form = RunPromptForm(request.POST)
 
     if not form.is_valid():
-        return render(request, "copilot_chat/partials/_toast.html", {
-            "kind": "error",
-            "message": "Prompt is required.",
-        }, status=400)
+        return render(request, "copilot_chat/partials/_run_card_error.html", {
+            "error": "Prompt is required.",
+        })
 
     user_key = (form.cleaned_data.get("user_key") or "localuser").strip()
     prompt = (form.cleaned_data.get("prompt") or "").strip()
@@ -434,13 +440,19 @@ def ui_poll_run(request, task_id: str):
 
 @require_POST
 def ui_run_batch(request):
+    from copilot_chat.session_views import is_session_alive
+
+    if not is_session_alive():
+        return render(request, "copilot_chat/partials/_run_card_error.html", {
+            "error": "Copilot session is not connected. Use the Connect button in the sidebar to open Teams and log in first.",
+        })
+
     form = BatchRunForm(request.POST)
 
     if not form.is_valid():
-        return render(request, "copilot_chat/partials/_toast.html", {
-            "kind": "error",
-            "message": "Batch text is required.",
-        }, status=400)
+        return render(request, "copilot_chat/partials/_run_card_error.html", {
+            "error": "Enter at least one prompt (one per line).",
+        })
 
     user_key = (form.cleaned_data.get("user_key") or "localuser").strip()
     name = (form.cleaned_data.get("name") or "").strip()

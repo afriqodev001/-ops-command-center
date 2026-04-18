@@ -16,6 +16,8 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from django.http import JsonResponse
+
 _INTEGRATION = 'copilot'
 
 
@@ -81,6 +83,20 @@ def _build_session_context():
         'copilot_port': port,
         'copilot_last_used_ago': last_used_ago,
     }
+
+
+def is_session_alive() -> bool:
+    """Quick check — is the Copilot browser session's CDP port responding?"""
+    from core.browser.registry import load_session
+    session = load_session(_INTEGRATION, 'localuser')
+    if not session:
+        return False
+    return _is_browser_alive(session.get('debug_port'))
+
+
+def session_status_json(request):
+    """GET: returns {"alive": true/false} for frontend gating."""
+    return JsonResponse({'alive': is_session_alive()})
 
 
 def session_widget(request):

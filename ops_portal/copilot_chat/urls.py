@@ -8,6 +8,7 @@ urlpatterns = [
     path("session/connect/",       session_views.session_connect,       name="copilot-session-connect"),
     path("session/close-browser/", session_views.session_close_browser, name="copilot-session-close"),
     path("session/disconnect/",    session_views.session_disconnect,    name="copilot-session-disconnect"),
+    path("session/status/",        session_views.session_status_json,   name="copilot-session-status"),
 
     # UI
     path("", views.copilot_home, name="copilot_home"),

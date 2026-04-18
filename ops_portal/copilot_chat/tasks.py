@@ -135,15 +135,46 @@ def copilot_run_prompt_task(self, body: dict):
 
     run = _persist_run(self.request.id, user_key, {"prompt": prompt})
 
-    runner = CopilotRunner(user_key)
-    _ = runner.get_driver()
+    try:
+        runner = CopilotRunner(user_key)
+        _ = runner.get_driver()
+    except Exception as e:
+        result = {"prompt": prompt, "status": "error", "answer": "",
+                  "error": f"Browser session failed: {e}. Reconnect via the sidebar."}
+        _finalize_run(run, result)
+        return result
 
-    client = build_client_for_user(user_key)
-    client.attach()
-    client.ensure_ready()
+    try:
+        client = build_client_for_user(user_key)
+        client.attach()
+        client.ensure_ready()
+    except TimeoutException:
+        result = {"prompt": prompt, "status": "error", "answer": "",
+                  "error": "Copilot is not ready — the chat input was not found. "
+                           "Make sure Teams is open, Copilot is selected in the left rail, "
+                           "and the chat interface has fully loaded."}
+        _finalize_run(run, result)
+        return result
+    except Exception as e:
+        result = {"prompt": prompt, "status": "error", "answer": "",
+                  "error": f"Copilot attach failed: {e}"}
+        _finalize_run(run, result)
+        return result
 
-    res = client.run_prompt(prompt)
-    downloads = save_latest_turn_downloads(client.driver, user_key)
+    try:
+        res = client.run_prompt(prompt)
+        downloads = save_latest_turn_downloads(client.driver, user_key)
+    except TimeoutException:
+        result = {"prompt": prompt, "status": "timeout", "answer": "",
+                  "error": "Copilot did not respond within the timeout period. "
+                           "The prompt may be too complex, or Copilot may be unresponsive."}
+        _finalize_run(run, result)
+        return result
+    except Exception as e:
+        result = {"prompt": prompt, "status": "error", "answer": "",
+                  "error": f"Prompt execution failed: {e}"}
+        _finalize_run(run, result)
+        return result
 
     result = {
         "prompt": res.prompt,
@@ -175,20 +206,47 @@ def copilot_run_prompt_with_files_task(self, body: dict):
 
     run = _persist_run(self.request.id, user_key, {"prompt": prompt})
 
-    runner = CopilotRunner(user_key)
-    _ = runner.get_driver()
+    try:
+        runner = CopilotRunner(user_key)
+        _ = runner.get_driver()
+    except Exception as e:
+        result = {"prompt": prompt, "status": "error", "answer": "",
+                  "error": f"Browser session failed: {e}. Reconnect via the sidebar."}
+        _finalize_run(run, result)
+        return result
 
-    client = build_client_for_user(user_key)
-    client.attach()
-    client.ensure_ready()
+    try:
+        client = build_client_for_user(user_key)
+        client.attach()
+        client.ensure_ready()
+    except TimeoutException:
+        result = {"prompt": prompt, "status": "error", "answer": "",
+                  "error": "Copilot is not ready — the chat input was not found. "
+                           "Make sure Teams is open and Copilot is selected."}
+        _finalize_run(run, result)
+        return result
+    except Exception as e:
+        result = {"prompt": prompt, "status": "error", "answer": "",
+                  "error": f"Copilot attach failed: {e}"}
+        _finalize_run(run, result)
+        return result
 
-    if clear_first:
-        remove_all_attachments(client.driver)
-
-    attached = attach_files(client.driver, upload_paths)
-
-    res = client.run_prompt(prompt)
-    downloads = save_latest_turn_downloads(client.driver, user_key)
+    try:
+        if clear_first:
+            remove_all_attachments(client.driver)
+        attached = attach_files(client.driver, upload_paths)
+        res = client.run_prompt(prompt)
+        downloads = save_latest_turn_downloads(client.driver, user_key)
+    except TimeoutException:
+        result = {"prompt": prompt, "status": "timeout", "answer": "",
+                  "error": "Copilot did not respond within the timeout period."}
+        _finalize_run(run, result)
+        return result
+    except Exception as e:
+        result = {"prompt": prompt, "status": "error", "answer": "",
+                  "error": f"Prompt execution failed: {e}"}
+        _finalize_run(run, result)
+        return result
 
     result = {
         "prompt": res.prompt,
@@ -226,10 +284,29 @@ def copilot_run_batch_task(self, body: dict):
     try:
         runner = CopilotRunner(user_key)
         _ = runner.get_driver()
+    except Exception as e:
+        batch.status = "error"
+        batch.error = f"Browser session failed: {e}. Reconnect via the sidebar."
+        batch.save()
+        return {"status": "error", "error": batch.error, "results": []}
 
+    try:
         client = build_client_for_user(user_key)
         client.attach()
         client.ensure_ready()
+    except TimeoutException:
+        batch.status = "error"
+        batch.error = ("Copilot is not ready — the chat input was not found. "
+                       "Make sure Teams is open and Copilot is selected.")
+        batch.save()
+        return {"status": "error", "error": batch.error, "results": []}
+    except Exception as e:
+        batch.status = "error"
+        batch.error = f"Copilot attach failed: {e}"
+        batch.save()
+        return {"status": "error", "error": batch.error, "results": []}
+
+    try:
 
         for p in prompts:
             p2 = (p or "").strip()
