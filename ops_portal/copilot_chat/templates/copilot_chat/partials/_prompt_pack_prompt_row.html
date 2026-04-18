@@ -3,8 +3,6 @@
   <input type="hidden" name="prompt_order" value="{{ order }}">
   <input type="hidden" name="prompt_delete" :value="deleted ? '1' : '0'">
 
-  <span class="text-[10px] text-ink-muted font-mono mt-2 flex-shrink-0 w-4 text-right">{{ order }}</span>
-
   <textarea name="prompt_text" rows="3"
             class="input-dark text-xs resize-y flex-1"
             :class="deleted ? 'opacity-30 line-through' : ''"
