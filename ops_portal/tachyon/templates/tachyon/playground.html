@@ -17,7 +17,7 @@
 {% endblock %}
 
 {% block content %}
-{{ presets_json|json_script:"tachyon-presets-json" }}
+{{ presets|json_script:"tachyon-presets-json" }}
 
 <div class="flex gap-5 h-full overflow-y-auto" x-data="tachyonPlayground()">
 
