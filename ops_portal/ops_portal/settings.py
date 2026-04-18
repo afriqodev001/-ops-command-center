@@ -249,7 +249,7 @@ TACHYON_UPLOAD_MAX_BYTES = 10 * 1024 * 1024
 
 TACHYON_FETCH_TIMEOUT_MS = 60000
 TACHYON_SCRIPT_TIMEOUT_SECONDS = 90
-TACHYON_DEFAULT_USER_ID = "uxxxxxx"
+TACHYON_DEFAULT_USER_ID = os.environ.get('TACHYON_DEFAULT_USER_ID', 'localuser')
 
 
 # ============================================================
