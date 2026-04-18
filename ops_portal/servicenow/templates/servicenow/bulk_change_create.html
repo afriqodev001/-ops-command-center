@@ -27,9 +27,47 @@
       <button type="button" @click="inputMode = 'csv'"
               :class="inputMode === 'csv' ? 'tab-active' : 'tab-inactive'"
               class="text-xs">CSV upload</button>
-      <span class="ml-auto text-[10px] text-ink-muted">
-        Required headers: <code class="text-brand-light">type, short_description, assignment_group, start_date, end_date</code>
-      </span>
+      <a href="/servicenow/changes/bulk-create/sample-csv/"
+         class="ml-auto btn-ghost text-[10px] py-1 px-2 gap-1">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+        </svg>
+        Download sample CSV
+      </a>
+    </div>
+
+    <!-- Field reference -->
+    <div class="mb-3 p-3 rounded-lg bg-surface-3/60 border border-edge" x-data="{ showRef: false }">
+      <button type="button" @click="showRef = !showRef"
+              class="flex items-center gap-2 w-full text-left">
+        <svg class="w-3 h-3 text-ink-muted transition-transform" :class="showRef ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Column reference</span>
+      </button>
+      <div x-show="showRef" x-cloak class="mt-2 grid grid-cols-2 gap-x-6 gap-y-1.5 text-[10px]">
+        <div>
+          <p class="font-semibold text-ink-primary mb-1">Required columns</p>
+          <p><code class="text-brand-light">type</code> <span class="text-ink-muted">— normal, emergency, or standard</span></p>
+          <p><code class="text-brand-light">short_description</code> <span class="text-ink-muted">— max 160 chars</span></p>
+          <p><code class="text-brand-light">assignment_group</code> <span class="text-ink-muted">— team name</span></p>
+          <p><code class="text-brand-light">start_date</code> <span class="text-ink-muted">— YYYY-MM-DD HH:MM</span></p>
+          <p><code class="text-brand-light">end_date</code> <span class="text-ink-muted">— must be after start</span></p>
+          <p><code class="text-brand-light">category</code> <span class="text-ink-muted">— e.g. Network, Database</span></p>
+          <p><code class="text-brand-light">reason</code> <span class="text-ink-muted">— e.g. Patching, Enhancement</span></p>
+        </div>
+        <div>
+          <p class="font-semibold text-ink-primary mb-1">Optional columns</p>
+          <p><code class="text-ink-secondary">cmdb_ci</code> <span class="text-ink-muted">— configuration item</span></p>
+          <p><code class="text-ink-secondary">description</code> <span class="text-ink-muted">— detailed description</span></p>
+          <p><code class="text-ink-secondary">risk</code> <span class="text-ink-muted">— risk level</span></p>
+          <p><code class="text-ink-secondary">justification</code> <span class="text-ink-muted">— business justification</span></p>
+          <p><code class="text-ink-secondary">implementation_plan</code> <span class="text-ink-muted">— steps</span></p>
+          <p><code class="text-ink-secondary">backout_plan</code> <span class="text-ink-muted">— rollback steps</span></p>
+          <p><code class="text-ink-secondary">test_plan</code> <span class="text-ink-muted">— verification steps</span></p>
+          <p><code class="text-ink-secondary">template_key</code> <span class="text-ink-muted">— standard changes only</span></p>
+        </div>
+      </div>
     </div>
 
     <form id="bulk-input-form"
@@ -42,9 +80,9 @@
 
       <div x-show="inputMode === 'paste'">
         <textarea name="pasted" rows="8"
-                  placeholder="type,short_description,assignment_group,start_date,end_date,template_key&#10;normal,DB index rebuild,Database Ops,2026-04-20 22:00,2026-04-20 23:00,&#10;standard,SSL cert renewal,Security,2026-04-21 10:00,2026-04-21 11:00,ssl_renewal&#10;emergency,DNS hotfix,Network Ops,2026-04-19 15:00,2026-04-19 16:00,"
-                  class="input-dark text-xs font-mono resize-none"></textarea>
-        <p class="text-[10px] text-ink-muted mt-1">Tab-separated (from Excel paste) or comma-separated.</p>
+                  placeholder="type,short_description,assignment_group,start_date,end_date,category,reason,cmdb_ci&#10;normal,DB index rebuild,Database Ops,2026-04-20 22:00,2026-04-20 23:00,Database,Patching,DBPROD01&#10;standard,SSL cert renewal,Network Ops,2026-04-21 10:00,2026-04-21 11:00,Network,Configuration,&#10;emergency,Auth service hotfix,Platform Engineering,2026-04-19 15:00,2026-04-19 16:00,Application Software,Defect Fix,AUTH-SVC-PROD"
+                  class="input-dark text-xs font-mono resize-y"></textarea>
+        <p class="text-[10px] text-ink-muted mt-1">Tab-separated (from Excel paste) or comma-separated. First row must be headers.</p>
       </div>
 
       <div x-show="inputMode === 'csv'">
@@ -54,7 +92,7 @@
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
           </svg>
           <span class="text-xs text-ink-secondary">
-            <span x-text="csvFileName || 'Choose a CSV file'"></span>
+            <span x-text="csvFileName || 'Choose a CSV file or drag and drop'"></span>
           </span>
           <input type="file" name="csv_file" accept=".csv,text/csv"
                  @change="csvFileName = $event.target.files[0]?.name || ''"

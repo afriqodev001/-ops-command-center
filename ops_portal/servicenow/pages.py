@@ -2552,6 +2552,16 @@ def bulk_change_create(request):
     })
 
 
+def bulk_change_sample_csv(request):
+    """GET: download a sample CSV with the correct headers and example rows."""
+    from django.http import HttpResponse
+    from .services.bulk_change_parser import generate_sample_csv
+    csv_content = generate_sample_csv()
+    response = HttpResponse(csv_content, content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="bulk_change_sample.csv"'
+    return response
+
+
 def bulk_change_preview(request):
     """POST: parse + validate pasted text or uploaded CSV, return preview partial."""
     from django.http import HttpResponse
@@ -2575,8 +2585,17 @@ def bulk_change_preview(request):
             'error': 'Paste some rows or choose a CSV file.',
         })
 
+    from .services.creation_templates import load_change_categories, load_change_reasons
+
     templates = load_templates_by_kind('standard_change')
-    validated = validate_rows(rows, known_template_keys=list(templates.keys()))
+    change_cats = load_change_categories()
+    change_reasons = load_change_reasons()
+    validated = validate_rows(
+        rows,
+        known_template_keys=list(templates.keys()),
+        valid_categories=list(change_cats.keys()),
+        valid_reasons=list(change_reasons.keys()),
+    )
     summary = summarise(validated)
 
     return render(request, 'servicenow/partials/bulk_change_preview.html', {
@@ -2610,7 +2629,10 @@ def bulk_change_submit(request):
         return HttpResponse(status=405)
 
     from .services.bulk_change_parser import validate_rows
-    from .services.creation_templates import load_templates_by_kind, build_standard_change_url
+    from .services.creation_templates import (
+        load_templates_by_kind, build_standard_change_url,
+        load_change_categories, load_change_reasons, add_combobox_option,
+    )
     from .tasks import changes_create_task
 
     try:
@@ -2620,7 +2642,14 @@ def bulk_change_submit(request):
 
     raw_rows = body.get('rows') or []
     templates = load_templates_by_kind('standard_change')
-    validated = validate_rows(raw_rows, known_template_keys=list(templates.keys()))
+    change_cats = load_change_categories()
+    change_reasons = load_change_reasons()
+    validated = validate_rows(
+        raw_rows,
+        known_template_keys=list(templates.keys()),
+        valid_categories=list(change_cats.keys()),
+        valid_reasons=list(change_reasons.keys()),
+    )
 
     items = []
     for r in validated:
@@ -2635,17 +2664,25 @@ def bulk_change_submit(request):
 
         short_desc = r['short_description']
 
+        # Save combobox values for future suggestions
+        if r.get('assignment_group'):
+            add_combobox_option('assignment_group', r['assignment_group'])
+        if r.get('cmdb_ci'):
+            add_combobox_option('cmdb_ci', r['cmdb_ci'])
+
         if r['type'] in ('normal', 'emergency'):
             fields = {
                 'short_description': short_desc,
                 'assignment_group':  r['assignment_group'],
-                'start_date':        r['start_date'],
-                'end_date':          r['end_date'],
+                'start_date':        r['start_date'].replace('T', ' '),
+                'end_date':          r['end_date'].replace('T', ' '),
+                'category':          r['category'],
+                'reason':            r['reason'],
             }
-            if r.get('description'):
-                fields['description'] = r['description']
-            if r.get('risk'):
-                fields['risk'] = r['risk']
+            for opt_field in ('cmdb_ci', 'description', 'risk', 'justification',
+                              'implementation_plan', 'backout_plan', 'test_plan'):
+                if r.get(opt_field):
+                    fields[opt_field] = r[opt_field]
 
             task = changes_create_task.delay({'kind': r['type'], 'fields': fields})
             items.append({
@@ -2663,7 +2700,10 @@ def bulk_change_submit(request):
                 'assignment_group':  r['assignment_group'],
                 'start_date':        r['start_date'],
                 'end_date':          r['end_date'],
+                'category':          r.get('category', ''),
+                'reason':            r.get('reason', ''),
                 'description':       r.get('description', ''),
+                'cmdb_ci':           r.get('cmdb_ci', ''),
                 'risk':              r.get('risk', ''),
             })
             items.append({

@@ -12,6 +12,7 @@ urlpatterns = [
     path("changes/bulk-review/",                   pages.bulk_change_review,        name="bulk-change-review"),
     path("changes/bulk-review/item/",              pages.bulk_change_review_item,   name="bulk-change-review-item"),
     path("changes/bulk-create/",                   pages.bulk_change_create,        name="bulk-change-create"),
+    path("changes/bulk-create/sample-csv/",        pages.bulk_change_sample_csv,     name="bulk-change-sample-csv"),
     path("changes/bulk-create/preview/",           pages.bulk_change_preview,       name="bulk-change-preview"),
     path("changes/bulk-create/submit/",            pages.bulk_change_submit,        name="bulk-change-submit"),
     path("changes/bulk-create/templates/save/",    pages.bulk_change_template_save,   name="bulk-change-template-save"),

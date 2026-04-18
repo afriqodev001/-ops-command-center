@@ -54,10 +54,12 @@
         <th class="th">#</th>
         <th class="th">Type</th>
         <th class="th">Short description</th>
-        <th class="th">Assignment group</th>
+        <th class="th">Category</th>
+        <th class="th">Reason</th>
+        <th class="th">Group</th>
+        <th class="th">CI</th>
         <th class="th">Start</th>
         <th class="th">End</th>
-        <th class="th">Template</th>
         <th class="th">Validation</th>
       </tr>
     </thead>
@@ -77,16 +79,12 @@
           {% endif %}
         </td>
         <td class="td text-ink-primary max-w-xs truncate" title="{{ r.short_description }}">{{ r.short_description|default:'—' }}</td>
-        <td class="td font-mono text-[11px] text-ink-secondary">{{ r.assignment_group|default:'—' }}</td>
-        <td class="td text-ink-secondary">{{ r.start_date|default:'—' }}</td>
-        <td class="td text-ink-secondary">{{ r.end_date|default:'—' }}</td>
-        <td class="td">
-          {% if r.template_key %}
-            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-4 border border-edge text-ink-secondary">{{ r.template_key }}</span>
-          {% else %}
-            <span class="text-ink-muted">—</span>
-          {% endif %}
-        </td>
+        <td class="td text-[11px] text-ink-secondary">{{ r.category|default:'—' }}</td>
+        <td class="td text-[11px] text-ink-secondary">{{ r.reason|default:'—' }}</td>
+        <td class="td text-[11px] text-ink-secondary font-mono">{{ r.assignment_group|default:'—' }}</td>
+        <td class="td text-[11px] text-ink-secondary font-mono">{{ r.cmdb_ci|default:'—' }}</td>
+        <td class="td text-ink-secondary text-[11px]">{{ r.start_date|default:'—' }}</td>
+        <td class="td text-ink-secondary text-[11px]">{{ r.end_date|default:'—' }}</td>
         <td class="td">
           {% if r.errors %}
             <div class="space-y-0.5">
