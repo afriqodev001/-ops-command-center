@@ -43,9 +43,7 @@
             class="btn-primary text-xs px-3 py-1.5"
             @click="
               var allPrompts = [{% for p in prompts %}'{{ p.text|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-              var batchText = allPrompts.join('\n');
-              var ta = document.querySelector('textarea[name=batch_text]');
-              if (ta) { ta.value = batchText; ta.dispatchEvent(new Event('input', {bubbles:true})); }
+              $dispatch('use-batch', { text: allPrompts.join('\n') });
               document.getElementById('pack-viewer-modal').close();
             ">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -6,6 +6,7 @@
 {% block content %}
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-5" x-data="copilotPage()"
      @use-prompt.window="promptText = $event.detail.text"
+     @use-batch.window="batchText = $event.detail.text; batchOpen = true"
      x-init="pollSession()">
 
   <!-- ═══ LEFT: Prompt Packs ═══════════════════════════════════ -->
@@ -137,7 +138,7 @@
     </div>
 
     <!-- Batch Execution card -->
-    <div class="glass-card overflow-hidden" x-data="{ batchOpen: false }">
+    <div class="glass-card overflow-hidden">
       <button type="button" @click="batchOpen = !batchOpen"
               class="w-full flex items-center gap-2 p-4 text-left hover:bg-white/[.02] transition-colors">
         <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,7 +170,7 @@
 
           <div>
             <label class="label">Prompts</label>
-            <textarea name="batch_text" rows="6"
+            <textarea name="batch_text" rows="6" x-model="batchText"
                       class="input-dark text-xs font-mono resize-y"
                       placeholder="One prompt per line&#10;What are today's critical incidents?&#10;Summarize the P1 bridge call from this morning&#10;List all open vendor tickets assigned to our team"></textarea>
           </div>
@@ -274,6 +275,8 @@
 function _defineCopilotPage() {
   Alpine.data('copilotPage', () => ({
     promptText: '',
+    batchText: '',
+    batchOpen: false,
     files: [],
     sessionAlive: false,
     _pollTimer: null,
