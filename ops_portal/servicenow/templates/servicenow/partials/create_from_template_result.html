@@ -90,13 +90,17 @@ if (!window._taskWatcherRegistered) {
             return;
           }
           this.status = 'success';
-          const rec = (result.result && result.result.record) || result.record || result;
+          // ServiceNow Table API returns {result: {number, sys_id, ...}}
+          // The task wraps it so data.result.result is the SN response
+          const rec = result.result || result.record || result;
           this.number = rec.number || rec.sys_id || '';
           // Show a success toast + auto-redirect after a short delay
           if (this.number) {
             window.dispatchEvent(new CustomEvent('show-toast', {
               detail: { message: `${this.number} created successfully`, type: 'success', duration: 4000 }
             }));
+            const modal = document.getElementById('create-from-template-modal');
+            if (modal && modal.close) modal.close();
             setTimeout(() => { window.location.href = this.linkUrl(); }, 1500);
           }
           return;
