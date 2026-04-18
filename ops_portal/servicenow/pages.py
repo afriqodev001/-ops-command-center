@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
@@ -1364,29 +1365,18 @@ def change_briefing(request, number):
 @csrf_exempt
 @require_POST
 def change_briefing_generate(request, number):
-    """HTMX endpoint — generates the AI review for a change briefing."""
+    """HTMX endpoint — sends the already-built prompt to the AI provider.
 
-    if _is_live(request):
-        change = _get_change_context_live(number)
-    else:
-        change = _get_change(number)
-    if not change:
-        from django.http import Http404
-        raise Http404
-
-    ctasks = change.get('ctasks', [])
-    ctask_total = len(ctasks)
-    ctask_closed = sum(1 for t in ctasks if t.get('state') == 'Closed Complete')
-    ctask_pct = int(ctask_closed / ctask_total * 100) if ctask_total else 0
-
-    attachment_texts = {}
-    if _is_live(request):
-        attachment_texts = _extract_briefing_attachments(change)
-
-    prompt = _build_briefing_prompt(
-        change, ctask_closed, ctask_total, ctask_pct,
-        attachment_texts=attachment_texts,
-    )
+    The prompt is passed from the page via a hidden textarea (the briefing
+    page already builds it when the page loads). This avoids re-fetching
+    the entire change from ServiceNow just to rebuild the same prompt.
+    """
+    prompt = request.POST.get('briefing_prompt', '').strip()
+    if not prompt:
+        return render(request, 'servicenow/partials/briefing_ai_response.html', {
+            'ai_pending': False,
+            'ai_error': 'No prompt available. Please reload the briefing page and try again.',
+        })
 
     system = (
         "You are an experienced IT change management reviewer. "
@@ -1408,13 +1398,11 @@ def change_briefing_generate(request, number):
     except (json.JSONDecodeError, TypeError):
         ai_response = raw
 
-    ctx = {
-        'change': change,
+    return render(request, 'servicenow/partials/briefing_ai_response.html', {
         'ai_pending': False,
         'ai_response': ai_response,
         'ai_error': ai_error,
-    }
-    return render(request, 'servicenow/partials/briefing_ai_response.html', ctx)
+    })
 
 
 # ─────────────────────────────────────────────────────────────

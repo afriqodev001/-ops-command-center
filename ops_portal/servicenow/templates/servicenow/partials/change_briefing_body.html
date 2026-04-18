@@ -223,6 +223,7 @@
         </div>
 
         <!-- Prompt text -->
+        <textarea id="briefing-prompt-input" name="briefing_prompt" class="hidden">{{ prompt }}</textarea>
         <div class="relative">
           <pre id="briefing-prompt"
                class="text-[11px] text-ink-secondary font-mono leading-relaxed px-5 py-4 overflow-x-auto bg-surface-2/60 whitespace-pre-wrap"
@@ -248,7 +249,7 @@
                   hx-target="#ai-response"
                   hx-swap="innerHTML"
                   hx-indicator="#ai-spinner"
-                  hx-include="#briefing-prompt"
+                  hx-include="#briefing-prompt-input"
                   @click="generating = true"
                   @htmx:after-request="generating = false"
                   :disabled="generating">
