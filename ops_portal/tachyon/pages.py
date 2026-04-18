@@ -36,6 +36,9 @@ def playground(request):
         'default_model_id', 'parameters', 'system_instruction',
         'version', 'owner_team',
     ))
+    # Ensure UUIDs serialize as strings
+    for p in presets:
+        p['id'] = str(p['id'])
     presets_json = json.dumps(presets, default=str)
     return render(request, 'tachyon/playground.html', {
         'presets': presets,
