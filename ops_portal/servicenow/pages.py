@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 
 # ─────────────────────────────────────────────
 # Demo data (replace with real API calls later)
@@ -1359,11 +1361,10 @@ def change_briefing(request, number):
     })
 
 
+@csrf_exempt
+@require_POST
 def change_briefing_generate(request, number):
     """HTMX endpoint — generates the AI review for a change briefing."""
-    from django.http import HttpResponse
-    if request.method != 'POST':
-        return HttpResponse(status=405)
 
     if _is_live(request):
         change = _get_change_context_live(number)
