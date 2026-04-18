@@ -3,21 +3,6 @@
 {% block page_title %}Copilot Chat{% endblock %}
 {% block page_subtitle %}Prompt packs · single runs · batch execution · exports{% endblock %}
 
-{% block header_actions %}
-<div class="flex items-center gap-2">
-  <a href="/copilot/export/?fmt=csv" class="btn-ghost text-xs py-1.5">
-    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
-    </svg>
-    Export CSV
-  </a>
-  <a href="/copilot/export/?fmt=json" class="btn-ghost text-xs py-1.5">
-    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
-    </svg>
-    Export JSON
-  </a>
-</div>
 {% endblock %}
 
 {% block content %}
@@ -210,11 +195,17 @@
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-ink-primary">Recent Runs</h3>
-        <button type="button"
-                hx-get="/copilot/partials/runs/"
-                hx-target="#recent-runs-list"
-                hx-swap="innerHTML"
-                class="btn-ghost text-[10px] py-1 px-2">Refresh</button>
+        <div class="flex items-center gap-1">
+          <a href="/copilot/export/?fmt=csv" title="Download run history as CSV"
+             class="btn-ghost text-[10px] py-0.5 px-1.5">CSV</a>
+          <a href="/copilot/export/?fmt=json" title="Download run history as JSON"
+             class="btn-ghost text-[10px] py-0.5 px-1.5">JSON</a>
+          <button type="button"
+                  hx-get="/copilot/partials/runs/"
+                  hx-target="#recent-runs-list"
+                  hx-swap="innerHTML"
+                  class="btn-ghost text-[10px] py-0.5 px-1.5">Refresh</button>
+        </div>
       </div>
       <div id="recent-runs-list"
            hx-get="/copilot/partials/runs/"
