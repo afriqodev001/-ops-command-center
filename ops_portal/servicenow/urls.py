@@ -47,6 +47,11 @@ urlpatterns = [
     path("preferences/save/",      pages.preferences_save,      name="preferences-save"),
     path("preferences/reset/",     pages.preferences_reset_store, name="preferences-reset"),
 
+    # ─── AI Prompt Editor ───────────────────
+    path("prompts/",               pages.prompts_editor,        name="prompts-editor"),
+    path("prompts/save/",          pages.prompt_save,           name="prompt-save"),
+    path("prompts/reset/",         pages.prompt_reset,          name="prompt-reset"),
+
     # ─── Activity log ───────────────────────────
     path("activity/",              pages.activity_modal,        name="activity-modal"),
     path("activity/badge/",        pages.activity_badge,        name="activity-badge"),

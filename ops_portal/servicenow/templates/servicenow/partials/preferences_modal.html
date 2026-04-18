@@ -155,6 +155,30 @@
     </div>
   </section>
 
+  <!-- AI Prompts -->
+  <section>
+    <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">AI Prompts</p>
+    <div class="p-3 rounded-lg bg-surface-3 border border-edge">
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <p class="text-xs font-medium text-ink-primary">System prompts</p>
+          <p class="text-[10px] text-ink-muted">Edit the prompts used by field generation, change briefing, and other AI features.</p>
+        </div>
+        <button type="button"
+                hx-get="/servicenow/prompts/"
+                hx-target="#prompts-editor-body"
+                hx-swap="innerHTML"
+                class="btn-ghost text-xs px-3 py-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          Edit prompts
+        </button>
+      </div>
+      <div id="prompts-editor-body"></div>
+    </div>
+  </section>
+
   <!-- Local stores -->
   <section>
     <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">Local stores</p>

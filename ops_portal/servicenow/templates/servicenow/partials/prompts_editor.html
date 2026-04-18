@@ -1,0 +1,74 @@
+<div class="space-y-4" x-data="{ activeKey: '' }">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h3 class="text-sm font-semibold text-ink-primary">AI Prompts</h3>
+      <p class="text-[10px] text-ink-muted mt-0.5">Edit the system prompts used by AI features. Changes take effect immediately.</p>
+    </div>
+  </div>
+
+  {% for key, meta in prompts.items %}
+  <div class="rounded-lg border border-edge overflow-hidden">
+    <!-- Header — click to expand -->
+    <button type="button"
+            @click="activeKey = activeKey === '{{ key }}' ? '' : '{{ key }}'"
+            class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[.02] transition-colors">
+      <svg class="w-3.5 h-3.5 text-ink-muted transition-transform duration-200 flex-shrink-0"
+           :class="activeKey === '{{ key }}' ? 'rotate-90' : ''"
+           fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-ink-primary">{{ meta.label }}</span>
+          {% if meta.is_default %}
+          <span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge">Default</span>
+          {% else %}
+          <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-subtle text-brand-light border border-brand/20">Customized</span>
+          {% endif %}
+        </div>
+        <p class="text-[10px] text-ink-muted mt-0.5 truncate">{{ meta.description }}</p>
+      </div>
+      {% if key == saved_key %}
+      <span class="text-[10px] text-ok font-medium flex-shrink-0">Saved ✓</span>
+      {% elif key == reset_key %}
+      <span class="text-[10px] text-info font-medium flex-shrink-0">Reset to default</span>
+      {% endif %}
+    </button>
+
+    <!-- Editor panel -->
+    <div x-show="activeKey === '{{ key }}'" x-cloak
+         class="border-t border-edge px-4 py-3 bg-surface-2/40">
+      <form hx-post="/servicenow/prompts/save/"
+            hx-target="#prompts-editor-body"
+            hx-swap="innerHTML"
+            class="space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="key" value="{{ key }}">
+        <textarea name="prompt" rows="10"
+                  class="input-dark text-xs font-mono resize-y w-full leading-relaxed">{{ meta.prompt }}</textarea>
+        <div class="flex items-center gap-2">
+          <button type="submit" class="btn-primary text-xs px-3 py-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Save
+          </button>
+          {% if not meta.is_default %}
+          <button type="button"
+                  hx-post="/servicenow/prompts/reset/"
+                  hx-target="#prompts-editor-body"
+                  hx-swap="innerHTML"
+                  hx-vals='{"key": "{{ key }}"}'
+                  class="btn-ghost text-xs px-3 py-1.5 text-warn">
+            Reset to default
+          </button>
+          {% endif %}
+          <span class="text-[10px] text-ink-muted ml-auto" x-text="$el.closest('form').querySelector('textarea').value.length + ' chars'"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+
+</div>

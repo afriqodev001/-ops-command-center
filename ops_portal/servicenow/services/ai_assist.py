@@ -25,54 +25,7 @@ from .creation_templates import KIND_FIELDS, FIELD_LABELS
 
 # ─── Prompt templates ────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are an experienced IT operations engineer who creates ServiceNow records daily.
-Given partial information about a new record, suggest appropriate values for the remaining fields.
-Respond ONLY with a JSON object mapping field names to suggested string values.
-Do not include fields the user has already filled in.
-If you are unsure about a field, use an empty string rather than guessing incorrectly.
-For text fields like description, justification, implementation_plan, backout_plan, and test_plan,
-provide practical, concise content that an operations team would actually use."""
-
-INCIDENT_SYSTEM_PROMPT = """You are an experienced IT operations engineer who creates ServiceNow incident records daily.
-A user has described an issue in plain language. Your job is to fill in ALL the structured incident fields from their description.
-
-Respond ONLY with a JSON object. Use these exact field names:
-- short_description: A concise one-line summary (max 160 chars)
-- description: Detailed description of the issue, including symptoms, impact, and any relevant context
-- category: Must be one of the provided categories ONLY
-- subcategory: Must be one of the subcategories under the chosen category ONLY
-- service: Must be from the provided services list ONLY. If no services are provided or none fit, use an empty string.
-- assignment_group: Must be from the provided assignment groups list ONLY. If no groups are provided or none fit, use an empty string.
-
-Rules:
-- category and subcategory MUST come from the provided options — do not invent new ones
-- service and assignment_group MUST come from the provided lists — do not invent values
-- If no service or assignment_group list is provided, leave those fields as empty strings
-- short_description should be professional and specific, not generic
-- description should expand on the issue with practical detail an ops team can act on
-- If the issue doesn't clearly fit a category, pick the closest match"""
-
-CHANGE_SYSTEM_PROMPT = """You are an experienced IT change management engineer who creates ServiceNow change records daily.
-A user has described a change in plain language. Your job is to fill in ALL the structured change fields from their description.
-
-Respond ONLY with a JSON object. Use these exact field names:
-- short_description: A concise one-line summary of the change (max 160 chars)
-- description: Detailed description of what is being changed, why, and expected impact
-- category: Must be one of the provided categories ONLY
-- reason: Must be one of the provided reasons ONLY
-- cmdb_ci: The configuration item being changed. Must be from the provided list ONLY, or empty string if none fit.
-- assignment_group: Must be from the provided list ONLY, or empty string if none fit.
-- justification: Brief business justification for why this change is needed
-- implementation_plan: Step-by-step plan for implementing the change
-- backout_plan: Steps to roll back if the change fails
-- test_plan: How the change will be verified after implementation (emergency changes only, include if requested)
-
-Rules:
-- category and reason MUST come from the provided options — do not invent new ones
-- cmdb_ci and assignment_group MUST come from the provided lists — do not invent values
-- If no list is provided for a field, leave it as an empty string
-- Plans should be practical and concise — numbered steps work best
-- short_description should be professional and specific"""
+from .prompt_store import get_prompt
 
 
 def _build_user_prompt(kind: str, filled: Dict[str, str], empty_fields: List[str]) -> str:
@@ -443,7 +396,7 @@ def suggest_fields(kind: str, filled: Dict[str, str]) -> Dict[str, str]:
         return {}
 
     # Build the prompt
-    system = SYSTEM_PROMPT
+    system = get_prompt('field_suggest')
     user = _build_user_prompt(kind, filled, empty_fields)
 
     raw = _call_llm(system, user)
@@ -479,7 +432,7 @@ def suggest_from_description(
     service_options = load_combobox_options('service')
     group_options = load_combobox_options('assignment_group')
 
-    system = INCIDENT_SYSTEM_PROMPT
+    system = get_prompt('incident_from_description')
     user = _build_incident_from_description_prompt(
         issue_text, filled, categories, target_fields,
         service_options=service_options,
@@ -535,7 +488,7 @@ def suggest_change_from_description(
     group_options = load_combobox_options('assignment_group')
     cmdb_ci_options = load_combobox_options('cmdb_ci')
 
-    system = CHANGE_SYSTEM_PROMPT
+    system = get_prompt('change_from_description')
     user = _build_change_from_description_prompt(
         change_text, kind, filled, categories, reasons, target_fields,
         group_options=group_options,
@@ -573,7 +526,7 @@ def build_suggest_prompt(kind: str, filled: Dict[str, str]) -> Dict[str, str]:
     empty_fields = [f for f in all_fields
                     if f not in skip and not (filled.get(f) or '').strip()]
     return {
-        'system': SYSTEM_PROMPT,
+        'system': get_prompt('field_suggest'),
         'user': _build_user_prompt(kind, filled, empty_fields),
         'empty_fields': empty_fields,
     }

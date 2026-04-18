@@ -1228,17 +1228,9 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
             return None
         return f"{' ' * indent}{label}: {value}"
 
-    lines = [
-        "You are an experienced IT change management reviewer.",
-        "Review the change request below and provide a concise assessment covering:",
-        "  1. Readiness — are all pre-conditions and CTASKs in the expected state?",
-        "  2. Risk assessment — any concerns given the risk level, scope, and planning quality?",
-        "  3. Planning review — are the implementation, backout, and test plans adequate?",
-        "  4. Recommendation — APPROVE / HOLD / REJECT with a one-paragraph justification.",
-        "",
-        "Keep the response brief and actionable. Flag anything that looks incomplete or risky.",
-        "",
-    ]
+    from .services.prompt_store import get_prompt as _gp
+    preamble = _gp('briefing_preamble')
+    lines = [preamble, ""]
 
     # ── Change record ───────────────────────────────────────
     lines.append(section("CHANGE RECORD"))
@@ -1378,17 +1370,8 @@ def change_briefing_generate(request, number):
             'ai_error': 'No prompt available. Please reload the briefing page and try again.',
         })
 
-    system = (
-        "You are an experienced IT change management reviewer. "
-        "Respond in well-structured Markdown. Use these exact sections:\n\n"
-        "## Readiness\nAre pre-conditions met? Are CTASKs in expected state?\n\n"
-        "## Risk Assessment\nConcerns given risk level, scope, and impact?\n\n"
-        "## Planning Review\nAre implementation, backout, and test plans adequate?\n\n"
-        "## Recommendation\n"
-        "Start with one of: **APPROVE**, **HOLD**, or **REJECT** in bold, "
-        "followed by a one-paragraph justification.\n\n"
-        "Use bullet points for specific findings. Keep it concise and actionable. "
-        "Use ✅ for positive findings and ⚠️ for concerns."
+    from .services.prompt_store import get_prompt
+    system = get_prompt('briefing_review'
     )
 
     from .services.ai_assist import _call_llm
@@ -2439,6 +2422,47 @@ def preferences_save(request):
 
     return render(request, 'servicenow/partials/preferences_modal.html',
                   _preferences_context(request))
+
+
+def prompts_editor(request):
+    """GET: return the AI prompts editor partial."""
+    from .services.prompt_store import get_all_prompts
+    return render(request, 'servicenow/partials/prompts_editor.html', {
+        'prompts': get_all_prompts(),
+    })
+
+
+@csrf_exempt
+@require_POST
+def prompt_save(request):
+    """POST: save a single prompt."""
+    from django.http import JsonResponse
+    from .services.prompt_store import save_prompt, get_all_prompts
+    key = request.POST.get('key', '').strip()
+    prompt = request.POST.get('prompt', '')
+    if not key:
+        return JsonResponse({'error': 'key is required'}, status=400)
+    save_prompt(key, prompt)
+    return render(request, 'servicenow/partials/prompts_editor.html', {
+        'prompts': get_all_prompts(),
+        'saved_key': key,
+    })
+
+
+@csrf_exempt
+@require_POST
+def prompt_reset(request):
+    """POST: reset a prompt to default."""
+    from django.http import JsonResponse
+    from .services.prompt_store import reset_prompt, get_all_prompts
+    key = request.POST.get('key', '').strip()
+    if not key:
+        return JsonResponse({'error': 'key is required'}, status=400)
+    reset_prompt(key)
+    return render(request, 'servicenow/partials/prompts_editor.html', {
+        'prompts': get_all_prompts(),
+        'reset_key': key,
+    })
 
 
 def _push_activity(request, **event):
