@@ -1,37 +1,41 @@
 {% if packs %}
 <div class="space-y-2">
   {% for pack in packs %}
-  <div class="p-3 rounded-lg bg-surface-3/60 border border-edge hover:border-edge-strong transition-colors">
+  <div data-pack-card
+       data-pack-name="{{ pack.name }}"
+       data-pack-desc="{{ pack.description }}"
+       data-pack-tags="{{ pack.tags }}"
+       class="p-2.5 rounded-lg bg-surface-3/60 border border-edge hover:border-edge-strong transition-colors">
     <div class="flex items-center gap-2">
-      <p class="text-xs font-semibold text-ink-primary flex-1">{{ pack.name }}</p>
-      <span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge">{{ pack.prompts.count }} prompt{{ pack.prompts.count|pluralize }}</span>
+      <p class="text-xs font-semibold text-ink-primary flex-1 truncate">{{ pack.name }}</p>
+      <span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge flex-shrink-0">{{ pack.prompts.count }}</span>
     </div>
-    {% if pack.description %}
-    <p class="text-[10px] text-ink-muted mt-0.5 line-clamp-2">{{ pack.description }}</p>
-    {% endif %}
     {% if pack.tags %}
-    <div class="flex flex-wrap gap-1 mt-1.5">
+    <div class="flex flex-wrap gap-1 mt-1">
       {% for tag in pack.tag_list %}
-      <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-subtle text-brand-light border border-brand/20">{{ tag }}</span>
+      <span class="text-[8px] px-1 py-0 rounded bg-brand-subtle/50 text-brand-light border border-brand/10">{{ tag }}</span>
       {% endfor %}
     </div>
     {% endif %}
-    <div class="flex items-center gap-1.5 mt-2">
+    {% if pack.description %}
+    <p class="text-[10px] text-ink-muted mt-1 line-clamp-1" title="{{ pack.description }}">{{ pack.description }}</p>
+    {% endif %}
+    <div class="flex items-center gap-1 mt-1.5">
       <button type="button"
               hx-get="/copilot/partials/prompt-packs/{{ pack.id }}/view/"
               hx-target="#pack-viewer-body"
               hx-swap="innerHTML"
               @click="document.getElementById('pack-viewer-modal').showModal()"
-              class="btn-ghost text-[10px] py-0.5 px-2">View</button>
+              class="btn-ghost text-[10px] py-0.5 px-1.5">View</button>
       <button type="button"
               hx-get="/copilot/partials/prompt-packs/{{ pack.id }}/edit/"
               hx-target="#pack-editor-body"
               hx-swap="innerHTML"
               @click="document.getElementById('pack-editor-modal').showModal()"
-              class="btn-ghost text-[10px] py-0.5 px-2">Edit</button>
+              class="btn-ghost text-[10px] py-0.5 px-1.5">Edit</button>
       {% if pack.prompts.count == 1 %}
       <button type="button"
-              class="btn-ghost text-[10px] py-0.5 px-2 text-brand-light"
+              class="btn-ghost text-[10px] py-0.5 px-1.5 text-brand-light"
               @click="$dispatch('use-prompt', { text: '{{ pack.primary_prompt|escapejs }}' })">Use</button>
       {% else %}
       <button type="button"
@@ -39,7 +43,7 @@
               hx-target="#pack-viewer-body"
               hx-swap="innerHTML"
               @click="document.getElementById('pack-viewer-modal').showModal()"
-              class="btn-ghost text-[10px] py-0.5 px-2 text-brand-light">Pick prompt</button>
+              class="btn-ghost text-[10px] py-0.5 px-1.5 text-brand-light">Pick</button>
       {% endif %}
     </div>
   </div>

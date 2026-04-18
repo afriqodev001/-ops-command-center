@@ -10,9 +10,10 @@
      x-init="pollSession()">
 
   <!-- ═══ LEFT: Prompt Packs ═══════════════════════════════════ -->
-  <div class="lg:col-span-3 space-y-4">
-    <div class="glass-card p-4">
-      <div class="flex items-center justify-between mb-3">
+  <div class="lg:col-span-3" x-data="packsBrowser()">
+    <div class="glass-card p-4 flex flex-col" style="max-height: calc(100vh - 120px)">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-3 flex-shrink-0">
         <h3 class="text-sm font-semibold text-ink-primary">Prompt Packs</h3>
         <button type="button"
                 hx-get="/copilot/partials/prompt-packs/new/"
@@ -22,12 +23,43 @@
                 class="btn-ghost text-[10px] py-1 px-2">+ New</button>
       </div>
 
-      <div id="packs-list"
-           hx-get="/copilot/partials/packs/"
-           hx-trigger="load, prompt-pack-saved from:body"
-           hx-swap="innerHTML">
-        <div class="py-4 text-center">
-          <div class="w-4 h-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin mx-auto"></div>
+      <!-- Search -->
+      <div class="relative mb-2 flex-shrink-0">
+        <svg class="w-3.5 h-3.5 text-ink-muted absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" x-model="search" placeholder="Search packs..."
+               class="input-dark text-xs pl-8 py-1.5">
+      </div>
+
+      <!-- Tag filter chips -->
+      <div class="flex flex-wrap gap-1 mb-2 flex-shrink-0" x-show="allTags.length > 0">
+        <button type="button" @click="tagFilter = ''"
+                :class="tagFilter === '' ? 'bg-brand-subtle text-brand-light border-brand/30' : 'bg-surface-4 text-ink-muted border-edge hover:text-ink-primary'"
+                class="text-[9px] px-2 py-0.5 rounded-full border transition-colors">All</button>
+        <template x-for="tag in allTags" :key="tag">
+          <button type="button" @click="tagFilter = tagFilter === tag ? '' : tag"
+                  :class="tagFilter === tag ? 'bg-brand-subtle text-brand-light border-brand/30' : 'bg-surface-4 text-ink-muted border-edge hover:text-ink-primary'"
+                  class="text-[9px] px-2 py-0.5 rounded-full border transition-colors"
+                  x-text="tag"></button>
+        </template>
+      </div>
+
+      <!-- Pack count -->
+      <p class="text-[10px] text-ink-muted mb-1.5 flex-shrink-0"
+         x-show="filteredPacks.length !== rawPacks.length"
+         x-text="filteredPacks.length + ' of ' + rawPacks.length + ' packs'"></p>
+
+      <!-- Scrollable pack list -->
+      <div class="overflow-y-auto flex-1 min-h-0">
+        <div id="packs-list"
+             hx-get="/copilot/partials/packs/"
+             hx-trigger="load, prompt-pack-saved from:body"
+             hx-swap="innerHTML"
+             @htmx:after-swap="$nextTick(() => indexPacks())">
+          <div class="py-4 text-center">
+            <div class="w-4 h-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin mx-auto"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -330,7 +362,56 @@ function _defineCopilotPage() {
     },
   }));
 }
-if (window.Alpine) _defineCopilotPage();
-else document.addEventListener('alpine:init', _defineCopilotPage);
+function _definePacksBrowser() {
+  Alpine.data('packsBrowser', () => ({
+    search: '',
+    tagFilter: '',
+    rawPacks: [],
+    allTags: [],
+
+    indexPacks() {
+      const container = document.getElementById('packs-list');
+      if (!container) return;
+      const cards = container.querySelectorAll('[data-pack-card]');
+      const packs = [];
+      const tags = new Set();
+      cards.forEach(card => {
+        const name = (card.dataset.packName || '').toLowerCase();
+        const desc = (card.dataset.packDesc || '').toLowerCase();
+        const packTags = (card.dataset.packTags || '').split(',').map(t => t.trim()).filter(Boolean);
+        packTags.forEach(t => tags.add(t));
+        packs.push({ el: card, name, desc, tags: packTags });
+      });
+      this.rawPacks = packs;
+      this.allTags = [...tags].sort();
+      this.applyFilter();
+    },
+
+    get filteredPacks() {
+      const q = this.search.toLowerCase().trim();
+      const tag = this.tagFilter.toLowerCase();
+      return this.rawPacks.filter(p => {
+        if (q && !p.name.includes(q) && !p.desc.includes(q)) return false;
+        if (tag && !p.tags.includes(tag)) return false;
+        return true;
+      });
+    },
+
+    applyFilter() {
+      const visible = new Set(this.filteredPacks.map(p => p.el));
+      this.rawPacks.forEach(p => {
+        p.el.style.display = visible.has(p.el) ? '' : 'none';
+      });
+    },
+
+    init() {
+      this.$watch('search', () => this.applyFilter());
+      this.$watch('tagFilter', () => this.applyFilter());
+    },
+  }));
+}
+
+if (window.Alpine) { _defineCopilotPage(); _definePacksBrowser(); }
+else document.addEventListener('alpine:init', () => { _defineCopilotPage(); _definePacksBrowser(); });
 </script>
 {% endblock %}
