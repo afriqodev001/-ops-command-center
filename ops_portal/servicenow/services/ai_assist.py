@@ -158,7 +158,7 @@ def _build_change_from_description_prompt(
     kind: str,
     filled: Dict[str, str],
     categories: Dict[str, str],
-    reasons: List[str],
+    reasons: Dict[str, str],
     target_fields: List[str],
     group_options: List[str] | None = None,
     cmdb_ci_options: List[str] | None = None,
@@ -182,9 +182,12 @@ def _build_change_from_description_prompt(
         lines.append(f"  - {cat} ({desc})")
 
     lines.append("")
-    lines.append("Available reasons (pick from this list ONLY):")
-    for r in reasons:
-        lines.append(f"  - {r}")
+    lines.append("Available reasons (pick the value, description is for context):")
+    for r, desc in sorted(reasons.items()):
+        if desc:
+            lines.append(f"  - {r} ({desc})")
+        else:
+            lines.append(f"  - {r}")
 
     if cmdb_ci_options:
         lines.append("")
@@ -464,7 +467,7 @@ def suggest_change_from_description(
     kind: str,
     filled: Dict[str, str],
     categories: Dict[str, str],
-    reasons: List[str],
+    reasons: Dict[str, str],
 ) -> Dict[str, str]:
     """Generate change fields from a free-text description.
 

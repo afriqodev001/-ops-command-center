@@ -133,13 +133,14 @@
     <p class="text-[10px] text-ink-muted mt-0.5 transition-all" x-show="changeCategoryDesc" x-text="changeCategoryDesc" x-cloak></p>
 
     {# ── Change: Reason dropdown ─────────────────────────── #}
-    {% elif fname == 'reason' %}
+    {% elif fname == 'reason' and change_reasons %}
     <select name="reason" x-model="changeReason" class="select-dark w-full text-xs" {% if freq %}required{% endif %}>
       <option value="">— Select reason —</option>
-      {% for reason in change_reasons %}
-      <option value="{{ reason }}" {% if fval == reason %}selected{% endif %}>{{ reason }}</option>
+      {% for reason, desc in change_reasons.items %}
+      <option value="{{ reason }}" {% if fval == reason %}selected{% endif %} {% if desc %}title="{{ desc }}"{% endif %}>{{ reason }}</option>
       {% endfor %}
     </select>
+    <p class="text-[10px] text-ink-muted mt-0.5 transition-all" x-show="changeReasonDesc" x-text="changeReasonDesc" x-cloak></p>
 
     {# ── Incident: Service combobox ──────────────────────── #}
     {% elif fname == 'service' and kind == 'incident' %}
@@ -239,6 +240,7 @@ function _defineCreateFormAI() {
     changeCategory: '',
     changeReason: '',
     _changeCats: {},
+    _changeReasons: {},
 
     init() {
       const catEl = document.getElementById('incident-categories-data');
@@ -248,6 +250,10 @@ function _defineCreateFormAI() {
       const chgEl = document.getElementById('change-categories-data');
       if (chgEl) {
         try { this._changeCats = JSON.parse(chgEl.textContent); } catch(e) {}
+      }
+      const rsnEl = document.getElementById('change-reasons-data');
+      if (rsnEl) {
+        try { this._changeReasons = JSON.parse(rsnEl.textContent); } catch(e) {}
       }
     },
 
@@ -261,6 +267,10 @@ function _defineCreateFormAI() {
 
     get changeCategoryDesc() {
       return this._changeCats[this.changeCategory] || '';
+    },
+
+    get changeReasonDesc() {
+      return this._changeReasons[this.changeReason] || '';
     },
 
     async generateFromDescription(form) {
@@ -399,4 +409,7 @@ else document.addEventListener('alpine:init', _defineCreateFormAI);
 {% endif %}
 {% if change_categories_json %}
 <script id="change-categories-data" type="application/json">{{ change_categories_json|safe }}</script>
+{% endif %}
+{% if change_reasons_json %}
+<script id="change-reasons-data" type="application/json">{{ change_reasons_json|safe }}</script>
 {% endif %}

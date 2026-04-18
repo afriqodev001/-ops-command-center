@@ -2903,9 +2903,11 @@ def create_from_template_form(request, key: str):
             load_change_categories, load_change_reasons, load_combobox_options,
         )
         change_cats = load_change_categories()
+        change_reasons = load_change_reasons()
         ctx['change_categories'] = change_cats
         ctx['change_categories_json'] = json.dumps(change_cats)
-        ctx['change_reasons'] = load_change_reasons()
+        ctx['change_reasons'] = change_reasons
+        ctx['change_reasons_json'] = json.dumps(change_reasons)
         ctx['group_options'] = load_combobox_options('assignment_group')
         ctx['cmdb_ci_options'] = load_combobox_options('cmdb_ci')
 

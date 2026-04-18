@@ -176,14 +176,27 @@ CHANGE_CATEGORIES: Dict[str, str] = {
     'Telecom':              'Change to Telecommunications configuration',
 }
 
-CHANGE_REASONS: List[str] = [
-    'Commission', 'Configuration', 'Data Updates', 'DCMS', 'DCMS - Prod Staged',
-    'Decommission', 'Defect Fix', 'Diagnostics', 'Divestiture',
-    'Elevated Access Request', 'Enhancement', 'Facilities Maintenance',
-    'Hardware Update', 'Patching', 'Resiliency Exercise',
-    'Restart/Reboot/Restore', 'Software Install / Uninstall',
-    'Software Update', 'Trace and Validate',
-]
+CHANGE_REASONS: Dict[str, str] = {
+    'Commission':                   '',
+    'Configuration':                '',
+    'Data Updates':                 '',
+    'DCMS':                         '',
+    'DCMS - Prod Staged':           '',
+    'Decommission':                 '',
+    'Defect Fix':                   '',
+    'Diagnostics':                  '',
+    'Divestiture':                  '',
+    'Elevated Access Request':      '',
+    'Enhancement':                  '',
+    'Facilities Maintenance':       '',
+    'Hardware Update':              '',
+    'Patching':                     '',
+    'Resiliency Exercise':          '',
+    'Restart/Reboot/Restore':       '',
+    'Software Install / Uninstall': '',
+    'Software Update':              '',
+    'Trace and Validate':           '',
+}
 
 
 # ── Combobox options (service, assignment_group, cmdb_ci) ─────
@@ -226,9 +239,15 @@ def load_change_categories() -> Dict[str, str]:
     return opts.get('change_categories', CHANGE_CATEGORIES)
 
 
-def load_change_reasons() -> List[str]:
+def load_change_reasons() -> Dict[str, str]:
     opts = _load_field_options()
-    return opts.get('change_reasons', CHANGE_REASONS)
+    stored = opts.get('change_reasons')
+    if stored is None:
+        return dict(CHANGE_REASONS)
+    # Support legacy list format (upgrade to dict)
+    if isinstance(stored, list):
+        return {r: '' for r in stored}
+    return stored
 
 
 def save_change_categories(categories: Dict[str, str]) -> None:
@@ -237,9 +256,9 @@ def save_change_categories(categories: Dict[str, str]) -> None:
     _save_field_options(opts)
 
 
-def save_change_reasons(reasons: List[str]) -> None:
+def save_change_reasons(reasons: Dict[str, str]) -> None:
     opts = _load_field_options()
-    opts['change_reasons'] = sorted(set(reasons))
+    opts['change_reasons'] = reasons
     _save_field_options(opts)
 
 
