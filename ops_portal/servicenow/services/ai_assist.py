@@ -301,15 +301,21 @@ def _call_tachyon(system: str, user: str, cfg: Dict) -> str:
 
         if isinstance(result, dict):
             if result.get('error'):
-                return '{}'
+                detail = result.get('detail') or result.get('message') or str(result.get('error'))
+                return json.dumps({'_ai_error': f'Tachyon error: {detail}'})
             # Tachyon returns nested response shapes
             data = result.get('data') or result
             if isinstance(data, dict):
-                return data.get('answer') or data.get('response') or data.get('text') or json.dumps(data)
+                text = data.get('answer') or data.get('response') or data.get('text')
+                if text:
+                    return text
+                return json.dumps(data)
             return str(data)
-        return str(result) if result else '{}'
-    except Exception:
-        return '{}'
+        if not result:
+            return json.dumps({'_ai_error': 'Tachyon returned empty response.'})
+        return str(result)
+    except Exception as e:
+        return json.dumps({'_ai_error': f'Tachyon call failed: {e}'})
 
 
 def _call_claude(system: str, user: str, cfg: Dict) -> str:
@@ -330,9 +336,9 @@ def _call_claude(system: str, user: str, cfg: Dict) -> str:
         )
         return response.content[0].text
     except ImportError:
-        return '{}'
-    except Exception:
-        return '{}'
+        return json.dumps({'_ai_error': 'anthropic package not installed. Run: pip install anthropic'})
+    except Exception as e:
+        return json.dumps({'_ai_error': f'Claude API error: {e}'})
 
 
 def _call_openai(system: str, user: str, cfg: Dict) -> str:
@@ -355,9 +361,62 @@ def _call_openai(system: str, user: str, cfg: Dict) -> str:
         )
         return response.choices[0].message.content
     except ImportError:
-        return '{}'
-    except Exception:
-        return '{}'
+        return json.dumps({'_ai_error': 'openai package not installed. Run: pip install openai'})
+    except Exception as e:
+        return json.dumps({'_ai_error': f'OpenAI API error: {e}'})
+
+
+# ─── Response parsing helpers ───────────────────────────────
+
+import re
+
+def _extract_json_dict(raw: str) -> Dict | None:
+    """Try to parse a JSON dict from an LLM response.
+
+    Handles: raw JSON, markdown code fences, JSON embedded in text.
+    Returns the parsed dict, or None if nothing parseable was found.
+    """
+    if not raw or not raw.strip():
+        return None
+    text = raw.strip()
+
+    # 1. Direct parse
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+
+    # 2. Extract from markdown code fences: ```json ... ``` or ``` ... ```
+    fence = re.search(r'```(?:json)?\s*\n?(.*?)\n?\s*```', text, re.DOTALL)
+    if fence:
+        try:
+            obj = json.loads(fence.group(1).strip())
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+
+    # 3. Find first { ... } block
+    start = text.find('{')
+    if start >= 0:
+        depth = 0
+        for i in range(start, len(text)):
+            if text[i] == '{':
+                depth += 1
+            elif text[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    try:
+                        obj = json.loads(text[start:i + 1])
+                        if isinstance(obj, dict):
+                            return obj
+                    except json.JSONDecodeError:
+                        pass
+                    break
+
+    return None
 
 
 # ─── Public API ──────────────────────────────────────────────
@@ -387,20 +446,14 @@ def suggest_fields(kind: str, filled: Dict[str, str]) -> Dict[str, str]:
     system = SYSTEM_PROMPT
     user = _build_user_prompt(kind, filled, empty_fields)
 
-    # Call LLM
-    try:
-        raw = _call_llm(system, user)
-        suggestions = json.loads(raw)
-        if not isinstance(suggestions, dict):
-            return {}
-        # Surface provider errors (session not connected, no API key, etc.)
-        if '_ai_error' in suggestions:
-            return {'_ai_error': suggestions['_ai_error']}
-        # Only return fields we actually asked for
-        return {k: str(v) for k, v in suggestions.items()
-                if k in empty_fields and v}
-    except (json.JSONDecodeError, Exception):
-        return {}
+    raw = _call_llm(system, user)
+    suggestions = _extract_json_dict(raw)
+    if suggestions is None:
+        return {'_ai_error': f'AI returned unparseable response: {raw[:200]}'}
+    if '_ai_error' in suggestions:
+        return {'_ai_error': suggestions['_ai_error']}
+    return {k: str(v) for k, v in suggestions.items()
+            if k in empty_fields and v}
 
 
 def suggest_from_description(
@@ -433,33 +486,30 @@ def suggest_from_description(
         group_options=group_options,
     )
 
-    try:
-        raw = _call_llm(system, user)
-        suggestions = json.loads(raw)
-        if not isinstance(suggestions, dict):
-            return {}
-        if '_ai_error' in suggestions:
-            return {'_ai_error': suggestions['_ai_error']}
-        # Validate category/subcategory against allowed values
-        if 'category' in suggestions:
-            if suggestions['category'] not in categories:
-                suggestions['category'] = ''
-        if 'subcategory' in suggestions and 'category' in suggestions:
-            cat = suggestions['category']
-            allowed_subs = categories.get(cat, [])
-            if suggestions['subcategory'] not in allowed_subs:
-                suggestions['subcategory'] = ''
-        # Validate service/assignment_group against saved options
-        if 'service' in suggestions and service_options:
-            if suggestions['service'] not in service_options:
-                suggestions['service'] = ''
-        if 'assignment_group' in suggestions and group_options:
-            if suggestions['assignment_group'] not in group_options:
-                suggestions['assignment_group'] = ''
-        return {k: str(v) for k, v in suggestions.items()
-                if k in target_fields and v}
-    except (json.JSONDecodeError, Exception):
-        return {}
+    raw = _call_llm(system, user)
+    suggestions = _extract_json_dict(raw)
+    if suggestions is None:
+        return {'_ai_error': f'AI returned unparseable response: {raw[:200]}'}
+    if '_ai_error' in suggestions:
+        return {'_ai_error': suggestions['_ai_error']}
+    # Validate category/subcategory against allowed values
+    if 'category' in suggestions:
+        if suggestions['category'] not in categories:
+            suggestions['category'] = ''
+    if 'subcategory' in suggestions and 'category' in suggestions:
+        cat = suggestions['category']
+        allowed_subs = categories.get(cat, [])
+        if suggestions['subcategory'] not in allowed_subs:
+            suggestions['subcategory'] = ''
+    # Validate service/assignment_group against saved options
+    if 'service' in suggestions and service_options:
+        if suggestions['service'] not in service_options:
+            suggestions['service'] = ''
+    if 'assignment_group' in suggestions and group_options:
+        if suggestions['assignment_group'] not in group_options:
+            suggestions['assignment_group'] = ''
+    return {k: str(v) for k, v in suggestions.items()
+            if k in target_fields and v}
 
 
 def suggest_change_from_description(
@@ -492,30 +542,27 @@ def suggest_change_from_description(
         cmdb_ci_options=cmdb_ci_options,
     )
 
-    try:
-        raw = _call_llm(system, user)
-        suggestions = json.loads(raw)
-        if not isinstance(suggestions, dict):
-            return {}
-        if '_ai_error' in suggestions:
-            return {'_ai_error': suggestions['_ai_error']}
-        # Validate constrained fields
-        if 'category' in suggestions:
-            if suggestions['category'] not in categories:
-                suggestions['category'] = ''
-        if 'reason' in suggestions:
-            if suggestions['reason'] not in reasons:
-                suggestions['reason'] = ''
-        if 'assignment_group' in suggestions and group_options:
-            if suggestions['assignment_group'] not in group_options:
-                suggestions['assignment_group'] = ''
-        if 'cmdb_ci' in suggestions and cmdb_ci_options:
-            if suggestions['cmdb_ci'] not in cmdb_ci_options:
-                suggestions['cmdb_ci'] = ''
-        return {k: str(v) for k, v in suggestions.items()
-                if k in target_fields and v}
-    except (json.JSONDecodeError, Exception):
-        return {}
+    raw = _call_llm(system, user)
+    suggestions = _extract_json_dict(raw)
+    if suggestions is None:
+        return {'_ai_error': f'AI returned unparseable response: {raw[:200]}'}
+    if '_ai_error' in suggestions:
+        return {'_ai_error': suggestions['_ai_error']}
+    # Validate constrained fields
+    if 'category' in suggestions:
+        if suggestions['category'] not in categories:
+            suggestions['category'] = ''
+    if 'reason' in suggestions:
+        if suggestions['reason'] not in reasons:
+            suggestions['reason'] = ''
+    if 'assignment_group' in suggestions and group_options:
+        if suggestions['assignment_group'] not in group_options:
+            suggestions['assignment_group'] = ''
+    if 'cmdb_ci' in suggestions and cmdb_ci_options:
+        if suggestions['cmdb_ci'] not in cmdb_ci_options:
+            suggestions['cmdb_ci'] = ''
+    return {k: str(v) for k, v in suggestions.items()
+            if k in target_fields and v}
 
 
 def build_suggest_prompt(kind: str, filled: Dict[str, str]) -> Dict[str, str]:
