@@ -420,7 +420,7 @@
     });
   }
   document.addEventListener('DOMContentLoaded', _lockDialogBackdrops);
-  document.addEventListener('htmx:afterSettle', _bindCreateFromTemplateBackdrop);
+  document.addEventListener('htmx:afterSettle', _lockDialogBackdrops);
   </script>
 
   <!-- ── Session manager dialog ────────────────────────────── -->
@@ -551,38 +551,22 @@
       else if (html.includes('bg-info')) { dot.className = 'w-1.5 h-1.5 rounded-full bg-info flex-shrink-0'; if (label) label.textContent = 'Ready'; }
     }
 
-    // ── Session modal: fire htmx trigger when dialog opens ─────
-    const sessionModal = document.getElementById('session-modal');
-    if (sessionModal) {
-      sessionModal.addEventListener('toggle', (e) => {
-        if (sessionModal.open) {
-          // dispatch the custom event that hx-trigger listens for
-          sessionModal.dispatchEvent(new Event('dialog-open', { bubbles: true }));
-        }
+    // ── Modal toggle bindings (guarded for hx-boost re-execution) ──
+    function _bindModalToggles() {
+      ['session-modal', 'preferences-modal', 'activity-modal'].forEach(id => {
+        var m = document.getElementById(id);
+        if (!m || m._toggleBound) return;
+        m.addEventListener('toggle', () => {
+          if (m.open) {
+            m.dispatchEvent(new Event('dialog-open', { bubbles: true }));
+          } else if (id === 'activity-modal') {
+            document.body.dispatchEvent(new Event('activity-updated'));
+          }
+        });
+        m._toggleBound = true;
       });
     }
-
-    // ── Preferences modal: same pattern ────────────────────────
-    const prefsModal = document.getElementById('preferences-modal');
-    if (prefsModal) {
-      prefsModal.addEventListener('toggle', () => {
-        if (prefsModal.open) {
-          prefsModal.dispatchEvent(new Event('dialog-open', { bubbles: true }));
-        }
-      });
-    }
-
-    // ── Activity modal: same pattern + refresh badge when it closes
-    const activityModal = document.getElementById('activity-modal');
-    if (activityModal) {
-      activityModal.addEventListener('toggle', () => {
-        if (activityModal.open) {
-          activityModal.dispatchEvent(new Event('dialog-open', { bubbles: true }));
-        } else {
-          document.body.dispatchEvent(new Event('activity-updated'));
-        }
-      });
-    }
+    _bindModalToggles();
 
     // ── Session guard for action buttons ───────────────────────
     // Intercepts $dispatch('open-create-*') events and shows a
