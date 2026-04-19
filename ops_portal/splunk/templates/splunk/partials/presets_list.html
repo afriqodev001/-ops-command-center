@@ -113,7 +113,7 @@
         <button type="button"
                 @click="$dispatch('use-spl', { spl: '{{ meta.spl|escapejs }}', earliest: '{{ meta.defaults.earliest_time|default:"-10m"|escapejs }}', latest: '{{ meta.defaults.latest_time|default:"now"|escapejs }}' }); open = false"
                 class="btn-ghost text-[10px] py-0.5 px-1.5 text-ink-secondary">
-          Edit SPL
+          Copy to search
         </button>
         {% endif %}
         <button type="button"
@@ -225,7 +225,7 @@
                       card.__x.$data.open = false;
                     }
                   ">
-            Edit SPL
+            Copy to search
           </button>
         </div>
       </div>
