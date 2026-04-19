@@ -110,19 +110,32 @@
                  class="input-dark text-xs font-mono w-full">
         </div>
         {% endfor %}
+        <div id="param-error-{{ forloop.counter }}" class="hidden px-2 py-1.5 rounded bg-danger/10 border border-danger/20 text-[10px] text-danger"></div>
         <button type="button"
                 class="btn-primary text-xs py-1 px-3 w-full justify-center"
                 onclick="
                   var spl = '{{ meta.spl|escapejs }}';
                   var card = this.closest('[x-data]');
                   var inputs = card.querySelectorAll('[data-param]');
+                  var errEl = document.getElementById('param-error-{{ forloop.counter }}');
+                  var missing = [];
                   var ok = true;
                   inputs.forEach(function(inp) {
                     var val = inp.value.trim();
-                    if (!val) { ok = false; inp.classList.add('border-danger'); }
-                    else { inp.classList.remove('border-danger'); spl = spl.split('{' + inp.dataset.param + '}').join(val); }
+                    if (!val) {
+                      ok = false;
+                      missing.push(inp.dataset.param);
+                      inp.classList.add('border-danger', 'bg-danger/5');
+                    } else {
+                      inp.classList.remove('border-danger', 'bg-danger/5');
+                      spl = spl.split('{' + inp.dataset.param + '}').join(val);
+                    }
                   });
-                  if (ok) {
+                  if (!ok) {
+                    errEl.textContent = 'Required: ' + missing.join(', ');
+                    errEl.classList.remove('hidden');
+                  } else {
+                    errEl.classList.add('hidden');
                     window.dispatchEvent(new CustomEvent('use-spl', { detail: { spl: spl, earliest: '{{ meta.defaults.earliest_time|default:"-10m"|escapejs }}', latest: '{{ meta.defaults.latest_time|default:"now"|escapejs }}' }}));
                     this.closest('[x-data]').__x.$data.showParams = false;
                     this.closest('[x-data]').__x.$data.open = false;
