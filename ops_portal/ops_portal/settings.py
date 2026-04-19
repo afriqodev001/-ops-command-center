@@ -180,6 +180,7 @@ EDGE_PORT_BASES = {
     "harness": 9500,
     "sploc":   9600,
     "copilot": 9700,
+    "splunk":  9800,
 }
 EDGE_PORT_RANGE = 50
 
@@ -265,6 +266,20 @@ COPILOT_TEAMS_URL = os.environ.get(
 COPILOT_RESPONSE_MAX_WAIT_SEC = int(os.environ.get('COPILOT_RESPONSE_MAX_WAIT_SEC', 180))
 COPILOT_UPLOAD_TMP_DIR = str(MEDIA_ROOT / "copilot_uploads")
 COPILOT_DOWNLOAD_DIR = str(MEDIA_ROOT / "copilot_downloads")
+
+
+# =========================
+# Splunk
+# =========================
+SPLUNK_BASE = os.environ.get(
+    'SPLUNK_BASE',
+    'https://your-splunk.splunkcloud.com',
+)
+SPLUNK_APP = os.environ.get('SPLUNK_APP', 'search')
+SPLUNK_DEFAULT_EARLIEST = os.environ.get('SPLUNK_DEFAULT_EARLIEST', '-10m')
+SPLUNK_DEFAULT_LATEST = os.environ.get('SPLUNK_DEFAULT_LATEST', 'now')
+SPLUNK_RUN_MAX_POLLS = int(os.environ.get('SPLUNK_RUN_MAX_POLLS', 12))
+SPLUNK_RUN_POLL_INTERVAL = float(os.environ.get('SPLUNK_RUN_POLL_INTERVAL', 1.0))
 
 
 # ============================================================

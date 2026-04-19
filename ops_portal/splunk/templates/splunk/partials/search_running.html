@@ -1,0 +1,18 @@
+<div class="glass-card p-4 animate-fade-in"
+     hx-get="/splunk/ui/poll/{{ task_id }}/"
+     hx-trigger="load delay:2s"
+     hx-target="#search-results"
+     hx-swap="innerHTML">
+  <div class="flex items-center gap-3">
+    <div class="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin flex-shrink-0"></div>
+    <div class="flex-1 min-w-0">
+      <p class="text-xs font-semibold text-info">Searching…</p>
+      {% if spl %}
+      <p class="text-[10px] text-ink-muted font-mono mt-0.5 truncate">{{ spl }}</p>
+      {% endif %}
+      {% if earliest or latest %}
+      <p class="text-[10px] text-ink-muted mt-0.5">{{ earliest }} → {{ latest }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>

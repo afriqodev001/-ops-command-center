@@ -1,0 +1,108 @@
+<div class="space-y-4 animate-fade-in" x-data="{ tab: 'preview', copyDone: false }">
+
+  <!-- Header -->
+  <div class="glass-card p-4">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span class="text-xs font-semibold text-ok">Search complete</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <button @click="tab = 'preview'" :class="tab === 'preview' ? 'tab-active' : 'tab-inactive'" class="text-xs">Statistics</button>
+        <button @click="tab = 'events'" :class="tab === 'events' ? 'tab-active' : 'tab-inactive'" class="text-xs">Events</button>
+        <button @click="tab = 'raw'" :class="tab === 'raw' ? 'tab-active' : 'tab-inactive'" class="text-xs">Raw JSON</button>
+      </div>
+    </div>
+
+    <!-- Statistics tab -->
+    <div x-show="tab === 'preview'">
+      {% if result.preview.data.rows %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="bg-surface-3 border-b border-edge">
+            <tr>
+              {% for col in result.preview.data.fields %}
+              <th class="th">{{ col.name }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in result.preview.data.rows %}
+            <tr class="table-row">
+              {% for cell in row %}
+              <td class="td font-mono text-[11px]">{{ cell|default:"—" }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% elif result.preview.data.results %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="bg-surface-3 border-b border-edge">
+            <tr>
+              {% for key in result.preview.data.results.0.keys %}
+              <th class="th">{{ key }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in result.preview.data.results %}
+            <tr class="table-row">
+              {% for val in row.values %}
+              <td class="td font-mono text-[11px]">{{ val|default:"—" }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-xs text-ink-muted py-4 text-center">No statistics data returned.</p>
+      {% endif %}
+    </div>
+
+    <!-- Events tab -->
+    <div x-show="tab === 'events'" x-cloak>
+      {% if result.events.data.results %}
+      <div class="space-y-2 max-h-96 overflow-y-auto">
+        {% for evt in result.events.data.results %}
+        <div class="p-2.5 rounded-lg bg-surface-3/60 border border-edge">
+          <div class="flex items-center gap-2 mb-1">
+            {% if evt._time %}
+            <span class="text-[10px] text-ink-muted font-mono">{{ evt._time }}</span>
+            {% endif %}
+            {% if evt.host %}
+            <span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge">{{ evt.host }}</span>
+            {% endif %}
+            {% if evt.sourcetype %}
+            <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-subtle/50 text-brand-light border border-brand/10">{{ evt.sourcetype }}</span>
+            {% endif %}
+          </div>
+          {% if evt._raw %}
+          <pre class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed mt-1">{{ evt._raw }}</pre>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-xs text-ink-muted py-4 text-center">No events returned.</p>
+      {% endif %}
+    </div>
+
+    <!-- Raw JSON tab -->
+    <div x-show="tab === 'raw'" x-cloak>
+      <div class="flex items-center justify-end mb-2">
+        <button @click="navigator.clipboard.writeText(document.getElementById('splunk-raw-json').textContent).then(() => { copyDone = true; setTimeout(() => copyDone = false, 2000) })"
+                class="btn-ghost text-[10px] py-0.5 px-1.5">
+          <span x-text="copyDone ? 'Copied!' : 'Copy JSON'"></span>
+        </button>
+      </div>
+      <pre id="splunk-raw-json"
+           class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed p-3 rounded-lg bg-surface-2 border border-edge max-h-96 overflow-y-auto">{{ result_json }}</pre>
+    </div>
+  </div>
+</div>
