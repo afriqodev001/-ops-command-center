@@ -1,0 +1,22 @@
+<div class="space-y-4">
+  <p class="text-xs text-ink-secondary">Upload a JSON file exported from another Ops Center instance.</p>
+
+  <form hx-post="/splunk/presets/import/preview/"
+        hx-target="#splunk-import-preview"
+        hx-swap="innerHTML"
+        hx-encoding="multipart/form-data"
+        class="space-y-3">
+    {% csrf_token %}
+    <label class="flex items-center gap-3 p-4 rounded-lg border border-dashed border-edge bg-surface-3 hover:border-brand/40 cursor-pointer transition-colors"
+           x-data="{ fn: '' }">
+      <svg class="w-5 h-5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+      </svg>
+      <span class="text-xs text-ink-secondary" x-text="fn || 'Choose a .json file'"></span>
+      <input type="file" name="file" accept=".json" class="hidden" @change="fn = $event.target.files[0]?.name || ''">
+    </label>
+    <button type="submit" class="btn-primary text-xs px-4 py-2">Preview</button>
+  </form>
+
+  <div id="splunk-import-preview"></div>
+</div>

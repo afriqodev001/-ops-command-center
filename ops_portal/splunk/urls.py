@@ -16,6 +16,17 @@ urlpatterns = [
     path("ui/saved/run/",          pages.run_saved_search, name="splunk-run-saved"),
     path("ui/poll/<str:task_id>/", pages.poll_search,      name="splunk-poll"),
 
+    # ─── Preset management ─────────────────────
+    path("presets/list/partial/",       pages.presets_list_partial,    name="splunk-presets-list"),
+    path("presets/editor/",            pages.preset_editor,           name="splunk-preset-editor"),
+    path("presets/save/",              pages.preset_save_view,        name="splunk-preset-save"),
+    path("presets/delete/",            pages.preset_delete_view,      name="splunk-preset-delete"),
+    path("presets/export/",            pages.preset_export_all,       name="splunk-presets-export"),
+    path("presets/export/<str:name>/", pages.preset_export_one,       name="splunk-preset-export-one"),
+    path("presets/import/",            pages.preset_import_form,      name="splunk-presets-import"),
+    path("presets/import/preview/",    pages.preset_import_preview,   name="splunk-presets-import-preview"),
+    path("presets/import/confirm/",    pages.preset_import_confirm,   name="splunk-presets-import-confirm"),
+
     # ─── API endpoints ─────────────────────────
     path("api/login/open/",             views.splunk_login_open),
     path("api/alerts/search/",          views.alerts_search),

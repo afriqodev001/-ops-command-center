@@ -1,0 +1,85 @@
+<form hx-post="/splunk/presets/save/"
+      hx-target="#presets-container"
+      hx-swap="innerHTML"
+      class="space-y-3"
+      @htmx:after-request="if(event.detail.successful && event.detail.pathInfo.requestPath === '/splunk/presets/save/') document.getElementById('preset-editor-modal').close()">
+  {% csrf_token %}
+
+  <div>
+    <label class="label">Preset name <span class="text-danger">*</span></label>
+    <input type="text" name="name" value="{{ name|default:'' }}" required
+           {% if name %}readonly class="input-dark text-xs font-mono opacity-70"{% else %}class="input-dark text-xs font-mono"{% endif %}
+           placeholder="e.g. prod_error_count">
+  </div>
+
+  <div>
+    <label class="label">Description</label>
+    <input type="text" name="description" value="{{ preset.description|default:'' }}"
+           placeholder="What this search does"
+           class="input-dark text-xs">
+  </div>
+
+  <div>
+    <label class="label">SPL template <span class="text-danger">*</span></label>
+    <textarea name="spl" rows="5" required
+              class="input-dark text-xs font-mono resize-y"
+              placeholder='index=main sourcetype=app_logs "{term}" | stats count by host'>{{ preset.spl|default:'' }}</textarea>
+    <p class="text-[10px] text-ink-muted mt-0.5">Use <code class="text-brand-light">{placeholder}</code> for parameters.</p>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="label">Required params</label>
+      <input type="text" name="required_params"
+             value="{% if preset.required_params %}{{ preset.required_params|join:', ' }}{% endif %}"
+             placeholder="namespace, term, limit"
+             class="input-dark text-xs font-mono">
+      <p class="text-[10px] text-ink-muted mt-0.5">Comma-separated placeholder names</p>
+    </div>
+    <div>
+      <label class="label">Tags</label>
+      <input type="text" name="tags" value="{{ preset.tags|default:'' }}"
+             placeholder="errors, prod, monitoring"
+             class="input-dark text-xs">
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="label">Default earliest</label>
+      <input type="text" name="earliest_time" value="{{ preset.defaults.earliest_time|default:'-10m' }}"
+             class="input-dark text-xs font-mono">
+    </div>
+    <div>
+      <label class="label">Default latest</label>
+      <input type="text" name="latest_time" value="{{ preset.defaults.latest_time|default:'now' }}"
+             class="input-dark text-xs font-mono">
+    </div>
+  </div>
+
+  <div class="flex items-center gap-4">
+    <label class="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">
+      <input type="checkbox" name="include_preview" value="1"
+             {% if preset.defaults.include_preview or not preset %}checked{% endif %}
+             class="rounded border-edge bg-surface-4 text-brand focus:ring-brand/50 w-3.5 h-3.5">
+      Include statistics
+    </label>
+    <label class="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">
+      <input type="checkbox" name="include_events" value="1"
+             {% if preset.defaults.include_events %}checked{% endif %}
+             class="rounded border-edge bg-surface-4 text-brand focus:ring-brand/50 w-3.5 h-3.5">
+      Include events
+    </label>
+  </div>
+
+  <div class="flex items-center gap-2 pt-3 border-t border-edge">
+    <button type="submit" class="btn-primary text-xs px-4 py-2">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+      Save Preset
+    </button>
+    <button type="button" onclick="document.getElementById('preset-editor-modal').close()"
+            class="btn-ghost text-xs">Cancel</button>
+  </div>
+</form>

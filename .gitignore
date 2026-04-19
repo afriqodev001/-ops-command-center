@@ -62,6 +62,7 @@ ops_portal/servicenow/user_preferences.json
 ops_portal/servicenow/incident_field_options.json
 ops_portal/servicenow/field_options.json
 ops_portal/servicenow/prompts.json
+ops_portal/splunk/splunk_presets.json
 
 # ─── Personal notes (keep local) ────────────────────────────
 GIT_CHEATSHEET.md

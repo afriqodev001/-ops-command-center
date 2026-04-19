@@ -1,20 +1,23 @@
-from __future__ import annotations
-from typing import Dict, Any, List
-from django.conf import settings
-
 """
-Splunk Run Presets
-
-Goal: UI should run a named preset rather than shipping raw SPL.
+Splunk search presets — file-backed store with built-in defaults.
 
 Each preset defines:
-- description
-- spl (template string; Python format placeholders)
-- defaults: earliest/latest, include_preview/events, preview/events paging
-- required_params: list of required template params
+- description: what it does
+- spl: SPL template string with {placeholder} params
+- defaults: earliest/latest, include_preview/events, paging
+- required_params: list of required template placeholders
+- tags: comma-separated tags for filtering
 """
+from __future__ import annotations
+from typing import Dict, Any, List
+from pathlib import Path
+import json
 
-PRESETS: Dict[str, Dict[str, Any]] = {
+from django.conf import settings
+
+_STORE_FILE = Path(__file__).parent.parent / 'splunk_presets.json'
+
+BUILT_IN_PRESETS: Dict[str, Dict[str, Any]] = {
     "pldcs_takeapp_submission_started_count": {
         "description": 'PLDCS TakeApp: count of "application submission started" events.',
         "spl": (
@@ -31,8 +34,8 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             "preview_offset": 0,
         },
         "required_params": ["namespace", "service"],
+        "tags": "pldcs, count",
     },
-
     "pldcs_recent_errors_raw_events": {
         "description": "PLDCS: Raw error events for a term in last N minutes.",
         "spl": (
@@ -50,42 +53,101 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             "events_max_lines": 5,
         },
         "required_params": ["namespace", "term"],
+        "tags": "pldcs, errors, raw",
     },
 }
 
 
+def _load_store() -> Dict[str, Dict[str, Any]]:
+    if not _STORE_FILE.exists():
+        return {}
+    try:
+        return json.loads(_STORE_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        return {}
+
+
+def _save_store(data: Dict[str, Dict[str, Any]]) -> None:
+    _STORE_FILE.write_text(json.dumps(data, indent=2), encoding='utf-8')
+
+
 def list_presets() -> Dict[str, Dict[str, Any]]:
-    """
-    Return UI-friendly preset list.
-    """
-    return {
-        name: {
+    stored = _load_store()
+    merged = dict(BUILT_IN_PRESETS)
+    merged.update(stored)
+    result = {}
+    for name, cfg in merged.items():
+        result[name] = {
             "description": cfg.get("description", ""),
+            "spl": cfg.get("spl", ""),
             "required_params": cfg.get("required_params", []),
             "defaults": cfg.get("defaults", {}),
+            "tags": cfg.get("tags", ""),
+            "is_builtin": name in BUILT_IN_PRESETS and name not in stored,
         }
-        for name, cfg in PRESETS.items()
-    }
+    return result
+
+
+def get_preset(name: str) -> Dict[str, Any] | None:
+    all_presets = list_presets()
+    return all_presets.get(name)
+
+
+def save_preset(name: str, preset: Dict[str, Any]) -> None:
+    stored = _load_store()
+    stored[name] = preset
+    _save_store(stored)
+
+
+def delete_preset(name: str) -> None:
+    stored = _load_store()
+    stored.pop(name, None)
+    _save_store(stored)
 
 
 def render_preset(name: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Render preset into a concrete SPL string + merged defaults.
-    """
-    if name not in PRESETS:
+    preset = get_preset(name)
+    if not preset:
         raise ValueError(f"Unknown preset: {name}")
 
-    cfg = PRESETS[name]
-    required: List[str] = cfg.get("required_params", [])
+    required: List[str] = preset.get("required_params", [])
     missing = [k for k in required if params.get(k) in (None, "")]
     if missing:
         raise ValueError(f"Missing required params: {', '.join(missing)}")
 
-    # merge defaults with request overrides (request wins)
-    defaults = dict(cfg.get("defaults") or {})
-    rendered_spl = (cfg.get("spl") or "").format(**params)
+    defaults = dict(preset.get("defaults") or {})
+    rendered_spl = (preset.get("spl") or "").format(**params)
 
     return {
         "search": rendered_spl,
         "defaults": defaults,
     }
+
+
+def export_presets(names: List[str] | None = None) -> Dict:
+    all_presets = list_presets()
+    if names:
+        filtered = {k: v for k, v in all_presets.items() if k in names}
+    else:
+        filtered = all_presets
+    for v in filtered.values():
+        v.pop('is_builtin', None)
+    return {"presets": filtered}
+
+
+def import_presets(data: Dict, mode: str = 'skip') -> int:
+    presets = data.get('presets') or {}
+    if not isinstance(presets, dict):
+        return 0
+    stored = _load_store()
+    imported = 0
+    for name, cfg in presets.items():
+        if not name or not isinstance(cfg, dict):
+            continue
+        if name in stored or name in BUILT_IN_PRESETS:
+            if mode == 'skip':
+                continue
+        stored[name] = cfg
+        imported += 1
+    _save_store(stored)
+    return imported
