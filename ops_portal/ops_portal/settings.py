@@ -75,6 +75,8 @@ INSTALLED_APPS = [
     'servicenow',
     'tachyon',
     'copilot_chat',
+    'harness',
+    'splunk',
     # celery results backend
     'django_celery_results',
 ]
