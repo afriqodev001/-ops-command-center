@@ -48,6 +48,13 @@
       Run all as batch
     </button>
     {% endif %}
+    <a href="/copilot/packs/export/{{ pack.id }}/"
+       class="btn-ghost text-xs px-3 py-1.5">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+      </svg>
+      Export
+    </a>
     <button type="button"
             hx-get="/copilot/partials/prompt-packs/{{ pack.id }}/edit/"
             hx-target="#pack-editor-body"

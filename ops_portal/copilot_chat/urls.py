@@ -48,6 +48,13 @@ urlpatterns = [
     # Add a new prompt row in the editor (HTMX append)
     path("partials/prompt-packs/prompt-row/", views.prompt_pack_prompt_row, name="copilot_prompt_pack_prompt_row"),
 
+    # Prompt pack export / import
+    path("packs/export/", views.prompt_pack_export_all, name="copilot_packs_export_all"),
+    path("packs/export/<int:pk>/", views.prompt_pack_export_one, name="copilot_packs_export_one"),
+    path("packs/import/", views.prompt_pack_import_form, name="copilot_packs_import_form"),
+    path("packs/import/preview/", views.prompt_pack_import_preview, name="copilot_packs_import_preview"),
+    path("packs/import/confirm/", views.prompt_pack_import_confirm, name="copilot_packs_import_confirm"),
+
     # API (existing)
     path("login/open/", views.copilot_login_open),
     path("run/", views.copilot_run),

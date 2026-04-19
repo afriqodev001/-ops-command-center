@@ -323,6 +323,143 @@ def prompt_pack_save(request):
 
 
 # -------------------------------------------------------------------
+# PROMPT PACK EXPORT / IMPORT
+# -------------------------------------------------------------------
+
+def _pack_to_dict(pack) -> dict:
+    return {
+        'name': pack.name,
+        'description': pack.description or '',
+        'tags': pack.tags or '',
+        'prompts': list(pack.prompts.order_by('order').values_list('text', flat=True)),
+    }
+
+
+@require_GET
+def prompt_pack_export_all(request):
+    packs = PromptPack.objects.prefetch_related('prompts').all().order_by('name')
+    data = json.dumps({'packs': [_pack_to_dict(p) for p in packs]}, indent=2)
+    resp = HttpResponse(data, content_type='application/json')
+    resp['Content-Disposition'] = 'attachment; filename="copilot_prompt_packs.json"'
+    return resp
+
+
+@require_GET
+def prompt_pack_export_one(request, pk):
+    pack = get_object_or_404(PromptPack, pk=pk)
+    data = json.dumps({'packs': [_pack_to_dict(pack)]}, indent=2)
+    safe_name = pack.name.lower().replace(' ', '_')[:40]
+    resp = HttpResponse(data, content_type='application/json')
+    resp['Content-Disposition'] = f'attachment; filename="pack_{safe_name}.json"'
+    return resp
+
+
+@require_GET
+def prompt_pack_import_form(request):
+    return render(request, 'copilot_chat/partials/_import_form.html')
+
+
+@csrf_exempt
+@require_POST
+def prompt_pack_import_preview(request):
+    upload = request.FILES.get('file')
+    if not upload:
+        return render(request, 'copilot_chat/partials/_import_preview.html', {
+            'error': 'No file selected.',
+        })
+
+    try:
+        raw = upload.read()
+        if isinstance(raw, bytes):
+            raw = raw.decode('utf-8-sig', errors='replace')
+        data = json.loads(raw)
+    except (json.JSONDecodeError, Exception) as e:
+        return render(request, 'copilot_chat/partials/_import_preview.html', {
+            'error': f'Invalid JSON: {e}',
+        })
+
+    packs = data.get('packs') or []
+    if not packs:
+        return render(request, 'copilot_chat/partials/_import_preview.html', {
+            'error': 'No packs found in file.',
+        })
+
+    existing_names = set(PromptPack.objects.values_list('name', flat=True))
+    preview = []
+    for p in packs:
+        name = (p.get('name') or '').strip()
+        if not name:
+            continue
+        prompts = p.get('prompts') or []
+        preview.append({
+            'name': name,
+            'description': p.get('description', ''),
+            'tags': p.get('tags', ''),
+            'prompt_count': len(prompts),
+            'exists': name in existing_names,
+        })
+
+    return render(request, 'copilot_chat/partials/_import_preview.html', {
+        'preview': preview,
+        'packs_json': json.dumps(packs),
+    })
+
+
+@csrf_exempt
+@require_POST
+@transaction.atomic
+def prompt_pack_import_confirm(request):
+    try:
+        packs = json.loads(request.POST.get('packs_json', '[]'))
+    except json.JSONDecodeError:
+        packs = []
+
+    mode = request.POST.get('conflict_mode', 'skip')
+    imported = 0
+
+    for p in packs:
+        name = (p.get('name') or '').strip()
+        if not name:
+            continue
+
+        prompts = p.get('prompts') or []
+        existing = PromptPack.objects.filter(name=name).first()
+
+        if existing:
+            if mode == 'skip':
+                continue
+            # overwrite
+            existing.description = p.get('description', '')
+            existing.tags = p.get('tags', '')
+            existing.save()
+            existing.prompts.all().delete()
+            for idx, text in enumerate(prompts, 1):
+                if (text or '').strip():
+                    Prompt.objects.create(pack=existing, order=idx, text=text.strip())
+        else:
+            pack = PromptPack.objects.create(
+                name=name,
+                description=p.get('description', ''),
+                tags=p.get('tags', ''),
+                enabled=True,
+            )
+            for idx, text in enumerate(prompts, 1):
+                if (text or '').strip():
+                    Prompt.objects.create(pack=pack, order=idx, text=text.strip())
+
+        imported += 1
+
+    packs_qs = PromptPack.objects.prefetch_related('prompts').filter(enabled=True).order_by('name')
+    response = render(request, 'copilot_chat/partials/_packs_list.html', {
+        'packs': packs_qs,
+    })
+    response['HX-Trigger'] = json.dumps({
+        'prompt-pack-saved': {'message': f'{imported} pack(s) imported'},
+    })
+    return response
+
+
+# -------------------------------------------------------------------
 # RUN PROMPT
 # -------------------------------------------------------------------
 
