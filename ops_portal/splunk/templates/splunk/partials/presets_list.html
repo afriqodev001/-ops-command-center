@@ -43,6 +43,41 @@
       </div>
       {% endif %}
 
+      <!-- Defaults -->
+      <div class="grid grid-cols-2 gap-x-3 gap-y-1">
+        {% if meta.defaults.earliest_time %}
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] text-ink-muted">Earliest:</span>
+          <span class="text-[9px] text-ink-secondary font-mono">{{ meta.defaults.earliest_time }}</span>
+        </div>
+        {% endif %}
+        {% if meta.defaults.latest_time %}
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] text-ink-muted">Latest:</span>
+          <span class="text-[9px] text-ink-secondary font-mono">{{ meta.defaults.latest_time }}</span>
+        </div>
+        {% endif %}
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] text-ink-muted">Statistics:</span>
+          <span class="text-[9px] {% if meta.defaults.include_preview %}text-ok{% else %}text-ink-muted{% endif %}">{% if meta.defaults.include_preview %}Yes{% else %}No{% endif %}</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] text-ink-muted">Events:</span>
+          <span class="text-[9px] {% if meta.defaults.include_events %}text-ok{% else %}text-ink-muted{% endif %}">{% if meta.defaults.include_events %}Yes{% else %}No{% endif %}</span>
+        </div>
+      </div>
+
+      {% if meta.required_params %}
+      <div>
+        <p class="text-[9px] text-ink-muted uppercase tracking-wider font-semibold mb-1">Parameters</p>
+        <div class="flex flex-wrap gap-1">
+          {% for p in meta.required_params %}
+          <span class="text-[9px] px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/20 font-mono">{{"{"}}{{ p }}{{"}"}}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
       {% if meta.spl %}
       <div>
         <p class="text-[9px] text-ink-muted uppercase tracking-wider font-semibold mb-1">SPL Template</p>
@@ -58,16 +93,27 @@
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
           </svg>
-          Use
+          <span x-text="showParams ? 'Hide params' : 'Run'"></span>
         </button>
         {% else %}
+        <!-- No params — run directly via HTMX -->
+        <form hx-post="/splunk/ui/preset/run/"
+              hx-target="#search-results"
+              hx-swap="innerHTML"
+              class="contents">
+          {% csrf_token %}
+          <input type="hidden" name="preset" value="{{ name }}">
+          <button type="submit" class="btn-ghost text-[10px] py-0.5 px-1.5 text-ok">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            </svg>
+            Run
+          </button>
+        </form>
         <button type="button"
                 @click="$dispatch('use-spl', { spl: '{{ meta.spl|escapejs }}', earliest: '{{ meta.defaults.earliest_time|default:"-10m"|escapejs }}', latest: '{{ meta.defaults.latest_time|default:"now"|escapejs }}' }); open = false"
-                class="btn-ghost text-[10px] py-0.5 px-1.5 text-brand-light">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-          </svg>
-          Use
+                class="btn-ghost text-[10px] py-0.5 px-1.5 text-ink-secondary">
+          Edit SPL
         </button>
         {% endif %}
         <button type="button"
@@ -99,7 +145,7 @@
         {% endif %}
       </div>
 
-      <!-- Parameter form (inline, shown when Use is clicked on parameterized presets) -->
+      <!-- Parameter form (parameterized presets only) -->
       {% if meta.required_params %}
       <div x-show="showParams" x-cloak class="p-2.5 rounded-lg bg-surface-2 border border-brand/20 space-y-2 animate-fade-in">
         <p class="text-[9px] text-ink-muted uppercase tracking-wider font-semibold">Fill in parameters</p>
@@ -111,41 +157,77 @@
         </div>
         {% endfor %}
         <div id="param-error-{{ forloop.counter }}" class="hidden px-2 py-1.5 rounded bg-danger/10 border border-danger/20 text-[10px] text-danger"></div>
-        <button type="button"
-                class="btn-primary text-xs py-1 px-3 w-full justify-center"
-                onclick="
-                  var spl = '{{ meta.spl|escapejs }}';
-                  var card = this.closest('[x-data]');
-                  var inputs = card.querySelectorAll('[data-param]');
-                  var errEl = document.getElementById('param-error-{{ forloop.counter }}');
-                  var missing = [];
-                  var ok = true;
-                  inputs.forEach(function(inp) {
-                    var val = inp.value.trim();
-                    if (!val) {
-                      ok = false;
-                      missing.push(inp.dataset.param);
-                      inp.classList.add('border-danger', 'bg-danger/5');
+        <div class="flex items-center gap-2">
+          <!-- Run directly -->
+          <button type="button"
+                  class="btn-primary text-xs py-1 px-3 flex-1 justify-center"
+                  onclick="
+                    var spl = '{{ meta.spl|escapejs }}';
+                    var card = this.closest('[x-data]');
+                    var inputs = card.querySelectorAll('[data-param]');
+                    var errEl = document.getElementById('param-error-{{ forloop.counter }}');
+                    var missing = [];
+                    var ok = true;
+                    inputs.forEach(function(inp) {
+                      var val = inp.value.trim();
+                      if (!val) {
+                        ok = false;
+                        missing.push(inp.dataset.param);
+                        inp.classList.add('border-danger', 'bg-danger/5');
+                      } else {
+                        inp.classList.remove('border-danger', 'bg-danger/5');
+                        spl = spl.split('{' + inp.dataset.param + '}').join(val);
+                      }
+                    });
+                    if (!ok) {
+                      errEl.textContent = 'Required: ' + missing.join(', ');
+                      errEl.classList.remove('hidden');
                     } else {
-                      inp.classList.remove('border-danger', 'bg-danger/5');
-                      spl = spl.split('{' + inp.dataset.param + '}').join(val);
+                      errEl.classList.add('hidden');
+                      window.dispatchEvent(new CustomEvent('use-spl', { detail: { spl: spl, earliest: '{{ meta.defaults.earliest_time|default:"-10m"|escapejs }}', latest: '{{ meta.defaults.latest_time|default:"now"|escapejs }}', autoRun: true }}));
+                      card.__x.$data.showParams = false;
+                      card.__x.$data.open = false;
                     }
-                  });
-                  if (!ok) {
-                    errEl.textContent = 'Required: ' + missing.join(', ');
-                    errEl.classList.remove('hidden');
-                  } else {
-                    errEl.classList.add('hidden');
-                    window.dispatchEvent(new CustomEvent('use-spl', { detail: { spl: spl, earliest: '{{ meta.defaults.earliest_time|default:"-10m"|escapejs }}', latest: '{{ meta.defaults.latest_time|default:"now"|escapejs }}' }}));
-                    this.closest('[x-data]').__x.$data.showParams = false;
-                    this.closest('[x-data]').__x.$data.open = false;
-                  }
-                ">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-          </svg>
-          Apply &amp; Search
-        </button>
+                  ">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            </svg>
+            Run
+          </button>
+          <!-- Just populate search box -->
+          <button type="button"
+                  class="btn-ghost text-xs py-1 px-3 flex-shrink-0"
+                  onclick="
+                    var spl = '{{ meta.spl|escapejs }}';
+                    var card = this.closest('[x-data]');
+                    var inputs = card.querySelectorAll('[data-param]');
+                    var errEl = document.getElementById('param-error-{{ forloop.counter }}');
+                    var missing = [];
+                    var ok = true;
+                    inputs.forEach(function(inp) {
+                      var val = inp.value.trim();
+                      if (!val) {
+                        ok = false;
+                        missing.push(inp.dataset.param);
+                        inp.classList.add('border-danger', 'bg-danger/5');
+                      } else {
+                        inp.classList.remove('border-danger', 'bg-danger/5');
+                        spl = spl.split('{' + inp.dataset.param + '}').join(val);
+                      }
+                    });
+                    if (!ok) {
+                      errEl.textContent = 'Required: ' + missing.join(', ');
+                      errEl.classList.remove('hidden');
+                    } else {
+                      errEl.classList.add('hidden');
+                      window.dispatchEvent(new CustomEvent('use-spl', { detail: { spl: spl, earliest: '{{ meta.defaults.earliest_time|default:"-10m"|escapejs }}', latest: '{{ meta.defaults.latest_time|default:"now"|escapejs }}' }}));
+                      card.__x.$data.showParams = false;
+                      card.__x.$data.open = false;
+                    }
+                  ">
+            Edit SPL
+          </button>
+        </div>
       </div>
       {% endif %}
     </div>

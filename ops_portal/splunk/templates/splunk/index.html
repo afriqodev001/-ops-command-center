@@ -14,8 +14,13 @@
          var searchCard = document.getElementById('search-card');
          if (searchCard) {
            searchCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-           searchCard.classList.add('ring-2', 'ring-brand/50');
-           setTimeout(() => searchCard.classList.remove('ring-2', 'ring-brand/50'), 2000);
+           if ($event.detail.autoRun && sessionAlive) {
+             var form = searchCard.querySelector('form');
+             if (form) { setTimeout(() => htmx.trigger(form, 'submit'), 300); }
+           } else {
+             searchCard.classList.add('ring-2', 'ring-brand/50');
+             setTimeout(() => searchCard.classList.remove('ring-2', 'ring-brand/50'), 2000);
+           }
          }
        });
      ">

@@ -72,7 +72,7 @@ def run_preset(request):
         })
 
     preset_name = request.POST.get('preset', '').strip()
-    if not preset_name or preset_name not in PRESETS:
+    if not preset_name or not get_preset(preset_name):
         return render(request, 'splunk/partials/search_error.html', {
             'error': f'Unknown preset: {preset_name}',
         })
