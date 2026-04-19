@@ -19,39 +19,41 @@
   </div>
 
   <!-- Header with search and load button -->
-  <div class="flex items-center gap-3 mb-4 flex-wrap">
-    <div class="relative flex-1 max-w-md">
+  <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-5">
+    <div class="relative w-full sm:flex-1 sm:max-w-md">
       <svg class="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
       </svg>
       <input type="text" x-model="search" placeholder="Filter by name or description..."
              class="input-dark text-xs !pl-10 py-2">
     </div>
-    <p class="text-[10px] text-ink-muted" x-show="search.trim() && loaded"
-       x-text="visibleCount + ' of ' + totalCount + ' searches'"></p>
-    <button type="button"
-            hx-get="/splunk/saved-searches/list/"
-            hx-target="#saved-searches-body"
-            hx-swap="innerHTML"
-            class="btn-primary text-xs py-2 px-4 ml-auto"
-            :disabled="!sessionAlive || loading"
-            @click="loading = true"
-            @htmx:after-request="loading = false; $nextTick(() => indexCards())">
-      <template x-if="!loading">
-        <span class="inline-flex items-center gap-2">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-          Load from Splunk
-        </span>
-      </template>
-      <template x-if="loading">
-        <span class="inline-flex items-center gap-2">
-          <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-          Loading…
-        </span>
-      </template>
-    </button>
+    <div class="flex items-center gap-3 w-full sm:w-auto">
+      <p class="text-[10px] text-ink-muted flex-1" x-show="search.trim() && loaded"
+         x-text="visibleCount + ' of ' + totalCount + ' searches'"></p>
+      <button type="button"
+              hx-get="/splunk/saved-searches/list/"
+              hx-target="#saved-searches-body"
+              hx-swap="innerHTML"
+              class="btn-primary text-xs py-2 px-4 flex-shrink-0"
+              :disabled="!sessionAlive || loading"
+              @click="loading = true"
+              @htmx:after-request="loading = false; $nextTick(() => indexCards())">
+        <template x-if="!loading">
+          <span class="inline-flex items-center gap-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Load from Splunk
+          </span>
+        </template>
+        <template x-if="loading">
+          <span class="inline-flex items-center gap-2">
+            <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            Loading…
+          </span>
+        </template>
+      </button>
+    </div>
   </div>
 
   <!-- Saved searches list -->
