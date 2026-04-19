@@ -355,3 +355,98 @@ def preset_import_confirm(request):
         'presets': presets, 'import_count': imported,
     })
     return response
+
+
+# ─── AI Features ─────────────────────────────────────────────
+
+@csrf_exempt
+@require_POST
+def ai_analyze_results(request):
+    """Analyze search results with AI."""
+    from servicenow.services.prompt_store import get_prompt
+    from servicenow.services.ai_assist import _call_llm, _extract_json_dict
+
+    result_data = request.POST.get('result_data', '').strip()
+    spl = request.POST.get('spl', '').strip()
+
+    if not result_data:
+        return render(request, 'splunk/partials/ai_analysis.html', {
+            'ai_error': 'No result data to analyze.',
+        })
+
+    system = get_prompt('splunk_results_analysis')
+    user_prompt = f"SPL Query: {spl}\n\nSearch Results:\n{result_data[:8000]}"
+
+    raw = _call_llm(system, user_prompt)
+
+    ai_error = None
+    ai_response = None
+    parsed = _extract_json_dict(raw)
+    if parsed and '_ai_error' in parsed:
+        ai_error = parsed['_ai_error']
+    else:
+        ai_response = raw
+
+    return render(request, 'splunk/partials/ai_analysis.html', {
+        'ai_response': ai_response,
+        'ai_error': ai_error,
+    })
+
+
+@csrf_exempt
+@require_POST
+def ai_natural_to_spl(request):
+    """Generate SPL from natural language description."""
+    from servicenow.services.prompt_store import get_prompt
+    from servicenow.services.ai_assist import _call_llm, _extract_json_dict
+
+    description = request.POST.get('description', '').strip()
+    if not description:
+        return JsonResponse({'error': 'Description is required.'})
+
+    system = get_prompt('splunk_natural_language_to_spl')
+    raw = _call_llm(system, description)
+
+    parsed = _extract_json_dict(raw)
+    if not parsed:
+        return JsonResponse({'error': f'AI returned unparseable response: {raw[:200]}'})
+    if '_ai_error' in parsed:
+        return JsonResponse({'error': parsed['_ai_error']})
+
+    return JsonResponse({
+        'spl': parsed.get('spl', ''),
+        'earliest': parsed.get('earliest', '-1h'),
+        'latest': parsed.get('latest', 'now'),
+        'explanation': parsed.get('explanation', ''),
+    })
+
+
+@csrf_exempt
+@require_POST
+def ai_generate_preset(request):
+    """Generate a preset definition from raw SPL."""
+    from servicenow.services.prompt_store import get_prompt
+    from servicenow.services.ai_assist import _call_llm, _extract_json_dict
+
+    spl = request.POST.get('spl', '').strip()
+    if not spl:
+        return JsonResponse({'error': 'SPL query is required.'})
+
+    system = get_prompt('splunk_preset_generator')
+    raw = _call_llm(system, f"Generate a preset for this SPL query:\n\n{spl}")
+
+    parsed = _extract_json_dict(raw)
+    if not parsed:
+        return JsonResponse({'error': f'AI returned unparseable response: {raw[:200]}'})
+    if '_ai_error' in parsed:
+        return JsonResponse({'error': parsed['_ai_error']})
+
+    return JsonResponse({
+        'name': parsed.get('name', ''),
+        'description': parsed.get('description', ''),
+        'spl': parsed.get('spl', spl),
+        'required_params': parsed.get('required_params', []),
+        'tags': parsed.get('tags', ''),
+        'earliest_time': parsed.get('earliest_time', '-10m'),
+        'latest_time': parsed.get('latest_time', 'now'),
+    })

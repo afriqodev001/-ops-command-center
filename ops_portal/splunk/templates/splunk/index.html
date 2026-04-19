@@ -109,6 +109,69 @@
       </div>
     </div>
 
+    <!-- Natural Language → SPL -->
+    <div class="glass-card p-4" x-data="{ nlQuery: '', nlLoading: false, nlError: '', nlExplanation: '' }">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        <div>
+          <h3 class="text-sm font-semibold text-ink-primary">Ask in plain English</h3>
+          <p class="text-[10px] text-ink-muted">Describe what you want to find — AI generates the SPL query</p>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-2">
+        <input type="text" x-model="nlQuery"
+               @keydown.enter.prevent="if(nlQuery.trim() && !nlLoading) $refs.nlBtn.click()"
+               placeholder="e.g. Show me all 500 errors from the API gateway in the last 2 hours grouped by host"
+               class="input-dark text-xs flex-1">
+        <button type="button" x-ref="nlBtn"
+                :disabled="!nlQuery.trim() || nlLoading"
+                @click="
+                  nlLoading = true; nlError = ''; nlExplanation = '';
+                  fetch('/splunk/ai/natural-to-spl/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'description=' + encodeURIComponent(nlQuery)
+                  })
+                  .then(r => r.json())
+                  .then(data => {
+                    nlLoading = false;
+                    if (data.error) { nlError = data.error; return; }
+                    spl = data.spl || '';
+                    earliest = data.earliest || '-1h';
+                    latest = data.latest || 'now';
+                    nlExplanation = data.explanation || '';
+                    $nextTick(() => {
+                      var sc = document.getElementById('search-card');
+                      if (sc) { sc.scrollIntoView({behavior:'smooth',block:'start'}); sc.classList.add('ring-2','ring-brand/50'); setTimeout(() => sc.classList.remove('ring-2','ring-brand/50'), 2000); }
+                    });
+                  })
+                  .catch(e => { nlLoading = false; nlError = e.message; })
+                "
+                class="btn-primary text-xs py-2 px-4 flex-shrink-0 disabled:opacity-50">
+          <template x-if="!nlLoading">
+            <span class="inline-flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+              Generate
+            </span>
+          </template>
+          <template x-if="nlLoading">
+            <span class="inline-flex items-center gap-1.5">
+              <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Thinking…
+            </span>
+          </template>
+        </button>
+      </div>
+
+      <p x-show="nlExplanation" x-cloak class="text-[10px] text-ok mt-2" x-text="'✓ ' + nlExplanation"></p>
+      <p x-show="nlError" x-cloak class="text-[10px] text-danger mt-2" x-text="nlError"></p>
+    </div>
+
     <!-- Search card -->
     <div id="search-card" class="glass-card p-4 transition-all duration-300">
       <div class="flex items-center gap-2 mb-3">

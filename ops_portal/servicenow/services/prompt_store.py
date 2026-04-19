@@ -106,6 +106,64 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
             "Keep the response brief and actionable. Flag anything that looks incomplete or risky."
         ),
     },
+    # ── Splunk AI prompts ────────────────────────────────────
+    'splunk_results_analysis': {
+        'label': 'Splunk Results Analysis',
+        'description': 'Analyzes Splunk search results and provides a plain-English summary with findings and recommendations.',
+        'prompt': (
+            "You are an experienced IT operations engineer and Splunk analyst.\n"
+            "Analyze the search results below and provide a structured assessment in Markdown.\n\n"
+            "Use these sections:\n"
+            "## Summary\nOne-paragraph overview of what the data shows.\n\n"
+            "## Key Findings\nBullet points of the most important observations. Use data from the results to support each finding.\n\n"
+            "## Anomalies & Concerns\nAnything unusual, unexpected spikes, error patterns, or potential issues. Use ⚠️ for concerns.\n\n"
+            "## Recommendations\nActionable next steps based on the findings.\n\n"
+            "Be concise and specific. Reference actual values from the data. "
+            "If the results are empty or minimal, say so plainly."
+        ),
+    },
+    'splunk_natural_language_to_spl': {
+        'label': 'Natural Language → SPL',
+        'description': 'Generates a Splunk SPL query from a plain-English description of what the user wants to find.',
+        'prompt': (
+            "You are an expert Splunk SPL query writer.\n"
+            "The user will describe what they want to search for in plain English. "
+            "Generate a valid SPL query that accomplishes their request.\n\n"
+            "Rules:\n"
+            "- Respond ONLY with a JSON object: {\"spl\": \"<the SPL query>\", \"earliest\": \"<time>\", \"latest\": \"<time>\", \"explanation\": \"<brief explanation>\"}\n"
+            "- Use common Splunk commands: search, stats, timechart, top, rare, eval, where, table, rename, sort, head, tail, dedup\n"
+            "- Default to earliest=-1h latest=now unless the user specifies a time range\n"
+            "- Use index=* if no specific index is mentioned\n"
+            "- The SPL should be practical and efficient\n"
+            "- The explanation should be 1-2 sentences describing what the query does\n"
+            "- If the request is ambiguous, make reasonable assumptions and note them in the explanation"
+        ),
+    },
+    'splunk_preset_generator': {
+        'label': 'Smart Preset Generator',
+        'description': 'Analyzes a raw SPL query and generates a clean preset definition with name, description, parameters, and defaults.',
+        'prompt': (
+            "You are an expert Splunk engineer who creates reusable search presets.\n"
+            "Given a raw SPL query, generate a clean preset definition.\n\n"
+            "Respond ONLY with a JSON object:\n"
+            "{\n"
+            "  \"name\": \"<snake_case_preset_name>\",\n"
+            "  \"description\": \"<clear description of what this search does>\",\n"
+            "  \"spl\": \"<the SPL with {placeholder} parameters where appropriate>\",\n"
+            "  \"required_params\": [\"<list of placeholder names>\"],\n"
+            "  \"tags\": \"<comma-separated relevant tags>\",\n"
+            "  \"earliest_time\": \"<default earliest>\",\n"
+            "  \"latest_time\": \"<default latest>\"\n"
+            "}\n\n"
+            "Rules:\n"
+            "- Identify parts of the query that should be parameterized (index names, hostnames, error terms, thresholds, limits)\n"
+            "- Use descriptive placeholder names: {hostname}, {error_term}, {index_name}, {limit}\n"
+            "- Keep static parts of the query as-is\n"
+            "- If no parts should be parameterized, return an empty required_params array\n"
+            "- Generate a meaningful snake_case name\n"
+            "- Tags should reflect the query's domain (errors, performance, security, etc.)"
+        ),
+    },
 }
 
 PROMPT_KEYS = list(DEFAULTS.keys())
