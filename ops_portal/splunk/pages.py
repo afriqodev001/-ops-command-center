@@ -35,6 +35,54 @@ def splunk_home(request):
     })
 
 
+def splunk_saved_searches(request):
+    return render(request, 'splunk/saved_searches.html')
+
+
+def saved_searches_list(request):
+    """HTMX: dispatch task to fetch saved searches, return polling partial."""
+    from .session_views import is_session_alive
+    if not is_session_alive():
+        return render(request, 'splunk/partials/search_error.html', {
+            'error': 'Splunk session is not connected. Use the Connect button in the sidebar.',
+        })
+
+    from .tasks import splunk_alerts_list_task
+    task = splunk_alerts_list_task.delay({
+        'namespace_user': request.GET.get('namespace_user', 'nobody'),
+    })
+    return render(request, 'splunk/partials/saved_searches_loading.html', {
+        'task_id': task.id,
+    })
+
+
+def saved_searches_poll(request, task_id):
+    """HTMX polling for saved searches list result."""
+    from celery.result import AsyncResult
+    ar = AsyncResult(task_id)
+
+    if ar.state in ('PENDING', 'RECEIVED', 'STARTED'):
+        return render(request, 'splunk/partials/saved_searches_loading.html', {
+            'task_id': task_id,
+        })
+
+    if ar.state == 'FAILURE':
+        return render(request, 'splunk/partials/search_error.html', {
+            'error': str(ar.result),
+        })
+
+    result = ar.result or {}
+    if result.get('error'):
+        return render(request, 'splunk/partials/search_error.html', {
+            'error': result.get('detail') or result.get('error'),
+        })
+
+    alerts = result.get('alerts') or []
+    return render(request, 'splunk/partials/saved_searches_list.html', {
+        'alerts': alerts,
+    })
+
+
 def splunk_presets_page(request):
     presets = list_presets()
     return render(request, 'splunk/presets.html', {

@@ -12,6 +12,9 @@ urlpatterns = [
     # ─── UI pages ───────────────────────────────
     path("",                       pages.splunk_home,      name="splunk-home"),
     path("presets/",               pages.splunk_presets_page, name="splunk-presets-page"),
+    path("saved-searches/",        pages.splunk_saved_searches, name="splunk-saved-searches"),
+    path("saved-searches/list/",   pages.saved_searches_list,   name="splunk-saved-searches-list"),
+    path("saved-searches/poll/<str:task_id>/", pages.saved_searches_poll, name="splunk-saved-searches-poll"),
     path("ui/search/run/",         pages.run_search,       name="splunk-run-search"),
     path("ui/preset/run/",         pages.run_preset,       name="splunk-run-preset"),
     path("ui/saved/run/",          pages.run_saved_search, name="splunk-run-saved"),

@@ -1,0 +1,8 @@
+<div class="glass-card p-6 text-center animate-fade-in"
+     hx-get="/splunk/saved-searches/poll/{{ task_id }}/"
+     hx-trigger="load delay:2s"
+     hx-target="#saved-searches-body"
+     hx-swap="innerHTML">
+  <div class="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin mx-auto mb-3"></div>
+  <p class="text-xs text-ink-muted">Loading saved searches from Splunk…</p>
+</div>
