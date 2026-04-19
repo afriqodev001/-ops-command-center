@@ -17,9 +17,28 @@ from .services.splunk_presets import (
 
 def splunk_home(request):
     presets = list_presets()
+    preset_names = list(presets.keys())[:5]
+    quick_presets = {k: presets[k] for k in preset_names}
+
+    prefill_spl = request.GET.get('spl', '')
+    prefill_earliest = request.GET.get('earliest', '')
+    prefill_latest = request.GET.get('latest', '')
+    autorun = request.GET.get('autorun', '')
+
     return render(request, 'splunk/index.html', {
+        'quick_presets': quick_presets,
+        'total_presets': len(presets),
+        'prefill_spl': prefill_spl,
+        'prefill_earliest': prefill_earliest,
+        'prefill_latest': prefill_latest,
+        'autorun': autorun,
+    })
+
+
+def splunk_presets_page(request):
+    presets = list_presets()
+    return render(request, 'splunk/presets.html', {
         'presets': presets,
-        'presets_json': json.dumps(presets, default=str),
     })
 
 

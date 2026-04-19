@@ -11,6 +11,7 @@ urlpatterns = [
 
     # ─── UI pages ───────────────────────────────
     path("",                       pages.splunk_home,      name="splunk-home"),
+    path("presets/",               pages.splunk_presets_page, name="splunk-presets-page"),
     path("ui/search/run/",         pages.run_search,       name="splunk-run-search"),
     path("ui/preset/run/",         pages.run_preset,       name="splunk-run-preset"),
     path("ui/saved/run/",          pages.run_saved_search, name="splunk-run-saved"),

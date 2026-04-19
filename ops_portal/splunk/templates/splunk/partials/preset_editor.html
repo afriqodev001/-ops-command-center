@@ -2,7 +2,7 @@
       hx-target="#presets-container"
       hx-swap="innerHTML"
       class="space-y-3"
-      @htmx:after-request="if(event.detail.successful && event.detail.pathInfo.requestPath === '/splunk/presets/save/') document.getElementById('preset-editor-modal').close()">
+      @htmx:after-request="if(event.detail.successful && event.detail.pathInfo.requestPath === '/splunk/presets/save/') { document.getElementById('preset-editor-modal').close(); if (!document.getElementById('presets-container')) window.location.reload(); }">
   {% csrf_token %}
 
   <div>
