@@ -2,7 +2,8 @@
       hx-target="#presets-container"
       hx-swap="innerHTML"
       class="space-y-3"
-      @htmx:after-request="if(event.detail.successful && event.detail.pathInfo.requestPath === '/splunk/presets/save/') { document.getElementById('preset-editor-modal').close(); if (!document.getElementById('presets-container')) window.location.reload(); }">
+      @htmx:targetError.prevent="document.getElementById('preset-editor-modal')?.close(); window.location.href='/splunk/presets/'"
+      @htmx:after-request="if(event.detail.successful && event.detail.pathInfo.requestPath === '/splunk/presets/save/') { document.getElementById('preset-editor-modal')?.close(); if (!document.getElementById('presets-container')) window.location.href='/splunk/presets/'; }">
   {% csrf_token %}
 
   <div>
