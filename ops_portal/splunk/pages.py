@@ -250,8 +250,26 @@ def poll_search(request, task_id):
             'error': result.get('detail') or result.get('error'),
         })
 
-    # Django templates can't access underscore-prefixed keys (_time, _raw).
-    # Pre-process events to rename them.
+    # ── Normalize preview data ──
+    # Splunk json_rows format: {'fields': [{'name':...}], 'rows': [[...]]}
+    # Splunk json format: {'results': [{...}]}
+    # Either might be nested inside the fetch wrapper: {'ok':..., 'data': {...}}
+    preview_raw = (result.get('preview') or {}).get('data') or {}
+    preview_fields = []
+    preview_rows = []
+
+    if preview_raw.get('rows') and preview_raw.get('fields'):
+        preview_fields = [f.get('name', f) if isinstance(f, dict) else f
+                          for f in preview_raw['fields']]
+        preview_rows = preview_raw['rows']
+    elif preview_raw.get('results'):
+        results_list = preview_raw['results']
+        if results_list:
+            preview_fields = [k for k in results_list[0].keys() if not k.startswith('_')]
+            preview_rows = [[r.get(f, '') for f in preview_fields] for r in results_list]
+
+    # ── Normalize events data ──
+    # Strip underscore prefixes for Django template access
     events_data = ((result.get('events') or {}).get('data') or {}).get('results') or []
     cleaned_events = []
     for evt in events_data:
@@ -263,6 +281,8 @@ def poll_search(request, task_id):
     return render(request, 'splunk/partials/search_results.html', {
         'result': result,
         'result_json': json.dumps(result, default=str),
+        'preview_fields': preview_fields,
+        'preview_rows': preview_rows,
         'cleaned_events': cleaned_events,
     })
 

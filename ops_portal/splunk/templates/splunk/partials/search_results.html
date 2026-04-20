@@ -21,19 +21,19 @@
 
     <!-- Statistics tab -->
     <div x-show="tab === 'preview'">
-      {% if result.preview.data.rows %}
+      {% if preview_rows %}
       <div class="overflow-auto max-h-[70vh] rounded-lg border border-edge">
         <table class="w-full text-xs border-collapse">
           <thead class="bg-surface-3 sticky top-0 z-10">
             <tr>
               <th class="th text-ink-muted tabular-nums sticky left-0 bg-surface-3 z-20 border-r border-edge">#</th>
-              {% for col in result.preview.data.fields %}
-              <th class="th whitespace-nowrap">{{ col.name }}</th>
+              {% for col in preview_fields %}
+              <th class="th whitespace-nowrap">{{ col }}</th>
               {% endfor %}
             </tr>
           </thead>
           <tbody>
-            {% for row in result.preview.data.rows %}
+            {% for row in preview_rows %}
             <tr class="table-row">
               <td class="td font-mono text-[10px] text-ink-muted tabular-nums sticky left-0 bg-surface-2 z-10 border-r border-edge">{{ forloop.counter }}</td>
               {% for cell in row %}
@@ -44,33 +44,9 @@
           </tbody>
         </table>
       </div>
-      <p class="text-[10px] text-ink-muted mt-1.5">{{ result.preview.data.rows|length }} row{{ result.preview.data.rows|length|pluralize }}</p>
-      {% elif result.preview.data.results %}
-      <div class="overflow-auto max-h-[70vh] rounded-lg border border-edge">
-        <table class="w-full text-xs border-collapse">
-          <thead class="bg-surface-3 sticky top-0 z-10">
-            <tr>
-              <th class="th text-ink-muted tabular-nums sticky left-0 bg-surface-3 z-20 border-r border-edge">#</th>
-              {% for key in result.preview.data.results.0.keys %}
-              <th class="th whitespace-nowrap">{{ key }}</th>
-              {% endfor %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in result.preview.data.results %}
-            <tr class="table-row">
-              <td class="td font-mono text-[10px] text-ink-muted tabular-nums sticky left-0 bg-surface-2 z-10 border-r border-edge">{{ forloop.counter }}</td>
-              {% for val in row.values %}
-              <td class="td font-mono text-[11px] max-w-xs truncate" title="{{ val|default:'' }}">{{ val|default:"—" }}</td>
-              {% endfor %}
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <p class="text-[10px] text-ink-muted mt-1.5">{{ result.preview.data.results|length }} row{{ result.preview.data.results|length|pluralize }}</p>
+      <p class="text-[10px] text-ink-muted mt-1.5">{{ preview_rows|length }} row{{ preview_rows|length|pluralize }} · {{ preview_fields|length }} column{{ preview_fields|length|pluralize }}</p>
       {% else %}
-      <p class="text-xs text-ink-muted py-4 text-center">No statistics data returned.</p>
+      <p class="text-xs text-ink-muted py-4 text-center">No statistics data returned. Try a query with stats, table, or timechart commands.</p>
       {% endif %}
     </div>
 
