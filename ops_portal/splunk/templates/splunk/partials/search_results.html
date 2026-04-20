@@ -56,9 +56,10 @@
       <p class="text-[10px] text-ink-muted mb-2">{{ cleaned_events|length }} event{{ cleaned_events|length|pluralize }}</p>
       <div class="space-y-2 max-h-[70vh] overflow-y-auto">
         {% for evt in cleaned_events %}
-        <div class="rounded-lg bg-surface-3/60 border border-edge overflow-hidden" x-data="{ expanded: false }">
+        <div class="rounded-lg bg-surface-3/60 border border-edge overflow-hidden" x-data="{ expanded: false, formatted: false }">
           <!-- Event header — always visible -->
-          <div class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/[.02]" @click="expanded = !expanded">
+          <div class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/[.02]"
+               @click="expanded = !expanded; if (!formatted) { $nextTick(() => { var el = document.getElementById('evt-raw-{{ forloop.counter }}'); if (el) { try { var obj = JSON.parse(el.textContent.trim()); el.textContent = JSON.stringify(obj, null, 2); } catch(e) {} } formatted = true; }) }">
             <span class="text-[9px] text-ink-muted font-mono tabular-nums w-5 text-right flex-shrink-0">{{ forloop.counter }}</span>
             {% if evt.time %}
             <span class="text-[10px] text-ink-muted font-mono flex-shrink-0">{{ evt.time }}</span>
@@ -97,18 +98,6 @@
               <pre id="evt-raw-{{ forloop.counter }}"
                    class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed p-2 rounded bg-surface-2 border border-edge max-h-72 overflow-y-auto">{{ evt.raw }}</pre>
             </div>
-            <script>
-            (function(){
-              var el = document.getElementById('evt-raw-{{ forloop.counter }}');
-              if (!el) return;
-              var txt = el.textContent.trim();
-              try {
-                var obj = JSON.parse(txt);
-                el.textContent = JSON.stringify(obj, null, 2);
-                el.classList.add('text-ink-secondary');
-              } catch(e) {}
-            })();
-            </script>
             {% endif %}
           </div>
         </div>
