@@ -9,10 +9,16 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from django.conf import settings as dj_settings
+
 from .services.splunk_presets import (
     list_presets, get_preset, save_preset, delete_preset,
     export_presets, import_presets, render_preset,
 )
+
+
+def _namespace_user():
+    return getattr(dj_settings, 'SPLUNK_NAMESPACE_USER', 'nobody')
 
 
 def splunk_home(request):
@@ -49,7 +55,7 @@ def saved_searches_list(request):
 
     from .tasks import splunk_alerts_list_task
     task = splunk_alerts_list_task.delay({
-        'namespace_user': request.GET.get('namespace_user', 'nobody'),
+        'namespace_user': request.GET.get('namespace_user', '') or _namespace_user(),
     })
     return render(request, 'splunk/partials/saved_searches_loading.html', {
         'task_id': task.id,
@@ -112,6 +118,7 @@ def run_search(request):
     from .tasks import splunk_search_run_task
     task = splunk_search_run_task.delay({
         'search': spl,
+        'namespace_user': _namespace_user(),
         'earliest_time': earliest,
         'latest_time': latest,
         'include_preview': True,
@@ -153,6 +160,7 @@ def run_preset(request):
     task = splunk_presets_run_task.delay({
         'preset': preset_name,
         'params': params,
+        'namespace_user': _namespace_user(),
     })
 
     return render(request, 'splunk/partials/search_running.html', {
@@ -182,6 +190,7 @@ def run_saved_search(request):
     from .tasks import splunk_alert_run_task
     task = splunk_alert_run_task.delay({
         'name': name,
+        'namespace_user': _namespace_user(),
         'include_preview': True,
         'include_events': True,
         'preview_count': 50,

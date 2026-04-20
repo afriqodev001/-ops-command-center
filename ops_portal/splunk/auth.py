@@ -5,9 +5,9 @@ from __future__ import annotations
 from django.conf import settings
 
 
-def splunk_auth_check(driver) -> bool:
+def splunk_auth_check(driver, origin_url: str = '') -> bool:
     """Return True if the browser is authenticated to Splunk."""
-    base = getattr(settings, 'SPLUNK_BASE', 'https://your-splunk.splunkcloud.com').rstrip('/')
+    base = (origin_url or getattr(settings, 'SPLUNK_BASE', 'https://your-splunk.splunkcloud.com')).rstrip('/')
     try:
         current = driver.current_url or ''
         if not current.startswith(base):

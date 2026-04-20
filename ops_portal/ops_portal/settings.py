@@ -280,6 +280,7 @@ SPLUNK_DEFAULT_EARLIEST = os.environ.get('SPLUNK_DEFAULT_EARLIEST', '-10m')
 SPLUNK_DEFAULT_LATEST = os.environ.get('SPLUNK_DEFAULT_LATEST', 'now')
 SPLUNK_RUN_MAX_POLLS = int(os.environ.get('SPLUNK_RUN_MAX_POLLS', 12))
 SPLUNK_RUN_POLL_INTERVAL = float(os.environ.get('SPLUNK_RUN_POLL_INTERVAL', 1.0))
+SPLUNK_NAMESPACE_USER = os.environ.get('SPLUNK_NAMESPACE_USER', 'nobody')
 
 
 # ============================================================
