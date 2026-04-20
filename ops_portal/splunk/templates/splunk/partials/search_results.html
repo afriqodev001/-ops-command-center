@@ -22,47 +22,53 @@
     <!-- Statistics tab -->
     <div x-show="tab === 'preview'">
       {% if result.preview.data.rows %}
-      <div class="overflow-x-auto">
-        <table class="w-full text-xs">
-          <thead class="bg-surface-3 border-b border-edge">
+      <div class="overflow-auto max-h-[70vh] rounded-lg border border-edge">
+        <table class="w-full text-xs border-collapse">
+          <thead class="bg-surface-3 sticky top-0 z-10">
             <tr>
+              <th class="th text-ink-muted tabular-nums sticky left-0 bg-surface-3 z-20 border-r border-edge">#</th>
               {% for col in result.preview.data.fields %}
-              <th class="th">{{ col.name }}</th>
+              <th class="th whitespace-nowrap">{{ col.name }}</th>
               {% endfor %}
             </tr>
           </thead>
           <tbody>
             {% for row in result.preview.data.rows %}
             <tr class="table-row">
+              <td class="td font-mono text-[10px] text-ink-muted tabular-nums sticky left-0 bg-surface-2 z-10 border-r border-edge">{{ forloop.counter }}</td>
               {% for cell in row %}
-              <td class="td font-mono text-[11px]">{{ cell|default:"—" }}</td>
+              <td class="td font-mono text-[11px] max-w-xs truncate" title="{{ cell|default:'' }}">{{ cell|default:"—" }}</td>
               {% endfor %}
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      <p class="text-[10px] text-ink-muted mt-1.5">{{ result.preview.data.rows|length }} row{{ result.preview.data.rows|length|pluralize }}</p>
       {% elif result.preview.data.results %}
-      <div class="overflow-x-auto">
-        <table class="w-full text-xs">
-          <thead class="bg-surface-3 border-b border-edge">
+      <div class="overflow-auto max-h-[70vh] rounded-lg border border-edge">
+        <table class="w-full text-xs border-collapse">
+          <thead class="bg-surface-3 sticky top-0 z-10">
             <tr>
+              <th class="th text-ink-muted tabular-nums sticky left-0 bg-surface-3 z-20 border-r border-edge">#</th>
               {% for key in result.preview.data.results.0.keys %}
-              <th class="th">{{ key }}</th>
+              <th class="th whitespace-nowrap">{{ key }}</th>
               {% endfor %}
             </tr>
           </thead>
           <tbody>
             {% for row in result.preview.data.results %}
             <tr class="table-row">
+              <td class="td font-mono text-[10px] text-ink-muted tabular-nums sticky left-0 bg-surface-2 z-10 border-r border-edge">{{ forloop.counter }}</td>
               {% for val in row.values %}
-              <td class="td font-mono text-[11px]">{{ val|default:"—" }}</td>
+              <td class="td font-mono text-[11px] max-w-xs truncate" title="{{ val|default:'' }}">{{ val|default:"—" }}</td>
               {% endfor %}
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      <p class="text-[10px] text-ink-muted mt-1.5">{{ result.preview.data.results|length }} row{{ result.preview.data.results|length|pluralize }}</p>
       {% else %}
       <p class="text-xs text-ink-muted py-4 text-center">No statistics data returned.</p>
       {% endif %}
@@ -71,23 +77,33 @@
     <!-- Events tab -->
     <div x-show="tab === 'events'" x-cloak>
       {% if cleaned_events %}
-      <div class="space-y-2 max-h-96 overflow-y-auto">
+      <p class="text-[10px] text-ink-muted mb-2">{{ cleaned_events|length }} event{{ cleaned_events|length|pluralize }}</p>
+      <div class="space-y-2 max-h-[70vh] overflow-y-auto">
         {% for evt in cleaned_events %}
-        <div class="p-2.5 rounded-lg bg-surface-3/60 border border-edge">
-          <div class="flex items-center gap-2 mb-1">
+        <div class="rounded-lg bg-surface-3/60 border border-edge overflow-hidden" x-data="{ expanded: false }">
+          <!-- Event header — always visible -->
+          <div class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/[.02]" @click="expanded = !expanded">
+            <span class="text-[9px] text-ink-muted font-mono tabular-nums w-5 text-right flex-shrink-0">{{ forloop.counter }}</span>
             {% if evt.time %}
-            <span class="text-[10px] text-ink-muted font-mono">{{ evt.time }}</span>
+            <span class="text-[10px] text-ink-muted font-mono flex-shrink-0">{{ evt.time }}</span>
             {% endif %}
             {% if evt.host %}
-            <span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge">{{ evt.host }}</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge flex-shrink-0">{{ evt.host }}</span>
             {% endif %}
             {% if evt.sourcetype %}
-            <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-subtle/50 text-brand-light border border-brand/10">{{ evt.sourcetype }}</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-subtle/50 text-brand-light border border-brand/10 flex-shrink-0">{{ evt.sourcetype }}</span>
             {% endif %}
+            {% if evt.raw %}
+            <span class="text-[10px] text-ink-secondary truncate flex-1 font-mono">{{ evt.raw|truncatechars:120 }}</span>
+            {% endif %}
+            <svg class="w-3 h-3 text-ink-muted flex-shrink-0 transition-transform" :class="expanded ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
           </div>
-          {% if evt.raw %}
-          <pre class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed mt-1">{{ evt.raw }}</pre>
-          {% endif %}
+          <!-- Expanded raw content -->
+          <div x-show="expanded" x-cloak class="px-3 pb-3 border-t border-edge-subtle">
+            <pre class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed mt-2 max-h-64 overflow-y-auto">{{ evt.raw }}</pre>
+          </div>
         </div>
         {% endfor %}
       </div>
