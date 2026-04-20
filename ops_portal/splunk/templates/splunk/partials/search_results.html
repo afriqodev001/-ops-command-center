@@ -76,9 +76,36 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </div>
-          <!-- Expanded raw content -->
-          <div x-show="expanded" x-cloak class="px-3 pb-3 border-t border-edge-subtle">
-            <pre class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed mt-2 max-h-64 overflow-y-auto">{{ evt.raw }}</pre>
+          <!-- Expanded content -->
+          <div x-show="expanded" x-cloak class="px-3 pb-3 border-t border-edge-subtle mt-0">
+            <!-- Event metadata -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 py-2">
+              {% if evt.time %}<div><span class="text-[9px] text-ink-muted">Time:</span> <span class="text-[10px] text-ink-secondary font-mono">{{ evt.time }}</span></div>{% endif %}
+              {% if evt.host %}<div><span class="text-[9px] text-ink-muted">Host:</span> <span class="text-[10px] text-ink-secondary font-mono">{{ evt.host }}</span></div>{% endif %}
+              {% if evt.source %}<div><span class="text-[9px] text-ink-muted">Source:</span> <span class="text-[10px] text-ink-secondary font-mono truncate">{{ evt.source }}</span></div>{% endif %}
+              {% if evt.sourcetype %}<div><span class="text-[9px] text-ink-muted">Sourcetype:</span> <span class="text-[10px] text-ink-secondary font-mono">{{ evt.sourcetype }}</span></div>{% endif %}
+              {% if evt.index %}<div><span class="text-[9px] text-ink-muted">Index:</span> <span class="text-[10px] text-ink-secondary font-mono">{{ evt.index }}</span></div>{% endif %}
+              {% if evt.linecount %}<div><span class="text-[9px] text-ink-muted">Lines:</span> <span class="text-[10px] text-ink-secondary">{{ evt.linecount }}</span></div>{% endif %}
+            </div>
+            <!-- Raw content (auto-formatted if JSON) -->
+            {% if evt.raw %}
+            <div class="relative">
+              <pre id="evt-raw-{{ forloop.counter }}"
+                   class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed p-2 rounded bg-surface-2 border border-edge max-h-72 overflow-y-auto">{{ evt.raw }}</pre>
+            </div>
+            <script>
+            (function(){
+              var el = document.getElementById('evt-raw-{{ forloop.counter }}');
+              if (!el) return;
+              var txt = el.textContent.trim();
+              try {
+                var obj = JSON.parse(txt);
+                el.textContent = JSON.stringify(obj, null, 2);
+                el.classList.add('text-ink-secondary');
+              } catch(e) {}
+            })();
+            </script>
+            {% endif %}
           </div>
         </div>
         {% endfor %}
