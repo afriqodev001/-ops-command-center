@@ -13,11 +13,12 @@ def _app() -> str:
 def build_alerts_search_url(
     *,
     search_term: str,
-    count: int = 20,
+    count: int = 50,
     offset: int = 0,
 ):
     """
-    Build the Splunk Alerts (saved searches) endpoint URL.
+    Build the Splunk saved searches endpoint URL with a name filter.
+    Searches all saved searches (not just scheduled alerts).
     """
 
     base = (
@@ -25,27 +26,14 @@ def build_alerts_search_url(
         f"/en-US/splunkd/__raw/servicesNS/-/{_app()}/saved/searches"
     )
 
-    search = (
-        "((is_scheduled=1 AND "
-        "(alert.type!=always OR alert.track=1 OR "
-        '(dispatch.earliest_time="rt*" AND dispatch.latest_time="rt*" '
-        'AND actions="*" AND actions!="")))) '
-        f'AND (name="*{search_term}*") '
-        '(AND (eai:acl.sharing="user" AND '
-        'eai:acl.owner="joshua.kanani@wellsfargo.com") '
-        'OR (eai:acl.sharing!="user")) '
-        "AND is_visible=1"
-    )
-
     params = {
         "output_mode": "json",
         "sort_dir": "asc",
         "sort_key": "name",
         "sort_mode": "natural",
-        "search": search,
+        "search": f'name="*{search_term}*"',
         "count": count,
         "offset": offset,
-        "listDefaultActionArgs": "true",
     }
 
     return base + "?" + urlencode(params)
