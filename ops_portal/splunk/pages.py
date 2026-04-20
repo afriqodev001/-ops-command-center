@@ -221,8 +221,10 @@ def run_saved_search(request):
 
     from .tasks import splunk_alert_run_task
     task = splunk_alert_run_task.delay({
-        'name': name,
+        'alert_name': name,
         'namespace_user': _namespace_user(),
+        'max_polls': getattr(dj_settings, 'SPLUNK_RUN_MAX_POLLS', 30),
+        'poll_interval': getattr(dj_settings, 'SPLUNK_RUN_POLL_INTERVAL', 2.0),
         'include_preview': True,
         'include_events': True,
         'preview_count': 50,
@@ -255,6 +257,15 @@ def poll_search(request, task_id):
     if result.get('error'):
         return render(request, 'splunk/partials/search_error.html', {
             'error': result.get('detail') or result.get('error'),
+        })
+
+    # Check if job actually completed
+    if result.get('ok') and not result.get('done'):
+        return render(request, 'splunk/partials/search_error.html', {
+            'error': f'Search did not complete within the polling window '
+                     f'({result.get("polls_used", "?")} polls). '
+                     f'SID: {result.get("sid", "?")}. Try running again — '
+                     f'the job may still be running in Splunk.',
         })
 
     # ── Normalize preview data ──
