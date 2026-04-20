@@ -7,11 +7,11 @@ from splunk.services.splunk_fetch import fetch_json_in_browser
 
 
 def _base() -> str:
-    return getattr(settings, "SPLUNK_BASE", "https://wf-1p.splunkcloud.com").rstrip("/")
+    return getattr(settings, "SPLUNK_BASE", "https://your-splunk.splunkcloud.com").rstrip("/")
 
 
 def _app() -> str:
-    return getattr(settings, "SPLUNK_APP", "wf_ui_app_ctulms").strip()
+    return getattr(settings, "SPLUNK_APP", "search").strip()
 
 
 def build_saved_searches_url(

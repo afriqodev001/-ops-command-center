@@ -10,7 +10,7 @@ from splunk.auth import splunk_auth_check
 SPLUNK_BASE = getattr(
     settings,
     "SPLUNK_BASE",
-    "https://wf-1p.splunkcloud.com",
+    "https://your-splunk.splunkcloud.com",
 ).rstrip("/")
 
 

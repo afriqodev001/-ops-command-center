@@ -7,7 +7,7 @@ def _base() -> str:
 
 
 def _app() -> str:
-    return getattr(settings, "SPLUNK_APP", "wf_ui_app_ctulms").strip()
+    return getattr(settings, "SPLUNK_APP", "search").strip()
 
 
 def build_alerts_search_url(
@@ -21,8 +21,8 @@ def build_alerts_search_url(
     """
 
     base = (
-        f"{settings.SPLUNK_BASE}"
-        "/en-US/splunkd/__raw/servicesNS/-/wf_ui_app_ctulms/saved/searches"
+        f"{_base()}"
+        f"/en-US/splunkd/__raw/servicesNS/-/{_app()}/saved/searches"
     )
 
     search = (
