@@ -1,109 +1,86 @@
 {% if saved_name %}
-<div class="mb-2 px-2.5 py-1.5 rounded-lg bg-ok/10 border border-ok/20 text-[10px] text-ok font-medium animate-fade-in">
+<div class="mb-3 px-2.5 py-1.5 rounded-lg bg-ok/10 border border-ok/20 text-[10px] text-ok font-medium animate-fade-in">
   ✓ Preset "{{ saved_name }}" saved
 </div>
 {% endif %}
 {% if import_count %}
-<div class="mb-2 px-2.5 py-1.5 rounded-lg bg-ok/10 border border-ok/20 text-[10px] text-ok font-medium animate-fade-in">
+<div class="mb-3 px-2.5 py-1.5 rounded-lg bg-ok/10 border border-ok/20 text-[10px] text-ok font-medium animate-fade-in">
   ✓ {{ import_count }} preset{{ import_count|pluralize }} imported
 </div>
 {% endif %}
 
 {% if presets %}
-<div class="space-y-2">
+<div class="space-y-3">
   {% for name, meta in presets.items %}
-  <div class="rounded-lg bg-surface-3/60 border border-edge hover:border-edge-strong transition-colors overflow-hidden"
+  <div class="rounded-xl bg-surface-3/40 border border-edge hover:border-edge-strong transition-colors overflow-hidden"
        x-data="{ open: false, showParams: false }">
+
     <!-- Header -->
-    <div class="flex items-start gap-2 p-2.5 cursor-pointer" @click="open = !open">
-      <svg class="w-3 h-3 text-ink-muted mt-0.5 flex-shrink-0 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="flex items-start gap-3 p-3 cursor-pointer" @click="open = !open">
+      <svg class="w-3.5 h-3.5 text-ink-muted mt-0.5 flex-shrink-0 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
       </svg>
       <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          <p class="text-xs font-semibold text-ink-primary truncate">{{ name }}</p>
-          {% if meta.is_builtin %}
-          <span class="text-[8px] px-1 py-0 rounded bg-surface-5 text-ink-muted border border-edge flex-shrink-0">built-in</span>
-          {% endif %}
-          {% if meta.required_params %}
-          <span class="text-[8px] px-1 py-0 rounded bg-info/10 text-info border border-info/20 flex-shrink-0">{{ meta.required_params|length }} param{{ meta.required_params|length|pluralize }}</span>
-          {% endif %}
+        <p class="text-xs font-semibold text-ink-primary">{{ name }}</p>
+        <p class="text-[10px] text-ink-muted mt-0.5 leading-relaxed">{{ meta.description|default:"No description" }}</p>
+        {% if meta.tags %}
+        <div class="flex flex-wrap gap-1 mt-1.5">
+          {% for tag in meta.tags.split %}
+          <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-brand-subtle/50 text-brand-light border border-brand/10">{{ tag|cut:"," }}</span>
+          {% endfor %}
         </div>
-        <p class="text-[10px] text-ink-muted mt-0.5 line-clamp-1">{{ meta.description }}</p>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        {% if meta.required_params %}
+        <span class="text-[8px] px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/20">{{ meta.required_params|length }}p</span>
+        {% endif %}
+        {% if meta.is_builtin %}
+        <span class="text-[8px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge">default</span>
+        {% endif %}
       </div>
     </div>
 
-    <!-- Expanded details -->
-    <div x-show="open" x-cloak class="px-2.5 pb-2.5 space-y-2">
-      {% if meta.tags %}
+    <!-- Expanded -->
+    <div x-show="open" x-cloak class="px-3 pb-3 space-y-3 border-t border-edge-subtle">
+
+      <!-- Defaults row -->
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 pt-2 text-[9px]">
+        <span class="text-ink-muted">Time: <span class="text-ink-secondary font-mono">{{ meta.defaults.earliest_time|default:"-10m" }} → {{ meta.defaults.latest_time|default:"now" }}</span></span>
+        <span class="text-ink-muted">Stats: <span class="{% if meta.defaults.include_preview %}text-ok{% else %}text-ink-muted{% endif %}">{% if meta.defaults.include_preview %}Yes{% else %}No{% endif %}</span></span>
+        <span class="text-ink-muted">Events: <span class="{% if meta.defaults.include_events %}text-ok{% else %}text-ink-muted{% endif %}">{% if meta.defaults.include_events %}Yes{% else %}No{% endif %}</span></span>
+      </div>
+
+      {% if meta.required_params %}
       <div class="flex flex-wrap gap-1">
-        {% for tag in meta.tags.split %}
-        <span class="text-[8px] px-1.5 py-0 rounded bg-brand-subtle/50 text-brand-light border border-brand/10">{{ tag|cut:"," }}</span>
+        {% for p in meta.required_params %}
+        <span class="text-[9px] px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/20 font-mono">{{"{"}}{{ p }}{{"}"}}</span>
         {% endfor %}
       </div>
       {% endif %}
 
-      <!-- Defaults -->
-      <div class="grid grid-cols-2 gap-x-3 gap-y-1">
-        {% if meta.defaults.earliest_time %}
-        <div class="flex items-center gap-1.5">
-          <span class="text-[9px] text-ink-muted">Earliest:</span>
-          <span class="text-[9px] text-ink-secondary font-mono">{{ meta.defaults.earliest_time }}</span>
-        </div>
-        {% endif %}
-        {% if meta.defaults.latest_time %}
-        <div class="flex items-center gap-1.5">
-          <span class="text-[9px] text-ink-muted">Latest:</span>
-          <span class="text-[9px] text-ink-secondary font-mono">{{ meta.defaults.latest_time }}</span>
-        </div>
-        {% endif %}
-        <div class="flex items-center gap-1.5">
-          <span class="text-[9px] text-ink-muted">Statistics:</span>
-          <span class="text-[9px] {% if meta.defaults.include_preview %}text-ok{% else %}text-ink-muted{% endif %}">{% if meta.defaults.include_preview %}Yes{% else %}No{% endif %}</span>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-[9px] text-ink-muted">Events:</span>
-          <span class="text-[9px] {% if meta.defaults.include_events %}text-ok{% else %}text-ink-muted{% endif %}">{% if meta.defaults.include_events %}Yes{% else %}No{% endif %}</span>
-        </div>
-      </div>
-
-      {% if meta.required_params %}
-      <div>
-        <p class="text-[9px] text-ink-muted uppercase tracking-wider font-semibold mb-1">Parameters</p>
-        <div class="flex flex-wrap gap-1">
-          {% for p in meta.required_params %}
-          <span class="text-[9px] px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/20 font-mono">{{"{"}}{{ p }}{{"}"}}</span>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-
       {% if meta.spl %}
-      <div>
-        <p class="text-[9px] text-ink-muted uppercase tracking-wider font-semibold mb-1">SPL Template</p>
-        <pre class="text-[10px] text-ink-secondary font-mono bg-surface-2 rounded px-2 py-1.5 whitespace-pre-wrap break-words max-h-24 overflow-y-auto border border-edge">{{ meta.spl }}</pre>
-      </div>
+      <pre class="text-[10px] text-ink-secondary font-mono bg-surface-2 rounded-lg px-3 py-2 whitespace-pre-wrap break-words max-h-28 overflow-y-auto border border-edge">{{ meta.spl }}</pre>
       {% endif %}
 
       <!-- Actions -->
-      <div class="flex items-center gap-1 pt-1 border-t border-edge-subtle">
+      <div class="flex flex-wrap items-center gap-1.5">
         {% if meta.required_params %}
         <button type="button" @click="showParams = !showParams"
-                class="btn-ghost text-[10px] py-0.5 px-1.5 text-brand-light">
+                class="btn-ghost text-[10px] py-1 px-2 text-ok">
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
           </svg>
-          <span x-text="showParams ? 'Hide params' : 'Run'"></span>
+          <span x-text="showParams ? 'Cancel' : 'Run'"></span>
         </button>
         {% else %}
-        <!-- No params — run directly via HTMX -->
         <form hx-post="/splunk/ui/preset/run/"
               hx-target="#search-results"
               hx-swap="innerHTML"
               class="contents">
           {% csrf_token %}
           <input type="hidden" name="preset" value="{{ name }}">
-          <button type="submit" class="btn-ghost text-[10px] py-0.5 px-1.5 text-ok">
+          <button type="submit" class="btn-ghost text-[10px] py-1 px-2 text-ok">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
             </svg>
@@ -112,43 +89,38 @@
         </form>
         <button type="button"
                 @click="$dispatch('use-spl', { spl: '{{ meta.spl|escapejs }}', earliest: '{{ meta.defaults.earliest_time|default:"-10m"|escapejs }}', latest: '{{ meta.defaults.latest_time|default:"now"|escapejs }}' }); open = false"
-                class="btn-ghost text-[10px] py-0.5 px-1.5 text-ink-secondary">
-          Copy to search
-        </button>
+                class="btn-ghost text-[10px] py-1 px-2">Copy to search</button>
         {% endif %}
         <button type="button"
                 hx-get="/splunk/presets/editor/?name={{ name|urlencode }}"
                 hx-target="#preset-editor-body"
                 hx-swap="innerHTML"
                 @click="document.getElementById('preset-editor-modal').showModal()"
-                class="btn-ghost text-[10px] py-0.5 px-1.5">Edit</button>
+                class="btn-ghost text-[10px] py-1 px-2">Edit</button>
         <a href="/splunk/presets/export/{{ name|urlencode }}/"
-           class="btn-ghost text-[10px] py-0.5 px-1.5" title="Export">
+           class="btn-ghost text-[10px] py-1 px-2" title="Export">
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
           </svg>
         </a>
-        {% if not meta.is_builtin %}
         <form hx-post="/splunk/presets/delete/"
               hx-target="#presets-container"
               hx-swap="innerHTML"
-              hx-confirm="Delete preset '{{ name }}'?"
+              hx-confirm="Delete preset '{{ name }}'?{% if meta.is_builtin %} (This is a default preset — you can restore it later by removing it from the hidden list.){% endif %}"
               class="ml-auto">
           {% csrf_token %}
           <input type="hidden" name="name" value="{{ name }}">
-          <button type="submit" class="btn-ghost text-[10px] py-0.5 px-1.5 text-danger hover:bg-danger/10">
+          <button type="submit" class="btn-ghost text-[10px] py-1 px-2 text-danger hover:bg-danger/10">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
             </svg>
           </button>
         </form>
-        {% endif %}
       </div>
 
-      <!-- Parameter form (parameterized presets only) -->
+      <!-- Parameter form -->
       {% if meta.required_params %}
-      <div x-show="showParams" x-cloak class="p-2.5 rounded-lg bg-surface-2 border border-brand/20 space-y-2 animate-fade-in">
-        <p class="text-[9px] text-ink-muted uppercase tracking-wider font-semibold">Fill in parameters</p>
+      <div x-show="showParams" x-cloak class="p-3 rounded-lg bg-surface-2 border border-brand/20 space-y-2 animate-fade-in">
         {% for p in meta.required_params %}
         <div>
           <label class="text-[10px] text-ink-muted font-medium block mb-0.5">{{ p }}</label>
@@ -158,9 +130,8 @@
         {% endfor %}
         <div id="param-error-{{ forloop.counter }}" class="hidden px-2 py-1.5 rounded bg-danger/10 border border-danger/20 text-[10px] text-danger"></div>
         <div class="flex items-center gap-2">
-          <!-- Run directly -->
           <button type="button"
-                  class="btn-primary text-xs py-1 px-3 flex-1 justify-center"
+                  class="btn-primary text-xs py-1.5 px-3 flex-1 justify-center"
                   onclick="
                     var spl = '{{ meta.spl|escapejs }}';
                     var card = this.closest('[x-data]');
@@ -170,33 +141,21 @@
                     var ok = true;
                     inputs.forEach(function(inp) {
                       var val = inp.value.trim();
-                      if (!val) {
-                        ok = false;
-                        missing.push(inp.dataset.param);
-                        inp.classList.add('border-danger', 'bg-danger/5');
-                      } else {
-                        inp.classList.remove('border-danger', 'bg-danger/5');
-                        spl = spl.split('{' + inp.dataset.param + '}').join(val);
-                      }
+                      if (!val) { ok = false; missing.push(inp.dataset.param); inp.classList.add('border-danger'); }
+                      else { inp.classList.remove('border-danger'); spl = spl.split('{' + inp.dataset.param + '}').join(val); }
                     });
-                    if (!ok) {
-                      errEl.textContent = 'Required: ' + missing.join(', ');
-                      errEl.classList.remove('hidden');
-                    } else {
+                    if (!ok) { errEl.textContent = 'Required: ' + missing.join(', '); errEl.classList.remove('hidden'); }
+                    else {
                       errEl.classList.add('hidden');
                       window.dispatchEvent(new CustomEvent('use-spl', { detail: { spl: spl, earliest: '{{ meta.defaults.earliest_time|default:"-10m"|escapejs }}', latest: '{{ meta.defaults.latest_time|default:"now"|escapejs }}', autoRun: true }}));
                       card.__x.$data.showParams = false;
                       card.__x.$data.open = false;
                     }
                   ">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-            </svg>
             Run
           </button>
-          <!-- Just populate search box -->
           <button type="button"
-                  class="btn-ghost text-xs py-1 px-3 flex-shrink-0"
+                  class="btn-ghost text-xs py-1.5 px-3 flex-shrink-0"
                   onclick="
                     var spl = '{{ meta.spl|escapejs }}';
                     var card = this.closest('[x-data]');
@@ -206,19 +165,11 @@
                     var ok = true;
                     inputs.forEach(function(inp) {
                       var val = inp.value.trim();
-                      if (!val) {
-                        ok = false;
-                        missing.push(inp.dataset.param);
-                        inp.classList.add('border-danger', 'bg-danger/5');
-                      } else {
-                        inp.classList.remove('border-danger', 'bg-danger/5');
-                        spl = spl.split('{' + inp.dataset.param + '}').join(val);
-                      }
+                      if (!val) { ok = false; missing.push(inp.dataset.param); inp.classList.add('border-danger'); }
+                      else { inp.classList.remove('border-danger'); spl = spl.split('{' + inp.dataset.param + '}').join(val); }
                     });
-                    if (!ok) {
-                      errEl.textContent = 'Required: ' + missing.join(', ');
-                      errEl.classList.remove('hidden');
-                    } else {
+                    if (!ok) { errEl.textContent = 'Required: ' + missing.join(', '); errEl.classList.remove('hidden'); }
+                    else {
                       errEl.classList.add('hidden');
                       window.dispatchEvent(new CustomEvent('use-spl', { detail: { spl: spl, earliest: '{{ meta.defaults.earliest_time|default:"-10m"|escapejs }}', latest: '{{ meta.defaults.latest_time|default:"now"|escapejs }}' }}));
                       card.__x.$data.showParams = false;
@@ -235,7 +186,7 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="py-6 text-center">
+<div class="py-8 text-center">
   <p class="text-xs text-ink-muted">No presets configured.</p>
   <p class="text-[10px] text-ink-muted mt-1">Click + New to create one.</p>
 </div>

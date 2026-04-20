@@ -71,12 +71,26 @@ def _save_store(data: Dict[str, Dict[str, Any]]) -> None:
     _STORE_FILE.write_text(json.dumps(data, indent=2), encoding='utf-8')
 
 
+def _load_hidden() -> List[str]:
+    stored = _load_store()
+    return stored.get('_hidden', [])
+
+
+def _save_hidden(hidden: List[str]) -> None:
+    stored = _load_store()
+    stored['_hidden'] = sorted(set(hidden))
+    _save_store(stored)
+
+
 def list_presets() -> Dict[str, Dict[str, Any]]:
     stored = _load_store()
+    hidden = set(stored.get('_hidden', []))
     merged = dict(BUILT_IN_PRESETS)
-    merged.update(stored)
+    merged.update({k: v for k, v in stored.items() if k != '_hidden'})
     result = {}
     for name, cfg in merged.items():
+        if name in hidden:
+            continue
         result[name] = {
             "description": cfg.get("description", ""),
             "spl": cfg.get("spl", ""),
@@ -96,12 +110,24 @@ def get_preset(name: str) -> Dict[str, Any] | None:
 def save_preset(name: str, preset: Dict[str, Any]) -> None:
     stored = _load_store()
     stored[name] = preset
+    # Unhide if it was hidden
+    hidden = stored.get('_hidden', [])
+    if name in hidden:
+        hidden.remove(name)
+        stored['_hidden'] = hidden
     _save_store(stored)
 
 
 def delete_preset(name: str) -> None:
     stored = _load_store()
-    stored.pop(name, None)
+    if name in stored and name != '_hidden':
+        del stored[name]
+    # If it's a built-in, add to hidden list
+    if name in BUILT_IN_PRESETS:
+        hidden = stored.get('_hidden', [])
+        if name not in hidden:
+            hidden.append(name)
+            stored['_hidden'] = hidden
     _save_store(stored)
 
 
