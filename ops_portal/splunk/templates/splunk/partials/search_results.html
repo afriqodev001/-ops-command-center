@@ -89,7 +89,11 @@
             </div>
             <!-- Raw content (auto-formatted if JSON) -->
             {% if evt.raw %}
-            <div class="relative">
+            <div class="relative" x-data="{ copied: false }">
+              <button @click="navigator.clipboard.writeText(document.getElementById('evt-raw-{{ forloop.counter }}').textContent).then(() => { copied = true; setTimeout(() => copied = false, 2000) })"
+                      class="absolute top-1.5 right-1.5 btn-ghost text-[9px] py-0.5 px-1.5 z-10 bg-surface-3/80 backdrop-blur-sm">
+                <span x-text="copied ? 'Copied!' : 'Copy'"></span>
+              </button>
               <pre id="evt-raw-{{ forloop.counter }}"
                    class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed p-2 rounded bg-surface-2 border border-edge max-h-72 overflow-y-auto">{{ evt.raw }}</pre>
             </div>
