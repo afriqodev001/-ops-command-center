@@ -433,6 +433,7 @@ def ai_analyze_results(request):
 
     result_data = request.POST.get('result_data', '').strip()
     spl = request.POST.get('spl', '').strip()
+    user_context = request.POST.get('user_context', '').strip()
 
     if not result_data:
         return render(request, 'splunk/partials/ai_analysis.html', {
@@ -441,8 +442,14 @@ def ai_analyze_results(request):
 
     system = get_prompt('splunk_results_analysis')
     user_prompt = f"SPL Query: {spl}\n\nSearch Results:\n{result_data[:8000]}"
+    if user_context:
+        user_prompt += f"\n\nUser's question/context: {user_context}"
 
     raw = _call_llm(system, user_prompt)
+
+    # Retry once if Tachyon returns a transient preset error
+    if raw and 'No enabled preset' in raw:
+        raw = _call_llm(system, user_prompt)
 
     ai_error = None
     ai_response = None
@@ -471,6 +478,8 @@ def ai_natural_to_spl(request):
 
     system = get_prompt('splunk_natural_language_to_spl')
     raw = _call_llm(system, description)
+    if raw and 'No enabled preset' in raw:
+        raw = _call_llm(system, description)
 
     parsed = _extract_json_dict(raw)
     if not parsed:
@@ -499,6 +508,8 @@ def ai_generate_preset(request):
 
     system = get_prompt('splunk_preset_generator')
     raw = _call_llm(system, f"Generate a preset for this SPL query:\n\n{spl}")
+    if raw and 'No enabled preset' in raw:
+        raw = _call_llm(system, f"Generate a preset for this SPL query:\n\n{spl}")
 
     parsed = _extract_json_dict(raw)
     if not parsed:
