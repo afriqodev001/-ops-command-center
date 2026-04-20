@@ -145,11 +145,14 @@ def run_search(request):
         })
 
     from .tasks import splunk_search_run_task
+    from django.conf import settings as _s
     task = splunk_search_run_task.delay({
         'search': spl,
         'namespace_user': _namespace_user(),
         'earliest_time': earliest,
         'latest_time': latest,
+        'max_polls': getattr(_s, 'SPLUNK_RUN_MAX_POLLS', 30),
+        'poll_interval': getattr(_s, 'SPLUNK_RUN_POLL_INTERVAL', 2.0),
         'include_preview': True,
         'include_events': True,
         'preview_count': 50,
@@ -451,15 +454,27 @@ def ai_analyze_results(request):
 
     raw = _call_llm(system, user_prompt)
 
-    # Retry once if Tachyon returns a transient preset error
-    if raw and 'No enabled preset' in raw:
+    # Retry once if Tachyon returns a transient error
+    if raw and ('No enabled preset' in raw or 'preset_not_found' in raw):
+        import time
+        time.sleep(1)
         raw = _call_llm(system, user_prompt)
 
     ai_error = None
     ai_response = None
     parsed = _extract_json_dict(raw)
-    if parsed and '_ai_error' in parsed:
-        ai_error = parsed['_ai_error']
+    if parsed:
+        if '_ai_error' in parsed:
+            ai_error = parsed['_ai_error']
+        else:
+            # Extract text from common LLM response wrappers
+            ai_response = (
+                parsed.get('answer')
+                or parsed.get('response')
+                or parsed.get('text')
+                or parsed.get('content')
+                or raw
+            )
     else:
         ai_response = raw
 
@@ -482,7 +497,9 @@ def ai_natural_to_spl(request):
 
     system = get_prompt('splunk_natural_language_to_spl')
     raw = _call_llm(system, description)
-    if raw and 'No enabled preset' in raw:
+    if raw and ('No enabled preset' in raw or 'preset_not_found' in raw):
+        import time
+        time.sleep(1)
         raw = _call_llm(system, description)
 
     parsed = _extract_json_dict(raw)
@@ -490,6 +507,11 @@ def ai_natural_to_spl(request):
         return JsonResponse({'error': f'AI returned unparseable response: {raw[:200]}'})
     if '_ai_error' in parsed:
         return JsonResponse({'error': parsed['_ai_error']})
+    # Handle nested answer wrapper from Tachyon
+    if 'answer' in parsed and isinstance(parsed['answer'], str):
+        inner = _extract_json_dict(parsed['answer'])
+        if inner:
+            parsed = inner
 
     return JsonResponse({
         'spl': parsed.get('spl', ''),
@@ -511,15 +533,22 @@ def ai_generate_preset(request):
         return JsonResponse({'error': 'SPL query is required.'})
 
     system = get_prompt('splunk_preset_generator')
-    raw = _call_llm(system, f"Generate a preset for this SPL query:\n\n{spl}")
-    if raw and 'No enabled preset' in raw:
-        raw = _call_llm(system, f"Generate a preset for this SPL query:\n\n{spl}")
+    prompt = f"Generate a preset for this SPL query:\n\n{spl}"
+    raw = _call_llm(system, prompt)
+    if raw and ('No enabled preset' in raw or 'preset_not_found' in raw):
+        import time
+        time.sleep(1)
+        raw = _call_llm(system, prompt)
 
     parsed = _extract_json_dict(raw)
     if not parsed:
         return JsonResponse({'error': f'AI returned unparseable response: {raw[:200]}'})
     if '_ai_error' in parsed:
         return JsonResponse({'error': parsed['_ai_error']})
+    if 'answer' in parsed and isinstance(parsed['answer'], str):
+        inner = _extract_json_dict(parsed['answer'])
+        if inner:
+            parsed = inner
 
     return JsonResponse({
         'name': parsed.get('name', ''),
