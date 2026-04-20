@@ -454,9 +454,10 @@ def preset_import_confirm(request):
 @csrf_exempt
 @require_POST
 def ai_analyze_results(request):
-    """Analyze search results with AI."""
+    """Analyze search results with AI — saves full results as a file attachment."""
+    import uuid
+    from pathlib import Path
     from servicenow.services.prompt_store import get_prompt
-    from servicenow.services.ai_assist import _call_llm, _extract_json_dict
 
     result_data = request.POST.get('result_data', '').strip()
     spl = request.POST.get('spl', '').strip()
@@ -468,41 +469,94 @@ def ai_analyze_results(request):
         })
 
     system = get_prompt('splunk_results_analysis')
-    user_prompt = f"SPL Query: {spl}\n\nSearch Results:\n{result_data[:8000]}"
+    user_prompt = f"SPL Query: {spl}"
     if user_context:
         user_prompt += f"\n\nUser's question/context: {user_context}"
+    user_prompt += "\n\nThe full search results are in the attached file. Analyze them thoroughly."
 
-    raw = _call_llm(system, user_prompt)
+    # Save full results to a temp file
+    tmp_dir = Path(getattr(dj_settings, 'MEDIA_ROOT', 'media')) / 'splunk_ai_tmp'
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path = tmp_dir / f'{uuid.uuid4().hex}_results.json'
+    tmp_path.write_text(result_data, encoding='utf-8')
 
-    # Retry once if Tachyon returns a transient error
-    if raw and ('No enabled preset' in raw or 'preset_not_found' in raw):
-        import time
-        time.sleep(1)
-        raw = _call_llm(system, user_prompt)
+    from tachyon.tasks import run_tachyon_llm_with_file_task
+    from servicenow.services.ai_assist import _get_ai_config
 
+    cfg = _get_ai_config()
+    task = run_tachyon_llm_with_file_task.delay(
+        user_key='localuser',
+        preset_slug=cfg.get('tachyon_preset_slug', 'default'),
+        query=user_prompt,
+        file_path=str(tmp_path),
+        folder_name='splunk_analysis',
+        folder_id=None,
+        reuse_if_exists=False,
+        overrides={
+            'systemInstruction': system,
+            **(({'modelId': cfg['model']} if cfg.get('model') else {})),
+        },
+    )
+
+    return render(request, 'splunk/partials/ai_analysis_polling.html', {
+        'task_id': task.id,
+        'ai_system_prompt': system,
+        'ai_user_prompt': user_prompt,
+    })
+
+
+@csrf_exempt
+def ai_analyze_poll(request, task_id):
+    """Poll for AI analysis result."""
+    from celery.result import AsyncResult
+    from servicenow.services.ai_assist import _extract_json_dict
+
+    ar = AsyncResult(task_id)
+
+    if ar.state in ('PENDING', 'RECEIVED', 'STARTED'):
+        return render(request, 'splunk/partials/ai_analysis_polling.html', {
+            'task_id': task_id,
+        })
+
+    if ar.state == 'FAILURE':
+        return render(request, 'splunk/partials/ai_analysis.html', {
+            'ai_error': str(ar.result),
+        })
+
+    result = ar.result or {}
+    if result.get('error'):
+        return render(request, 'splunk/partials/ai_analysis.html', {
+            'ai_error': result.get('detail') or result.get('error'),
+        })
+
+    # Extract the response text
+    raw = ''
+    data = result.get('data') or result
+    if isinstance(data, dict):
+        raw = data.get('answer') or data.get('response') or data.get('text') or ''
+    if not raw and isinstance(result, dict):
+        raw = result.get('answer') or result.get('response') or result.get('text') or ''
+    if not raw:
+        raw = str(result)
+
+    ai_response = raw
     ai_error = None
-    ai_response = None
     parsed = _extract_json_dict(raw)
-    if parsed:
-        if '_ai_error' in parsed:
-            ai_error = parsed['_ai_error']
-        else:
-            # Extract text from common LLM response wrappers
-            ai_response = (
-                parsed.get('answer')
-                or parsed.get('response')
-                or parsed.get('text')
-                or parsed.get('content')
-                or raw
-            )
-    else:
-        ai_response = raw
+    if parsed and '_ai_error' in parsed:
+        ai_error = parsed['_ai_error']
+        ai_response = None
+    elif parsed:
+        ai_response = (
+            parsed.get('answer')
+            or parsed.get('response')
+            or parsed.get('text')
+            or parsed.get('content')
+            or raw
+        )
 
     return render(request, 'splunk/partials/ai_analysis.html', {
         'ai_response': ai_response,
         'ai_error': ai_error,
-        'ai_system_prompt': system,
-        'ai_user_prompt': user_prompt,
     })
 
 

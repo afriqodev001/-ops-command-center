@@ -139,7 +139,7 @@
                 @click="
                   analyzing = true;
                   var ctx = document.getElementById('ai-user-context').value;
-                  var body = 'result_data=' + encodeURIComponent(document.getElementById('splunk-result-data').value.substring(0, 8000))
+                  var body = 'result_data=' + encodeURIComponent(document.getElementById('splunk-result-data').value)
                     + '&spl=' + encodeURIComponent(document.querySelector('textarea[name=spl]')?.value || '')
                     + '&user_context=' + encodeURIComponent(ctx);
                   fetch('/splunk/ai/analyze/', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: body })
@@ -159,7 +159,7 @@
           <template x-if="analyzing">
             <span class="inline-flex items-center gap-1.5">
               <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Analyzing…
+              Uploading…
             </span>
           </template>
         </button>

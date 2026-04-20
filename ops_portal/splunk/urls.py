@@ -18,6 +18,7 @@ urlpatterns = [
 
     # ─── AI features ───────────────────────────
     path("ai/analyze/",            pages.ai_analyze_results,  name="splunk-ai-analyze"),
+    path("ai/analyze/poll/<str:task_id>/", pages.ai_analyze_poll, name="splunk-ai-analyze-poll"),
     path("ai/natural-to-spl/",     pages.ai_natural_to_spl,   name="splunk-ai-spl"),
     path("ai/generate-preset/",    pages.ai_generate_preset,  name="splunk-ai-preset"),
     path("ui/search/run/",         pages.run_search,       name="splunk-run-search"),
