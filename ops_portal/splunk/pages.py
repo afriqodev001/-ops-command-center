@@ -501,6 +501,8 @@ def ai_analyze_results(request):
     return render(request, 'splunk/partials/ai_analysis.html', {
         'ai_response': ai_response,
         'ai_error': ai_error,
+        'ai_system_prompt': system,
+        'ai_user_prompt': user_prompt,
     })
 
 
