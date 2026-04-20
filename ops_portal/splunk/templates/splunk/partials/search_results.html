@@ -70,13 +70,13 @@
 
     <!-- Events tab -->
     <div x-show="tab === 'events'" x-cloak>
-      {% if result.events.data.results %}
+      {% if cleaned_events %}
       <div class="space-y-2 max-h-96 overflow-y-auto">
-        {% for evt in result.events.data.results %}
+        {% for evt in cleaned_events %}
         <div class="p-2.5 rounded-lg bg-surface-3/60 border border-edge">
           <div class="flex items-center gap-2 mb-1">
-            {% if evt._time %}
-            <span class="text-[10px] text-ink-muted font-mono">{{ evt._time }}</span>
+            {% if evt.time %}
+            <span class="text-[10px] text-ink-muted font-mono">{{ evt.time }}</span>
             {% endif %}
             {% if evt.host %}
             <span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge">{{ evt.host }}</span>
@@ -85,8 +85,8 @@
             <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-subtle/50 text-brand-light border border-brand/10">{{ evt.sourcetype }}</span>
             {% endif %}
           </div>
-          {% if evt._raw %}
-          <pre class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed mt-1">{{ evt._raw }}</pre>
+          {% if evt.raw %}
+          <pre class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed mt-1">{{ evt.raw }}</pre>
           {% endif %}
         </div>
         {% endfor %}

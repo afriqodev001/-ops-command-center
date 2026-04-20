@@ -225,9 +225,20 @@ def poll_search(request, task_id):
             'error': result.get('detail') or result.get('error'),
         })
 
+    # Django templates can't access underscore-prefixed keys (_time, _raw).
+    # Pre-process events to rename them.
+    events_data = ((result.get('events') or {}).get('data') or {}).get('results') or []
+    cleaned_events = []
+    for evt in events_data:
+        clean = {}
+        for k, v in evt.items():
+            clean[k.lstrip('_') if k.startswith('_') else k] = v
+        cleaned_events.append(clean)
+
     return render(request, 'splunk/partials/search_results.html', {
         'result': result,
         'result_json': json.dumps(result, default=str),
+        'cleaned_events': cleaned_events,
     })
 
 
