@@ -259,13 +259,22 @@ def poll_search(request, task_id):
             'error': result.get('detail') or result.get('error'),
         })
 
-    # Check if job actually completed
-    if result.get('ok') and not result.get('done'):
-        return render(request, 'splunk/partials/search_error.html', {
-            'error': f'Search did not complete within the polling window '
-                     f'({result.get("polls_used", "?")} polls). '
-                     f'SID: {result.get("sid", "?")}. Try running again — '
-                     f'the job may still be running in Splunk.',
+    # If job didn't complete, dispatch a continue-polling task
+    if result.get('ok') and not result.get('done') and result.get('sid'):
+        from .tasks import splunk_job_continue_task
+        continue_task = splunk_job_continue_task.delay({
+            'sid': result['sid'],
+            'namespace_user': 'nobody',
+            'max_polls': 60,
+            'poll_interval': 3.0,
+            'include_preview': True,
+            'include_events': True,
+            'preview_count': 50,
+            'events_count': 50,
+        })
+        return render(request, 'splunk/partials/search_running.html', {
+            'task_id': continue_task.id,
+            'spl': f'Continuing... SID: {result["sid"]}',
         })
 
     # ── Normalize preview data ──

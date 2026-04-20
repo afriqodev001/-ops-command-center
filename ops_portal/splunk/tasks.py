@@ -438,6 +438,69 @@ def splunk_search_run_task(self, body: dict):
 
 
 @shared_task(bind=True)
+def splunk_job_continue_task(self, body: dict):
+    """Continue polling an existing Splunk job SID until done, then fetch results."""
+    body = body or {}
+    sid = (body.get("sid") or "").strip()
+    if not sid:
+        return {"error": "missing_parameter", "detail": "sid is required"}
+
+    namespace_user = body.get("namespace_user", "nobody")
+    max_polls = int(body.get("max_polls", 60))
+    poll_interval = float(body.get("poll_interval", 3.0))
+
+    include_preview = bool(body.get("include_preview", True))
+    include_events = bool(body.get("include_events", True))
+    preview_count = int(body.get("preview_count", 50))
+    events_count = int(body.get("events_count", 50))
+
+    runner = SplunkRunner(_user_key(body))
+    driver = runner.get_driver()
+
+    done = False
+    status_payload = None
+    polls_used = 0
+
+    for i in range(max_polls):
+        polls_used = i + 1
+        status_payload = get_job_status(driver, sid=sid, namespace_user=namespace_user)
+
+        if status_payload.get("error"):
+            return {"error": "status_failed", "sid": sid, "detail": status_payload}
+
+        done = bool((status_payload.get("status") or {}).get("isDone"))
+        if done:
+            break
+
+        time.sleep(poll_interval)
+
+    out_preview = None
+    out_events = None
+
+    if done or True:  # fetch whatever is available even if not done
+        if include_preview:
+            out_preview = get_job_results_preview(
+                driver, sid=sid, namespace_user=namespace_user,
+                count=preview_count,
+            )
+        if include_events:
+            out_events = get_job_events(
+                driver, sid=sid, namespace_user=namespace_user,
+                count=events_count,
+            )
+
+    return {
+        "ok": True,
+        "sid": sid,
+        "status": status_payload,
+        "done": done,
+        "polls_used": polls_used,
+        "preview": out_preview,
+        "events": out_events,
+    }
+
+
+@shared_task(bind=True)
 def splunk_search_run_async_task(self, body: dict):
     """
     Create a search job and return SID immediately (no polling).
