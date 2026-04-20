@@ -100,6 +100,7 @@ def saved_searches_poll(request, task_id):
         entries = data.get('entry') or []
         for e in entries:
             content = e.get('content') or {}
+            spl = (content.get('qualifiedSearch') or content.get('search') or '').strip()
             alerts.append({
                 'name': e.get('name', ''),
                 'owner': (e.get('acl') or {}).get('owner', ''),
@@ -108,6 +109,9 @@ def saved_searches_poll(request, task_id):
                 'is_scheduled': bool(content.get('is_scheduled')),
                 'cron_schedule': content.get('cron_schedule', ''),
                 'description': content.get('description', ''),
+                'spl': spl,
+                'earliest': content.get('dispatch.earliest_time', ''),
+                'latest': content.get('dispatch.latest_time', ''),
             })
     return render(request, 'splunk/partials/saved_searches_list.html', {
         'alerts': alerts,
