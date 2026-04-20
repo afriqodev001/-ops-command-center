@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block page_title %}Saved Searches{% endblock %}
-{% block page_subtitle %}Browse and run Splunk saved searches{% endblock %}
+{% block page_subtitle %}Search and run Splunk saved searches{% endblock %}
 
 {% block content %}
 <div x-data="savedSearchesPage()" x-init="pollSession()">
@@ -14,56 +14,65 @@
     </svg>
     <div class="flex-1">
       <p class="text-xs font-semibold text-warn">Splunk not connected</p>
-      <p class="text-[10px] text-ink-muted">Connect via the sidebar to load saved searches.</p>
+      <p class="text-[10px] text-ink-muted">Connect via the sidebar to search saved searches.</p>
     </div>
   </div>
 
-  <!-- Header with search and load button -->
-  <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-5">
-    <div class="relative w-full sm:flex-1 sm:max-w-md">
-      <svg class="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <!-- Search bar -->
+  <div class="glass-card p-4 mb-5">
+    <div class="flex items-center gap-2 mb-3">
+      <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
       </svg>
-      <input type="text" x-model="search" placeholder="Filter by name or description..."
-             class="input-dark text-xs !pl-10 py-2">
+      <div>
+        <h3 class="text-sm font-semibold text-ink-primary">Find Saved Searches</h3>
+        <p class="text-[10px] text-ink-muted">Search by name — queries Splunk directly so all 2000+ searches are searchable</p>
+      </div>
     </div>
-    <div class="flex items-center gap-3 w-full sm:w-auto">
-      <p class="text-[10px] text-ink-muted flex-1" x-show="search.trim() && loaded"
-         x-text="visibleCount + ' of ' + totalCount + ' searches'"></p>
+
+    <div class="flex flex-col sm:flex-row gap-3">
+      <div class="relative flex-1">
+        <svg class="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" x-model="searchTerm"
+               @keydown.enter.prevent="if(searchTerm.trim().length >= 2) doSearch()"
+               placeholder="Type a name fragment (e.g. 'error', 'blend', 'daily')..."
+               class="input-dark text-xs !pl-10 py-2">
+      </div>
       <button type="button"
-              hx-get="/splunk/saved-searches/list/"
-              hx-target="#saved-searches-body"
-              hx-swap="innerHTML"
-              class="btn-primary text-xs py-2 px-4 flex-shrink-0"
-              :disabled="!sessionAlive || loading"
-              @click="loading = true"
-              @htmx:after-request="loading = false; $nextTick(() => indexCards())">
-        <template x-if="!loading">
+              @click="doSearch()"
+              :disabled="!sessionAlive || searching || searchTerm.trim().length < 2"
+              class="btn-primary text-xs py-2 px-4 flex-shrink-0 disabled:opacity-50">
+        <template x-if="!searching">
           <span class="inline-flex items-center gap-2">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
-            Load from Splunk
+            Search
           </span>
         </template>
-        <template x-if="loading">
+        <template x-if="searching">
           <span class="inline-flex items-center gap-2">
             <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            Loading…
+            Searching…
           </span>
         </template>
       </button>
     </div>
+    <p class="text-[10px] text-ink-muted mt-2" x-show="searchTerm.trim().length > 0 && searchTerm.trim().length < 2">
+      Type at least 2 characters to search.
+    </p>
   </div>
 
-  <!-- Saved searches list -->
+  <!-- Saved searches results -->
   <div id="saved-searches-body">
     <div class="glass-card p-8 text-center">
       <svg class="w-10 h-10 text-ink-muted opacity-30 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
       </svg>
-      <p class="text-xs text-ink-muted">Click <span class="font-semibold text-ink-primary">Load from Splunk</span> to fetch your saved searches.</p>
-      <p class="text-[10px] text-ink-muted mt-1">Requires an active Splunk session.</p>
+      <p class="text-xs text-ink-muted">Search for a saved search by name to get started.</p>
+      <p class="text-[10px] text-ink-muted mt-1">Results are fetched directly from Splunk — no need to load all searches first.</p>
     </div>
   </div>
 
@@ -77,12 +86,9 @@
 <script>
 function _defineSavedSearchesPage() {
   Alpine.data('savedSearchesPage', () => ({
-    search: '',
+    searchTerm: '',
     sessionAlive: false,
-    loading: false,
-    loaded: false,
-    totalCount: 0,
-    visibleCount: 0,
+    searching: false,
     _pollTimer: null,
 
     async pollSession() {
@@ -95,32 +101,19 @@ function _defineSavedSearchesPage() {
       };
       await check();
       this._pollTimer = setInterval(check, 15000);
-      this.$watch('search', () => this.filterCards());
     },
 
     destroy() {
       if (this._pollTimer) clearInterval(this._pollTimer);
     },
 
-    indexCards() {
-      var cards = document.querySelectorAll('[data-ss-card]');
-      this.totalCount = cards.length;
-      this.visibleCount = cards.length;
-      this.loaded = cards.length > 0;
-    },
-
-    filterCards() {
-      var q = this.search.toLowerCase().trim();
-      var cards = document.querySelectorAll('[data-ss-card]');
-      var visible = 0;
-      cards.forEach(function(card) {
-        var match = !q
-          || (card.dataset.ssName || '').includes(q)
-          || (card.dataset.ssDesc || '').includes(q);
-        card.style.display = match ? '' : 'none';
-        if (match) visible++;
-      });
-      this.visibleCount = visible;
+    doSearch() {
+      if (this.searchTerm.trim().length < 2 || !this.sessionAlive) return;
+      this.searching = true;
+      htmx.ajax('GET', '/splunk/saved-searches/list/?q=' + encodeURIComponent(this.searchTerm.trim()), {
+        target: '#saved-searches-body',
+        swap: 'innerHTML',
+      }).then(() => { this.searching = false; }).catch(() => { this.searching = false; });
     },
   }));
 }

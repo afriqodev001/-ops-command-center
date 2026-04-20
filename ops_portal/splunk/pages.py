@@ -53,10 +53,19 @@ def saved_searches_list(request):
             'error': 'Splunk session is not connected. Use the Connect button in the sidebar.',
         })
 
-    from .tasks import splunk_alerts_list_task
-    task = splunk_alerts_list_task.delay({
-        'namespace_user': request.GET.get('namespace_user', '') or _namespace_user(),
-    })
+    search_term = request.GET.get('q', '').strip()
+
+    if search_term:
+        from .tasks import splunk_alerts_search_task
+        task = splunk_alerts_search_task.delay({
+            'search_term': search_term,
+            'count': 50,
+        })
+    else:
+        from .tasks import splunk_alerts_list_task
+        task = splunk_alerts_list_task.delay({
+            'namespace_user': request.GET.get('namespace_user', '') or _namespace_user(),
+        })
     return render(request, 'splunk/partials/saved_searches_loading.html', {
         'task_id': task.id,
     })
@@ -83,7 +92,23 @@ def saved_searches_poll(request, task_id):
             'error': result.get('detail') or result.get('error'),
         })
 
+    # alerts_list_task returns {'alerts': [...]}
+    # alerts_search_task returns raw Splunk response {'data': {'entry': [...]}}
     alerts = result.get('alerts') or []
+    if not alerts:
+        data = result.get('data') or {}
+        entries = data.get('entry') or []
+        for e in entries:
+            content = e.get('content') or {}
+            alerts.append({
+                'name': e.get('name', ''),
+                'owner': (e.get('acl') or {}).get('owner', ''),
+                'app': (e.get('acl') or {}).get('app', ''),
+                'disabled': bool(content.get('disabled')),
+                'is_scheduled': bool(content.get('is_scheduled')),
+                'cron_schedule': content.get('cron_schedule', ''),
+                'description': content.get('description', ''),
+            })
     return render(request, 'splunk/partials/saved_searches_list.html', {
         'alerts': alerts,
     })
