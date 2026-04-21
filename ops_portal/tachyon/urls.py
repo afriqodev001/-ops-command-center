@@ -10,6 +10,7 @@ urlpatterns = [
     path("session/connect/",        pages.tachyon_session_connect,      name="tachyon-session-connect"),
     path("session/close-browser/",  pages.tachyon_session_close_browser, name="tachyon-session-close"),
     path("session/disconnect/",     pages.tachyon_session_disconnect,   name="tachyon-session-disconnect"),
+    path("session/reset/",          pages.tachyon_session_reset,        name="tachyon-session-reset"),
 
     # ─── UI pages ───────────────────────────────
     path("playground/",             pages.playground,           name="tachyon-playground"),

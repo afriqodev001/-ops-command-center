@@ -108,8 +108,16 @@ def session_widget(request):
 @require_POST
 def session_connect(request):
     from core.browser import get_or_create_session, launch_edge, update_runtime_info
+    from core.browser.shutdown import shutdown_browser
 
     session = get_or_create_session(_INTEGRATION, 'localuser')
+    if _is_browser_alive(session.get('debug_port')):
+        shutdown_browser(
+            debug_port=session.get('debug_port') or 0,
+            pid=session.get('pid'),
+        )
+        import time; time.sleep(1)
+
     result = launch_edge(
         profile_dir=session['profile_dir'],
         debug_port=session['debug_port'],
@@ -125,6 +133,15 @@ def session_connect(request):
 
     ctx = _build_session_context()
     ctx['connecting'] = result.get('status') != 'failed'
+    return render(request, 'copilot_chat/partials/session_widget.html', ctx)
+
+
+@csrf_exempt
+@require_POST
+def session_reset(request):
+    from core.browser.registry import reset_session
+    reset_session(_INTEGRATION, 'localuser')
+    ctx = _build_session_context()
     return render(request, 'copilot_chat/partials/session_widget.html', ctx)
 
 

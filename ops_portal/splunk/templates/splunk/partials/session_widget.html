@@ -44,17 +44,29 @@
     <p class="text-[11px] text-ink-muted mt-0.5">Browser closed · cookies on disk</p>
   </div>
 </div>
-<form hx-post="/splunk/session/connect/"
-      hx-target="#splunk-session-widget"
-      hx-swap="innerHTML"
-      hx-disabled-elt="find button"
-      class="mt-1.5">
-  {% csrf_token %}
-  <button type="submit"
-          class="w-full btn-ghost text-xs py-1.5 justify-center border border-edge hover:border-brand/40 disabled:opacity-60 disabled:cursor-wait disabled:border-edge">
-    Reconnect Browser
-  </button>
-</form>
+<div class="flex items-center gap-1.5 mt-1.5">
+  <form hx-post="/splunk/session/connect/"
+        hx-target="#splunk-session-widget"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button"
+        class="flex-1">
+    {% csrf_token %}
+    <button type="submit"
+            class="w-full btn-ghost text-xs py-1.5 justify-center border border-edge hover:border-brand/40 disabled:opacity-60 disabled:cursor-wait disabled:border-edge">
+      Reconnect
+    </button>
+  </form>
+  <form hx-post="/splunk/session/reset/"
+        hx-target="#splunk-session-widget"
+        hx-swap="innerHTML"
+        hx-confirm="Reset session? This deletes saved cookies and profile data. You'll need to log in again."
+        class="flex-shrink-0">
+    {% csrf_token %}
+    <button type="submit" class="btn-ghost text-[10px] py-1.5 px-2 text-danger hover:bg-danger/10" title="Delete profile and start fresh">
+      Reset
+    </button>
+  </form>
+</div>
 
 {% else %}
 <div class="rounded-lg px-3 py-2.5 bg-danger/10 border border-danger/20 flex items-center gap-2.5">

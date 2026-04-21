@@ -7,6 +7,7 @@ urlpatterns = [
     path("session/connect/",       session_views.session_connect,       name="splunk-session-connect"),
     path("session/close-browser/", session_views.session_close_browser, name="splunk-session-close"),
     path("session/disconnect/",    session_views.session_disconnect,    name="splunk-session-disconnect"),
+    path("session/reset/",         session_views.session_reset,         name="splunk-session-reset"),
     path("session/status/",        session_views.session_status_json,   name="splunk-session-status"),
 
     # ─── UI pages ───────────────────────────────

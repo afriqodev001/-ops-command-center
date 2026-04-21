@@ -169,6 +169,21 @@ def session_disconnect(request):
 
 @csrf_exempt
 @require_POST
+def session_reset(request):
+    """Full reset: close browser, delete profile directory, clear session."""
+    from core.browser.registry import reset_session
+    _, user_key = _resolve_session()
+    reset_session(_INTEGRATION, user_key)
+    ctx = _build_session_context()
+    _push_session_activity(request, 'session_reset',
+                           'Reset ServiceNow session (profile deleted)', 'warning')
+    resp = render(request, 'servicenow/partials/session_widget.html', ctx)
+    resp['HX-Trigger'] = 'activity-updated'
+    return resp
+
+
+@csrf_exempt
+@require_POST
 def session_close_browser(request):
     """Kill the Edge process but keep the session profile (cookies persist).
     The next Table API task will auto-launch a headless instance using the

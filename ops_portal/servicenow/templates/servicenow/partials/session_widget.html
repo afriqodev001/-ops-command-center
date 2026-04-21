@@ -51,20 +51,29 @@
     <p class="text-[11px] text-ink-muted mt-0.5">Browser closed · cookies on disk · tasks auto-launch headless</p>
   </div>
 </div>
-<form hx-post="/servicenow/session/connect/"
-      hx-target="#session-widget-container"
-      hx-swap="innerHTML"
-      hx-disabled-elt="find button"
-      class="mt-1.5">
-  {% csrf_token %}
-  <button type="submit"
-          class="w-full btn-ghost text-xs py-1.5 justify-center border border-edge hover:border-brand/40 disabled:opacity-60 disabled:cursor-wait disabled:border-edge">
-    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-    </svg>
-    Reconnect Browser
-  </button>
-</form>
+<div class="flex items-center gap-1.5 mt-1.5">
+  <form hx-post="/servicenow/session/connect/"
+        hx-target="#session-widget-container"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button"
+        class="flex-1">
+    {% csrf_token %}
+    <button type="submit"
+            class="w-full btn-ghost text-xs py-1.5 justify-center border border-edge hover:border-brand/40 disabled:opacity-60 disabled:cursor-wait disabled:border-edge">
+      Reconnect
+    </button>
+  </form>
+  <form hx-post="/servicenow/session/reset/"
+        hx-target="#session-widget-container"
+        hx-swap="innerHTML"
+        hx-confirm="Reset session? This deletes saved cookies and profile data. You'll need to log in again."
+        class="flex-shrink-0">
+    {% csrf_token %}
+    <button type="submit" class="btn-ghost text-[10px] py-1.5 px-2 text-danger hover:bg-danger/10" title="Delete profile and start fresh">
+      Reset
+    </button>
+  </form>
+</div>
 
 {% elif status == 'pending' %}
 <div class="rounded-lg px-3 py-2.5 bg-surface-4 border border-edge flex items-center gap-2.5">

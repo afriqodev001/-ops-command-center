@@ -112,6 +112,23 @@ def clear_session(integration: str, user_key: str) -> None:
         p.unlink()
 
 
+def reset_session(integration: str, user_key: str) -> None:
+    """Full reset: close browser, delete registry file AND profile directory."""
+    import shutil
+    from core.browser.shutdown import shutdown_browser
+
+    session = load_session(integration, user_key)
+    if session:
+        shutdown_browser(
+            debug_port=session.get('debug_port') or 0,
+            pid=session.get('pid'),
+        )
+    clear_session(integration, user_key)
+    profile_dir = derive_profile_dir(integration, user_key)
+    if os.path.isdir(profile_dir):
+        shutil.rmtree(profile_dir, ignore_errors=True)
+
+
 def touch_session(integration: str, user_key: str) -> None:
     s = load_session(integration, user_key)
     if not s:
