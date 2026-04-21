@@ -98,6 +98,27 @@
       </div>
     </div>
 
+    <!-- Copilot readiness status -->
+    <div x-show="sessionAlive" x-cloak class="rounded-lg px-3 py-2 bg-surface-3 border border-edge flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <svg class="w-3.5 h-3.5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+        </svg>
+        <span class="text-[10px] text-ink-muted">Copilot readiness:</span>
+      </div>
+      <div id="copilot-auth-status">
+        <form hx-post="/copilot/ui/auth/check/"
+              hx-target="#copilot-auth-status"
+              hx-swap="innerHTML"
+              hx-trigger="load delay:1s"
+              class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="user_key" value="localuser">
+          <button type="submit" class="text-[10px] text-brand-light hover:text-brand">Check</button>
+        </form>
+      </div>
+    </div>
+
     <!-- Run Prompt card -->
     <div class="glass-card p-4">
       <div class="flex items-center gap-2 mb-3">

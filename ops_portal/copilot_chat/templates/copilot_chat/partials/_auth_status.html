@@ -1,32 +1,47 @@
 {% if state == 'checking' %}
-<span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-info/10 text-info border border-info/20"
-      hx-get="/copilot/ui/auth/poll/{{ task_id }}/"
-      hx-trigger="load delay:2s"
-      hx-target="#copilot-auth-status"
-      hx-swap="innerHTML">
-  <div class="w-2.5 h-2.5 border-2 border-info/30 border-t-info rounded-full animate-spin"></div>
-  Checking…
-</span>
+<div class="space-y-1"
+     hx-get="/copilot/ui/auth/poll/{{ task_id }}/"
+     hx-trigger="load delay:2s"
+     hx-target="#copilot-auth-status"
+     hx-swap="innerHTML">
+  <span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-info/10 text-info border border-info/20">
+    <div class="w-2.5 h-2.5 border-2 border-info/30 border-t-info rounded-full animate-spin"></div>
+    Checking…
+  </span>
+</div>
 
 {% elif state == 'ok' %}
 <span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-ok/10 text-ok border border-ok/20">
   <span class="w-1.5 h-1.5 rounded-full bg-ok animate-pulse"></span>
-  Connected
+  Ready
 </span>
 
-{% elif state == 'login_required' %}
-<span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-warn/10 text-warn border border-warn/20">
-  <span class="w-1.5 h-1.5 rounded-full bg-warn"></span>
-  Login required
-</span>
-
-{% elif state == 'error' %}
-<span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-danger/10 text-danger border border-danger/20"
-      title="{{ error }}">
-  <span class="w-1.5 h-1.5 rounded-full bg-danger"></span>
-  Error
-</span>
+{% elif state == 'login_required' or state == 'error' %}
+<div class="space-y-1.5">
+  <span class="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded {% if state == 'error' %}bg-danger/10 text-danger border border-danger/20{% else %}bg-warn/10 text-warn border border-warn/20{% endif %}">
+    <span class="w-1.5 h-1.5 rounded-full {% if state == 'error' %}bg-danger{% else %}bg-warn{% endif %}"></span>
+    {% if step == 'browser' %}Browser not connected
+    {% elif step == 'attach' %}Cannot attach
+    {% elif step == 'teams' %}Teams not loaded
+    {% elif step == 'copilot_rail' %}Copilot not found
+    {% elif step == 'iframe' %}Chat not loaded
+    {% else %}Not ready{% endif %}
+  </span>
+  {% if detail %}
+  <p class="text-[9px] text-ink-muted leading-relaxed">{{ detail }}</p>
+  {% endif %}
+  <form hx-post="/copilot/ui/auth/check/"
+        hx-target="#copilot-auth-status"
+        hx-swap="innerHTML"
+        class="inline">
+    {% csrf_token %}
+    <input type="hidden" name="user_key" value="{{ user_key|default:'localuser' }}">
+    <button type="submit" class="text-[9px] text-brand-light hover:text-brand underline">
+      Check again
+    </button>
+  </form>
+</div>
 
 {% else %}
-<span class="text-[10px] px-2 py-1 rounded bg-surface-5 text-ink-muted border border-edge">{{ detail|default:'Unknown' }}</span>
+<span class="text-[10px] px-2 py-1 rounded bg-surface-5 text-ink-muted border border-edge">{{ detail|default:'Not checked' }}</span>
 {% endif %}

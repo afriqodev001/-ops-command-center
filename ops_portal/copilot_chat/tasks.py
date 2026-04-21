@@ -64,43 +64,81 @@ def _finalize_run(run: CopilotRun, result: dict) -> CopilotRun:
 
 @shared_task(bind=True)
 def copilot_auth_check_task(self, body: dict):
+    """Step-by-step readiness check with detailed status at each phase."""
     body = body or {}
     user_key = _user_key(body)
 
+    # Step 1: Browser
     try:
         runner = CopilotRunner(user_key)
         _ = runner.get_driver()
-
-        client = build_client_for_user(user_key)
-        client.attach()
-
-        guid = client.ensure_ready()
-
-        return {
-            "authed": True,
-            "status": "ok",
-            "detail": "Copilot is ready (chat input detected).",
-            "user_key": user_key,
-            "guid": guid,
-        }
-
-    except TimeoutException as te:
-        return {
-            "authed": False,
-            "status": "login_required",
-            "detail": "Copilot not ready. Complete login then retry.",
-            "user_key": user_key,
-            "error": str(te),
-        }
-
     except Exception as e:
         return {
-            "authed": False,
-            "status": "error",
-            "detail": "Auth check failed.",
-            "user_key": user_key,
-            "error": str(e),
+            "authed": False, "status": "error", "user_key": user_key,
+            "detail": "Browser session failed. Click Connect in the sidebar to open the browser.",
+            "step": "browser", "error": str(e),
         }
+
+    # Step 2: Attach to browser
+    try:
+        client = build_client_for_user(user_key)
+        client.attach()
+    except Exception as e:
+        return {
+            "authed": False, "status": "error", "user_key": user_key,
+            "detail": "Could not attach to browser. Try Reset Session then Connect again.",
+            "step": "attach", "error": str(e),
+        }
+
+    # Step 3: Teams loaded?
+    try:
+        client.ensure_teams_open()
+    except Exception as e:
+        return {
+            "authed": False, "status": "login_required", "user_key": user_key,
+            "detail": "Teams is not loaded. Make sure you're logged into Teams in the browser.",
+            "step": "teams", "error": str(e),
+        }
+
+    # Step 4: Click Copilot in left rail
+    try:
+        guid = client.click_copilot_left_rail()
+    except TimeoutException:
+        return {
+            "authed": False, "status": "login_required", "user_key": user_key,
+            "detail": "Copilot not found in the Teams left rail. Make sure Copilot is enabled for your account and visible in the sidebar. Try clicking it manually, then check status again.",
+            "step": "copilot_rail",
+        }
+    except Exception as e:
+        return {
+            "authed": False, "status": "error", "user_key": user_key,
+            "detail": f"Failed to click Copilot: {e}",
+            "step": "copilot_rail", "error": str(e),
+        }
+
+    # Step 5: Switch to Copilot iframe and find input
+    try:
+        client.switch_to_copilot_context(guid)
+    except TimeoutException:
+        return {
+            "authed": False, "status": "login_required", "user_key": user_key,
+            "detail": "Copilot was clicked but the chat interface didn't load. This can happen if Copilot is still loading — wait a few seconds and check again.",
+            "step": "iframe", "guid": guid,
+        }
+    except Exception as e:
+        return {
+            "authed": False, "status": "error", "user_key": user_key,
+            "detail": f"Copilot iframe error: {e}",
+            "step": "iframe", "error": str(e),
+        }
+
+    return {
+        "authed": True,
+        "status": "ok",
+        "detail": "Copilot is ready (chat input detected).",
+        "user_key": user_key,
+        "guid": guid,
+    }
 
 
 @shared_task(bind=True)
