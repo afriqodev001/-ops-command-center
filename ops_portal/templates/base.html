@@ -592,9 +592,10 @@
     // The widget poll (hx-get every 20s) returns HTML; we read the
     // status colour out of the response and update the tiny dot.
     function updateHeaderPill(event) {
-      const html = event.detail.xhr.responseText;
-      const dot   = document.getElementById('header-session-dot');
-      const label = document.getElementById('header-session-label');
+      var html = event.detail && event.detail.xhr ? event.detail.xhr.responseText : null;
+      if (!html) return;
+      var dot   = document.getElementById('header-session-dot');
+      var label = document.getElementById('header-session-label');
       if (!dot) return;
       if (html.includes('bg-ok'))      { dot.className = 'w-1.5 h-1.5 rounded-full bg-ok animate-pulse flex-shrink-0'; if (label) label.textContent = 'Connected'; }
       else if (html.includes('bg-warn')) { dot.className = 'w-1.5 h-1.5 rounded-full bg-warn flex-shrink-0'; if (label) label.textContent = 'Offline'; }
