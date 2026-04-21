@@ -68,15 +68,15 @@ def copilot_auth_check_task(self, body: dict):
     body = body or {}
     user_key = _user_key(body)
 
-    # Step 1: Browser
-    try:
-        runner = CopilotRunner(user_key)
-        _ = runner.get_driver()
-    except Exception as e:
+    # Step 1: Check if browser is already running (don't create one)
+    from core.browser.registry import load_session
+    from core.browser.health import is_debug_alive
+    session = load_session('copilot', user_key)
+    if not session or not is_debug_alive(session.get('debug_port')):
         return {
             "authed": False, "status": "error", "user_key": user_key,
-            "detail": "Browser session failed. Click Connect in the sidebar to open the browser.",
-            "step": "browser", "error": str(e),
+            "detail": "Browser not running. Click Connect Copilot in the sidebar to open the browser first.",
+            "step": "browser",
         }
 
     # Step 2: Attach to browser

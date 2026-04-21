@@ -110,7 +110,6 @@
         <form hx-post="/copilot/ui/auth/check/"
               hx-target="#copilot-auth-status"
               hx-swap="innerHTML"
-              hx-trigger="load delay:1s"
               class="inline">
           {% csrf_token %}
           <input type="hidden" name="user_key" value="localuser">
