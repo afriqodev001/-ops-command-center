@@ -1,8 +1,8 @@
 # Ops Command Center — User Guide
 
-Quick reference for every page in the Ops Command Center. Each guide covers what the page does, how to use it, and concrete examples.
+Quick reference for every page in the Ops Command Center.
 
-## Contents
+## ServiceNow
 
 1. [Dashboard](01_dashboard.md) — at-a-glance operational view
 2. [Incidents](02_incidents.md) — list, filter, and inspect incident records
@@ -14,44 +14,30 @@ Quick reference for every page in the Ops Command Center. Each guide covers what
 8. [Presets](08_presets.md) — saved ServiceNow list queries
 9. [Templates](09_templates.md) — reusable payloads for creating records
 
-## Conventions used in these guides
+## Splunk
 
-- **Session widget** (top-right of every page) — a green dot means you're
-  connected to ServiceNow, red means you need to connect before write actions
-  will succeed. Click the pill to open the session manager.
-- **Mode chip** (next to the session widget) — shows either **Demo** (yellow
-  dot) or **Live** (green dot). Click to flip between them:
-  - **Demo** — every read page renders the built-in seeded dataset. Safe for
-    exploring, training, and screenshots. This is the default.
-  - **Live** — read pages dispatch a Celery task and show a loading spinner
-    until ServiceNow responds. Each panel/table/card polls independently,
-    so data fills in progressively without blocking the UI. Requires the
-    Celery worker to be running (`celery -A ops_portal worker -P solo -l info`).
-    Write actions (bulk create, create-from-template) also call the real
-    API whenever a session is connected, regardless of the mode chip.
-- **HTMX swaps** — most actions update part of the page without a full reload.
-  A small purple bar at the top flashes while a request is in flight.
-- **Preferences panel** — click the user block at the bottom of the sidebar to
-  open it. Shows the OS user, the ServiceNow session status, and lets you set:
-  - **Default data mode** (used on next Django session)
-  - **Default group filter** — scopes Incidents, Changes, and Dashboard to
-    records under a specific `assignment_group.parent` (e.g. "CTULMS - Retail
-    Services"). Shown as a visible chip you can clear per-page.
-  - **Browser idle timeout** — auto-closes the Edge browser after N minutes
-    of no task activity (default 30) to reclaim 200-500 MB of RAM. Cookies
-    persist; the next task auto-launches headless.
-  - **Reset local stores** — clear query presets, creation templates, or search presets.
-- **Activity log** — the bell icon (top right) opens a log of recent write
-  actions: preset / template saves & deletes, bulk-change submits,
-  create-from-template dispatches, mode flips, session connect / disconnect.
-  A red badge shows unread count. Opening the log marks everything read.
-  Click "Clear all" to empty it.
+10. [Splunk Search](10_splunk_search.md) — run SPL queries with AI features
+11. [Splunk Presets](11_splunk_presets.md) — parameterized search templates
+12. [Splunk Saved Searches](12_splunk_saved_searches.md) — browse and run saved searches
 
-## Keyboard-friendly tips
-- `/` focuses the first search box on any page that has one.
-- Clicking outside a dialog dismisses it (backdrop click).
-- All list tables support horizontal scroll on narrow screens.
+## Copilot Chat
 
-## Getting help
-If a page behaves unexpectedly, check the session widget first — most
-"nothing happens when I click" issues are a dropped session.
+13. [Copilot Chat](13_copilot_chat.md) — Teams Copilot automation with prompt packs
+
+## Tachyon
+
+14. [Tachyon Playground](14_tachyon_playground.md) — enterprise LLM playground
+
+## Cross-App Features
+
+15. [AI Features](15_ai_features.md) — AI providers, prompt editing, AI-powered workflows
+16. [Session Management](16_session_management.md) — browser sessions for all integrations
+
+## Conventions
+
+- **Session widgets** (sidebar) — green = connected, blue = saved, red = no session
+- **Reset Session** — deletes browser profile when sessions get stuck
+- **Mode chip** (ServiceNow) — Demo / Live toggle
+- **Preferences** — user block in sidebar: AI provider, prompts, data mode, group filter
+- **Activity log** — bell icon, recent actions across all apps
+- **Modals** — close only via X button (no backdrop dismiss)
