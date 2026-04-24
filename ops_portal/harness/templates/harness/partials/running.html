@@ -1,0 +1,15 @@
+<div class="glass-card p-4 animate-fade-in"
+     hx-get="{{ poll_url|default:'' }}"
+     hx-trigger="load delay:3s"
+     hx-target="#{{ target_id|default:'harness-results' }}"
+     hx-swap="innerHTML">
+  <div class="flex items-center gap-3">
+    <div class="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin flex-shrink-0"></div>
+    <div class="flex-1 min-w-0">
+      <p class="text-xs font-semibold text-info">{{ description|default:"Processing…" }}</p>
+      {% if detail %}
+      <p class="text-[10px] text-ink-muted font-mono mt-0.5 truncate">{{ detail }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>

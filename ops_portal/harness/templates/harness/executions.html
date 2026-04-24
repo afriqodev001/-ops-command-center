@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block page_title %}Pipeline Executions{% endblock %}
+{% block page_subtitle %}Filtered execution summary — matches Harness UI filters{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-5"
+     x-data="harnessExecutions()" x-init="pollSession()">
+
+  <!-- ═══ LEFT: Quick actions ═════════════════════════════ -->
+  <div class="lg:col-span-3 min-w-0 space-y-4">
+    <div class="glass-card p-4">
+      <h3 class="text-sm font-semibold text-ink-primary mb-3">Quick Actions</h3>
+      <div class="space-y-2">
+        <button type="button" @click="prefillAndRun('last_success')"
+                class="w-full btn-ghost text-xs py-1.5 justify-start">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          Find last successful execution
+        </button>
+        <button type="button" @click="timeRange = 'LAST_24_HOURS'; submitExec()"
+                class="w-full btn-ghost text-xs py-1.5 justify-start">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Last 24h runs
+        </button>
+        <button type="button" @click="timeRange = 'LAST_30_DAYS'; submitExec()"
+                class="w-full btn-ghost text-xs py-1.5 justify-start">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          Last 30 days
+        </button>
+      </div>
+    </div>
+
+    <div class="glass-card p-4">
+      <h3 class="text-sm font-semibold text-ink-primary mb-3">Tips</h3>
+      <div class="space-y-2.5 text-[11px] text-ink-muted">
+        <p><span class="text-brand-light font-semibold">Services</span> and <span class="text-brand-light font-semibold">Envs</span> accept comma-separated identifiers (e.g. <span class="font-mono text-ink-secondary">svc-a, svc-b</span>).</p>
+        <p>Leave filters blank to see every execution for the pipeline in the time range.</p>
+        <p>Use the <span class="text-brand-light font-semibold">Find last successful execution</span> shortcut to quickly grab the most recent SUCCESS result — handy for rollback reference.</p>
+      </div>
+    </div>
+
+    <a href="/harness/" class="glass-card p-3 flex items-center gap-2 hover:border-edge-strong transition-colors">
+      <svg class="w-3.5 h-3.5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      <span class="text-xs text-ink-secondary">Back to Harness</span>
+    </a>
+  </div>
+
+  <!-- ═══ CENTER: Form + Results ═════════════════════════════ -->
+  <div class="lg:col-span-9 min-w-0 space-y-4">
+
+    <!-- Session warning -->
+    <div x-show="!sessionAlive" x-cloak
+         class="rounded-lg px-3 py-2.5 bg-warn/10 border border-warn/20 flex items-center gap-2.5">
+      <svg class="w-4 h-4 text-warn flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+      </svg>
+      <div class="flex-1">
+        <p class="text-xs font-semibold text-warn">Harness not connected</p>
+        <p class="text-[10px] text-ink-muted">Click Connect Harness in the sidebar first.</p>
+      </div>
+    </div>
+
+    <!-- Filter form -->
+    <div class="glass-card p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+          <h3 class="text-sm font-semibold text-ink-primary">Filters</h3>
+          <p class="text-[10px] text-ink-muted">Mirrors the Harness UI execution summary filters.</p>
+        </div>
+      </div>
+
+      <form id="executions-form"
+            hx-post="/harness/ui/executions/run/"
+            hx-target="#harness-results"
+            hx-swap="innerHTML"
+            @htmx:before-request="running = true"
+            @htmx:after-request="running = false"
+            class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {% csrf_token %}
+
+        <div class="md:col-span-2">
+          <label class="label">Pipeline identifier <span class="text-danger">*</span></label>
+          <input type="text" name="pipeline_identifier" x-model="pipelineId"
+                 class="input-dark text-xs font-mono" required>
+        </div>
+
+        <div>
+          <label class="label">Service identifiers <span class="text-ink-muted">(comma-separated)</span></label>
+          <input type="text" name="service_identifiers" x-model="services"
+                 class="input-dark text-xs font-mono"
+                 placeholder="svc-a, svc-b">
+        </div>
+
+        <div>
+          <label class="label">Env identifiers <span class="text-ink-muted">(comma-separated)</span></label>
+          <input type="text" name="env_identifiers" x-model="envs"
+                 class="input-dark text-xs font-mono"
+                 placeholder="{{ default_env|default:'prod, staging' }}">
+        </div>
+
+        <div>
+          <label class="label">Time range</label>
+          <select name="time_range_filter_type" x-model="timeRange" class="input-dark text-xs">
+            <option value="LAST_24_HOURS">Last 24 hours</option>
+            <option value="LAST_7_DAYS">Last 7 days</option>
+            <option value="LAST_30_DAYS">Last 30 days</option>
+            <option value="LAST_12_MONTHS">Last 12 months</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="label">Page size</label>
+          <input type="number" name="size" value="20" min="1" max="100"
+                 class="input-dark text-xs font-mono w-32">
+        </div>
+
+        <div class="md:col-span-2 flex items-center gap-2 pt-1">
+          <button type="submit" class="btn-primary text-xs px-4 py-2"
+                  :disabled="!pipelineId.trim() || !sessionAlive || running">
+            <template x-if="!running">
+              <span class="inline-flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                </svg>
+                Run
+              </span>
+            </template>
+            <template x-if="running">
+              <span class="inline-flex items-center gap-2">
+                <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Loading…
+              </span>
+            </template>
+          </button>
+          <button type="button" @click="runLastSuccess()"
+                  class="btn-ghost text-xs py-2 px-3"
+                  :disabled="!pipelineId.trim() || !sessionAlive || running"
+                  title="Find the most recent successful execution under the current filters">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Last success
+          </button>
+          <button type="button" @click="pipelineId = ''; services = ''; envs = ''"
+                  class="btn-ghost text-xs py-2">Clear</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Results area -->
+    <div id="harness-results"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function _defineHarnessExecutions() {
+  Alpine.data('harnessExecutions', () => ({
+    pipelineId: '{{ prefill_pipeline|escapejs }}' || '',
+    services: '',
+    envs: '',
+    timeRange: '{{ prefill_time_range|escapejs }}' || 'LAST_30_DAYS',
+    running: false,
+    sessionAlive: false,
+    _pollTimer: null,
+
+    async pollSession() {
+      var check = async () => {
+        try {
+          var resp = await fetch('/harness/session/status/');
+          var data = await resp.json();
+          this.sessionAlive = data.alive;
+        } catch(e) { this.sessionAlive = false; }
+      };
+      await check();
+      this._pollTimer = setInterval(check, 15000);
+    },
+
+    submitExec() {
+      var form = document.getElementById('executions-form');
+      if (form) htmx.trigger(form, 'submit');
+    },
+
+    prefillAndRun(which) {
+      if (which === 'last_success') this.runLastSuccess();
+    },
+
+    runLastSuccess() {
+      if (!this.pipelineId.trim()) return;
+      this.running = true;
+      var formData = new FormData();
+      formData.append('pipeline_identifier', this.pipelineId);
+      formData.append('time_range_filter_type', this.timeRange);
+      if (this.services.trim()) formData.append('service_identifiers', this.services);
+      if (this.envs.trim()) formData.append('env_identifiers', this.envs);
+      var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (csrf) formData.append('csrfmiddlewaretoken', csrf.value);
+      fetch('/harness/ui/last-success/run/', { method: 'POST', body: formData })
+        .then(r => r.text())
+        .then(html => {
+          document.getElementById('harness-results').innerHTML = html;
+          htmx.process(document.getElementById('harness-results'));
+          this.running = false;
+        })
+        .catch(() => { this.running = false; });
+    },
+
+    destroy() {
+      if (this._pollTimer) clearInterval(this._pollTimer);
+    },
+  }));
+}
+if (window.Alpine) _defineHarnessExecutions();
+else document.addEventListener('alpine:init', _defineHarnessExecutions);
+</script>
+{% endblock %}

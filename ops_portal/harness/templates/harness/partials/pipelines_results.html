@@ -1,0 +1,96 @@
+<div class="space-y-3 animate-fade-in" x-data="{ filter: '', tab: 'list' }">
+  <div class="glass-card p-4">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span class="text-xs font-semibold text-ok">{{ pipelines|length }} pipeline{{ pipelines|length|pluralize }} found</span>
+        {% if project_identifier %}<span class="text-[10px] text-ink-muted">· project <span class="font-mono">{{ project_identifier }}</span></span>{% endif %}
+      </div>
+      <div class="flex items-center gap-1">
+        <button @click="tab = 'list'" :class="tab === 'list' ? 'tab-active' : 'tab-inactive'" class="text-xs">List</button>
+        <button @click="tab = 'raw'" :class="tab === 'raw' ? 'tab-active' : 'tab-inactive'" class="text-xs">Raw JSON</button>
+      </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="mb-3" x-show="tab === 'list'">
+      <input type="text" x-model="filter"
+             placeholder="Filter by identifier or name…"
+             class="input-dark text-xs w-full">
+    </div>
+
+    <!-- List -->
+    <div x-show="tab === 'list'">
+      {% if pipelines %}
+      <div class="overflow-auto max-h-[70vh] rounded-lg border border-edge">
+        <table class="w-full text-xs border-collapse">
+          <thead class="bg-surface-3 sticky top-0 z-10">
+            <tr>
+              <th class="th">Identifier</th>
+              <th class="th">Name</th>
+              <th class="th">Last status</th>
+              <th class="th">Last run</th>
+              <th class="th text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in pipelines %}
+            <tr class="table-row"
+                x-show="!filter || '{{ p.identifier|lower }}'.includes(filter.toLowerCase()) || '{{ p.name|default:''|lower|escapejs }}'.includes(filter.toLowerCase())">
+              <td class="td font-mono text-[11px] text-ink-primary">{{ p.identifier }}</td>
+              <td class="td text-ink-secondary truncate max-w-xs" title="{{ p.name }}">{{ p.name|default:"—" }}</td>
+              <td class="td">
+                {% with s=p.last_status|default:"" %}
+                {% if s == "Success" %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-ok/10 text-ok border border-ok/20">{{ s }}</span>
+                {% elif s == "Failed" or s == "Aborted" or s == "Errored" %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/20">{{ s }}</span>
+                {% elif s == "Running" %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/20">{{ s }}</span>
+                {% elif s %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge">{{ s }}</span>
+                {% else %}
+                <span class="text-[10px] text-ink-muted">—</span>
+                {% endif %}
+                {% endwith %}
+              </td>
+              <td class="td text-[10px] text-ink-muted font-mono tabular-nums">
+                {% if p.last_execution_ts %}{{ p.last_execution_ts }}{% else %}—{% endif %}
+              </td>
+              <td class="td text-right">
+                <a href="/harness/executions/?pipeline_id={{ p.identifier|urlencode }}"
+                   class="text-[10px] text-brand-light hover:text-brand">View executions →</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-xs text-ink-muted py-4 text-center">No pipelines found for this project.</p>
+      {% endif %}
+    </div>
+
+    <!-- Raw JSON -->
+    <div x-show="tab === 'raw'" x-cloak>
+      <pre class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed p-3 rounded-lg bg-surface-2 border border-edge max-h-96 overflow-y-auto">{{ result_json }}</pre>
+    </div>
+
+    <!-- Export -->
+    <div class="pt-3 mt-3 border-t border-edge">
+      <form method="post" action="/harness/export/json/" class="inline-block">
+        {% csrf_token %}
+        <input type="hidden" name="result_data" value="{{ result_json }}">
+        <input type="hidden" name="filename" value="harness_pipelines.json">
+        <button type="submit" class="btn-ghost text-xs py-1.5 px-3">
+          <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export JSON
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block page_title %}Harness{% endblock %}
+{% block page_subtitle %}CI/CD pipelines · executions · deployments{% endblock %}
+
+{% block content %}
+<div class="space-y-5" x-data="harnessHome()" x-init="pollSession()">
+
+  <!-- Session warning -->
+  <div x-show="!sessionAlive" x-cloak
+       class="rounded-lg px-3 py-2.5 bg-warn/10 border border-warn/20 flex items-center gap-2.5">
+    <svg class="w-4 h-4 text-warn flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+    </svg>
+    <div class="flex-1">
+      <p class="text-xs font-semibold text-warn">Harness not connected</p>
+      <p class="text-[10px] text-ink-muted">Click Connect Harness in the sidebar to open the browser and sign in.</p>
+    </div>
+  </div>
+
+  <!-- Defaults summary -->
+  <div class="glass-card p-4">
+    <div class="flex items-center gap-2 mb-3">
+      <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+      </svg>
+      <div class="flex-1">
+        <h3 class="text-sm font-semibold text-ink-primary">Current scope</h3>
+        <p class="text-[10px] text-ink-muted">Configured via environment variables — edit <span class="font-mono">.env</span> to change.</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div>
+        <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Org</p>
+        <p class="text-xs font-mono text-ink-primary mt-0.5 truncate">{{ default_org|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Project</p>
+        <p class="text-xs font-mono text-ink-primary mt-0.5 truncate">{{ default_project|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Pipeline</p>
+        <p class="text-xs font-mono text-ink-primary mt-0.5 truncate" title="{{ default_pipeline }}">{{ default_pipeline|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Env</p>
+        <p class="text-xs font-mono text-ink-primary mt-0.5 truncate">{{ default_env|default:"—" }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature cards -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <a href="/harness/pipelines/"
+       class="glass-card p-5 hover:border-edge-strong transition-all duration-200 group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-brand-subtle/30 border border-brand/10 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-subtle/50 transition-colors">
+          <svg class="w-5 h-5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-semibold text-ink-primary group-hover:text-brand-light transition-colors">Pipelines</h3>
+          <p class="text-[11px] text-ink-muted mt-1 leading-relaxed">
+            List all CD pipelines in the project. See last execution status, timing, and jump straight to executions.
+          </p>
+          <div class="flex items-center gap-2 mt-3 flex-wrap">
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-surface-5 text-ink-muted border border-edge">Discovery</span>
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-surface-5 text-ink-muted border border-edge">Last status</span>
+          </div>
+        </div>
+        <svg class="w-4 h-4 text-ink-muted flex-shrink-0 group-hover:text-brand-light transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+    </a>
+
+    <a href="/harness/executions/"
+       class="glass-card p-5 hover:border-edge-strong transition-all duration-200 group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-brand-subtle/30 border border-brand/10 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-subtle/50 transition-colors">
+          <svg class="w-5 h-5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-semibold text-ink-primary group-hover:text-brand-light transition-colors">Pipeline Executions</h3>
+          <p class="text-[11px] text-ink-muted mt-1 leading-relaxed">
+            Filtered execution summary with service / environment / time-range filters — matches the Harness UI. Drill into deployments, artifact versions, triggered-by, failures.
+          </p>
+          <div class="flex items-center gap-2 mt-3 flex-wrap">
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-surface-5 text-ink-muted border border-edge">Filters</span>
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-surface-5 text-ink-muted border border-edge">Last success</span>
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-surface-5 text-ink-muted border border-edge">Deployments</span>
+          </div>
+        </div>
+        <svg class="w-4 h-4 text-ink-muted flex-shrink-0 group-hover:text-brand-light transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+    </a>
+
+    <a href="/harness/instances/"
+       class="glass-card p-5 hover:border-edge-strong transition-all duration-200 group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-brand-subtle/30 border border-brand/10 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-subtle/50 transition-colors">
+          <svg class="w-5 h-5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-semibold text-ink-primary group-hover:text-brand-light transition-colors">Active Instances</h3>
+          <p class="text-[11px] text-ink-muted mt-1 leading-relaxed">
+            What's currently running in each environment — service, artifact version, infrastructure, last-deployed timestamp, and the pipeline execution that deployed it.
+          </p>
+          <div class="flex items-center gap-2 mt-3 flex-wrap">
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-surface-5 text-ink-muted border border-edge">What's live</span>
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-surface-5 text-ink-muted border border-edge">Artifacts</span>
+          </div>
+        </div>
+        <svg class="w-4 h-4 text-ink-muted flex-shrink-0 group-hover:text-brand-light transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+    </a>
+
+    <a href="/harness/environments/"
+       class="glass-card p-5 hover:border-edge-strong transition-all duration-200 group">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-brand-subtle/30 border border-brand/10 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-subtle/50 transition-colors">
+          <svg class="w-5 h-5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-semibold text-ink-primary group-hover:text-brand-light transition-colors">Environments</h3>
+          <p class="text-[11px] text-ink-muted mt-1 leading-relaxed">
+            Browse environments accessible at project scope. Use identifiers in the Executions filters or the Active Instances page.
+          </p>
+          <div class="flex items-center gap-2 mt-3 flex-wrap">
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-surface-5 text-ink-muted border border-edge">Discovery</span>
+          </div>
+        </div>
+        <svg class="w-4 h-4 text-ink-muted flex-shrink-0 group-hover:text-brand-light transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+    </a>
+
+    <a href="/harness/projects/"
+       class="glass-card p-5 hover:border-edge-strong transition-all duration-200 group lg:col-span-2">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-brand-subtle/30 border border-brand/10 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-subtle/50 transition-colors">
+          <svg class="w-5 h-5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-semibold text-ink-primary group-hover:text-brand-light transition-colors">Projects</h3>
+          <p class="text-[11px] text-ink-muted mt-1 leading-relaxed">
+            List CD-enabled projects across the account. Useful when you need to discover an identifier for <span class="font-mono">HARNESS_PROJECT_ID</span>.
+          </p>
+        </div>
+        <svg class="w-4 h-4 text-ink-muted flex-shrink-0 group-hover:text-brand-light transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+    </a>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function _defineHarnessHome() {
+  Alpine.data('harnessHome', () => ({
+    sessionAlive: false,
+    _pollTimer: null,
+
+    async pollSession() {
+      var check = async () => {
+        try {
+          var resp = await fetch('/harness/session/status/');
+          var data = await resp.json();
+          this.sessionAlive = data.alive;
+        } catch(e) { this.sessionAlive = false; }
+      };
+      await check();
+      this._pollTimer = setInterval(check, 15000);
+    },
+
+    destroy() {
+      if (this._pollTimer) clearInterval(this._pollTimer);
+    },
+  }));
+}
+if (window.Alpine) _defineHarnessHome();
+else document.addEventListener('alpine:init', _defineHarnessHome);
+</script>
+{% endblock %}

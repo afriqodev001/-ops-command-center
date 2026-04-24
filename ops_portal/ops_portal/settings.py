@@ -285,6 +285,22 @@ SPLUNK_NAMESPACE_USER = os.environ.get('SPLUNK_NAMESPACE_USER', 'nobody')
 
 
 # =========================
+# Harness (CI/CD)
+# =========================
+HARNESS_BASE = os.environ.get(
+    'HARNESS_BASE',
+    'https://your-org.harness.io',
+).rstrip('/')
+HARNESS_ACCOUNT_ID = os.environ.get('HARNESS_ACCOUNT_ID', '')
+HARNESS_ORG_ID = os.environ.get('HARNESS_ORG_ID', '')
+HARNESS_PROJECT_ID = os.environ.get('HARNESS_PROJECT_ID', '')
+HARNESS_ENV_ID = os.environ.get('HARNESS_ENV_ID', '')
+HARNESS_PIPELINE_ID = os.environ.get('HARNESS_PIPELINE_ID', '')
+HARNESS_ALLOW_PROJECT_OVERRIDE = _env_bool('HARNESS_ALLOW_PROJECT_OVERRIDE', False)
+HARNESS_FETCH_TIMEOUT_MS = int(os.environ.get('HARNESS_FETCH_TIMEOUT_MS', 60000))
+
+
+# =========================
 # SPLOC (Splunk Observability Cloud / SignalFx)
 # =========================
 SPLOC_BASE = os.environ.get(

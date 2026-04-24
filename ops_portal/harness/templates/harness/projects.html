@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block page_title %}Projects{% endblock %}
+{% block page_subtitle %}CD-enabled projects in this account{% endblock %}
+
+{% block content %}
+<div class="space-y-4" x-data="harnessProjects()" x-init="pollSession()">
+  <div x-show="!sessionAlive" x-cloak
+       class="rounded-lg px-3 py-2.5 bg-warn/10 border border-warn/20 flex items-center gap-2.5">
+    <svg class="w-4 h-4 text-warn flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+    </svg>
+    <div class="flex-1">
+      <p class="text-xs font-semibold text-warn">Harness not connected</p>
+      <p class="text-[10px] text-ink-muted">Click Connect Harness in the sidebar first.</p>
+    </div>
+  </div>
+
+  <div class="glass-card p-4">
+    <div class="flex items-center gap-2 mb-3">
+      <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+      </svg>
+      <div>
+        <h3 class="text-sm font-semibold text-ink-primary">Discover Projects</h3>
+        <p class="text-[10px] text-ink-muted">Only CD-enabled projects are shown.</p>
+      </div>
+    </div>
+
+    <form id="projects-form"
+          hx-post="/harness/ui/projects/run/"
+          hx-target="#harness-results"
+          hx-swap="innerHTML"
+          @htmx:before-request="running = true"
+          @htmx:after-request="running = false"
+          class="flex flex-wrap items-end gap-3">
+      {% csrf_token %}
+      <div>
+        <label class="label">Page size</label>
+        <input type="number" name="page_size" value="50" min="1" max="200"
+               class="input-dark text-xs font-mono w-32">
+      </div>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" name="only_favorites" value="true"
+               class="rounded border-edge bg-surface-3">
+        <span class="text-xs text-ink-secondary">Favorites only</span>
+      </label>
+      <button type="submit" class="btn-primary text-xs px-4 py-2 ml-auto"
+              :disabled="!sessionAlive || running">
+        <template x-if="!running">
+          <span class="inline-flex items-center gap-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            </svg>
+            List Projects
+          </span>
+        </template>
+        <template x-if="running">
+          <span class="inline-flex items-center gap-2">
+            <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            Loading…
+          </span>
+        </template>
+      </button>
+    </form>
+  </div>
+
+  <div id="harness-results"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function _defineHarnessProjects() {
+  Alpine.data('harnessProjects', () => ({
+    running: false,
+    sessionAlive: false,
+    _pollTimer: null,
+    async pollSession() {
+      var check = async () => {
+        try {
+          var resp = await fetch('/harness/session/status/');
+          var data = await resp.json();
+          this.sessionAlive = data.alive;
+        } catch(e) { this.sessionAlive = false; }
+      };
+      await check();
+      this._pollTimer = setInterval(check, 15000);
+    },
+    destroy() { if (this._pollTimer) clearInterval(this._pollTimer); },
+  }));
+}
+if (window.Alpine) _defineHarnessProjects();
+else document.addEventListener('alpine:init', _defineHarnessProjects);
+</script>
+{% endblock %}

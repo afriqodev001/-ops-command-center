@@ -1,0 +1,105 @@
+{% if connecting %}
+<div class="rounded-lg px-3 py-2.5 bg-info/10 border border-info/20 flex items-center gap-2.5"
+     hx-get="/harness/session/widget/"
+     hx-trigger="load delay:3s"
+     hx-target="#harness-session-widget"
+     hx-swap="innerHTML">
+  <span class="w-3 h-3 flex-shrink-0">
+    <span class="block w-3 h-3 border-2 border-info/30 border-t-info rounded-full animate-spin"></span>
+  </span>
+  <div class="flex-1 min-w-0">
+    <p class="text-xs font-semibold text-info leading-none">Opening browser…</p>
+    <p class="text-[11px] text-ink-muted mt-0.5 truncate">Complete Harness SSO in the new tab</p>
+  </div>
+</div>
+
+{% elif harness_status == 'active' %}
+<div class="rounded-lg px-3 py-2.5 bg-ok/10 border border-ok/20 flex items-center gap-2.5">
+  <span class="w-2 h-2 rounded-full bg-ok animate-pulse flex-shrink-0"></span>
+  <div class="flex-1 min-w-0">
+    <p class="text-xs font-semibold text-ok leading-none">Connected</p>
+    <p class="text-[11px] text-ink-muted mt-0.5 truncate">Harness · port {{ harness_port }}</p>
+  </div>
+</div>
+<div class="flex items-center gap-1.5 mt-1.5 px-0.5">
+  <p class="text-[10px] text-ink-muted opacity-70 flex-1">Last active {{ harness_last_used_ago }}</p>
+  <form hx-post="/harness/session/close-browser/"
+        hx-target="#harness-session-widget"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button"
+        class="flex-shrink-0">
+    {% csrf_token %}
+    <button type="submit" title="Close browser (cookies saved)"
+            class="text-[10px] text-ink-muted hover:text-warn transition-colors px-1 py-0.5 rounded hover:bg-white/10 disabled:opacity-50">
+      Close browser
+    </button>
+  </form>
+  <form hx-post="/harness/session/reset/"
+        hx-target="#harness-session-widget"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button"
+        hx-confirm="Reset session? This kills the browser and deletes saved cookies/profile data. You'll need to log in again."
+        class="flex-shrink-0">
+    {% csrf_token %}
+    <button type="submit" title="Force-kill browser, wipe profile, start over (use if auth looks stale)"
+            class="text-[10px] text-ink-muted hover:text-danger transition-colors px-1 py-0.5 rounded hover:bg-danger/10 disabled:opacity-50">
+      Reset
+    </button>
+  </form>
+</div>
+
+{% elif harness_status == 'disconnected' %}
+<div class="rounded-lg px-3 py-2.5 bg-info/10 border border-info/20 flex items-center gap-2.5">
+  <span class="w-2 h-2 rounded-full bg-info flex-shrink-0"></span>
+  <div class="flex-1 min-w-0">
+    <p class="text-xs font-semibold text-info leading-none">Session saved</p>
+    <p class="text-[11px] text-ink-muted mt-0.5">Browser closed · cookies on disk</p>
+  </div>
+</div>
+<div class="flex items-center gap-1.5 mt-1.5">
+  <form hx-post="/harness/session/connect/"
+        hx-target="#harness-session-widget"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button"
+        class="flex-1">
+    {% csrf_token %}
+    <button type="submit"
+            class="w-full btn-ghost text-xs py-1.5 justify-center border border-edge hover:border-brand/40 disabled:opacity-60 disabled:cursor-wait disabled:border-edge">
+      Reconnect
+    </button>
+  </form>
+  <form hx-post="/harness/session/reset/"
+        hx-target="#harness-session-widget"
+        hx-swap="innerHTML"
+        hx-confirm="Reset session? This deletes saved cookies and profile data. You'll need to log in again."
+        class="flex-shrink-0">
+    {% csrf_token %}
+    <button type="submit" class="btn-ghost text-[10px] py-1.5 px-2 text-danger hover:bg-danger/10" title="Delete profile and start fresh">
+      Reset
+    </button>
+  </form>
+</div>
+
+{% else %}
+<div class="rounded-lg px-3 py-2.5 bg-danger/10 border border-danger/20 flex items-center gap-2.5">
+  <span class="w-2 h-2 rounded-full bg-danger flex-shrink-0"></span>
+  <div class="flex-1 min-w-0">
+    <p class="text-xs font-semibold text-danger leading-none">No session</p>
+    <p class="text-[11px] text-ink-muted mt-0.5">Connect to use Harness features</p>
+  </div>
+</div>
+<form hx-post="/harness/session/connect/"
+      hx-target="#harness-session-widget"
+      hx-swap="innerHTML"
+      hx-disabled-elt="find button"
+      class="mt-1.5">
+  {% csrf_token %}
+  <button type="submit"
+          class="w-full btn-primary text-xs py-1.5 justify-center disabled:opacity-60 disabled:cursor-wait disabled:hover:bg-brand">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+    </svg>
+    Connect Harness
+  </button>
+</form>
+{% endif %}

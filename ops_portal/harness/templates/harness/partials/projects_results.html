@@ -1,0 +1,76 @@
+<div class="space-y-3 animate-fade-in" x-data="{ tab: 'list', filter: '' }">
+  <div class="glass-card p-4">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span class="text-xs font-semibold text-ok">{{ projects|length }} CD project{{ projects|length|pluralize }}</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <button @click="tab = 'list'" :class="tab === 'list' ? 'tab-active' : 'tab-inactive'" class="text-xs">List</button>
+        <button @click="tab = 'raw'" :class="tab === 'raw' ? 'tab-active' : 'tab-inactive'" class="text-xs">Raw JSON</button>
+      </div>
+    </div>
+
+    <div class="mb-3" x-show="tab === 'list'">
+      <input type="text" x-model="filter"
+             placeholder="Filter by identifier, name, org, or app ID…"
+             class="input-dark text-xs w-full">
+    </div>
+
+    <div x-show="tab === 'list'">
+      {% if projects %}
+      <div class="overflow-auto max-h-[70vh] rounded-lg border border-edge">
+        <table class="w-full text-xs border-collapse">
+          <thead class="bg-surface-3 sticky top-0 z-10">
+            <tr>
+              <th class="th">Identifier</th>
+              <th class="th">Name</th>
+              <th class="th">Org</th>
+              <th class="th">App ID</th>
+              <th class="th">CA ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in projects %}
+            <tr class="table-row"
+                x-show="!filter
+                       || '{{ p.identifier|lower|escapejs }}'.includes(filter.toLowerCase())
+                       || '{{ p.name|default:''|lower|escapejs }}'.includes(filter.toLowerCase())
+                       || '{{ p.org|default:''|lower|escapejs }}'.includes(filter.toLowerCase())
+                       || '{{ p.appID|default:''|lower|escapejs }}'.includes(filter.toLowerCase())">
+              <td class="td font-mono text-ink-primary">{{ p.identifier }}</td>
+              <td class="td text-ink-secondary">{{ p.name|default:"—" }}</td>
+              <td class="td font-mono text-ink-secondary">{{ p.org|default:"—" }}</td>
+              <td class="td font-mono text-ink-secondary">{{ p.appID|default:"—" }}</td>
+              <td class="td font-mono text-ink-muted">{{ p.caID|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-xs text-ink-muted py-4 text-center">No CD projects found.</p>
+      {% endif %}
+    </div>
+
+    <div x-show="tab === 'raw'" x-cloak>
+      <pre class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed p-3 rounded-lg bg-surface-2 border border-edge max-h-96 overflow-y-auto">{{ result_json }}</pre>
+    </div>
+
+    <div class="pt-3 mt-3 border-t border-edge">
+      <form method="post" action="/harness/export/json/" class="inline-block">
+        {% csrf_token %}
+        <input type="hidden" name="result_data" value="{{ result_json }}">
+        <input type="hidden" name="filename" value="harness_projects.json">
+        <button type="submit" class="btn-ghost text-xs py-1.5 px-3">
+          <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export JSON
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
