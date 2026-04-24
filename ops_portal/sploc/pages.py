@@ -221,6 +221,25 @@ def export_trace_json(request):
 
 # ─── AI Analysis (HTMX) ────────────────────────────────────
 
+def _tachyon_browser_alive() -> bool:
+    """Quick check: is the Tachyon Edge instance running on its debug port?"""
+    import urllib.request
+    from core.browser.registry import load_session
+    session = load_session('tachyon', 'localuser')
+    if not session:
+        return False
+    port = session.get('debug_port')
+    if not port:
+        return False
+    try:
+        with urllib.request.urlopen(
+            f'http://127.0.0.1:{port}/json/version', timeout=1.5
+        ) as resp:
+            return getattr(resp, 'status', 200) == 200
+    except Exception:
+        return False
+
+
 @csrf_exempt
 @require_POST
 def ai_analyze_trace(request):
@@ -237,6 +256,32 @@ def ai_analyze_trace(request):
             'ai_error': 'No trace data to analyze.',
         })
 
+    # ── Preflight: Tachyon session must be alive ──
+    # Without this, the Celery worker tries to start a browser and hangs
+    # for up to 30s+ before failing — the UI just spins meanwhile.
+    if not _tachyon_browser_alive():
+        return render(request, 'sploc/partials/ai_analysis.html', {
+            'ai_error': "Tachyon isn't connected. Open Tachyon from the sidebar and complete login, then retry.",
+            'ai_error_action_url': '/tachyon/',
+            'ai_error_action_label': 'Open Tachyon',
+        })
+
+    # ── Preflight: the preset must exist and be enabled ──
+    from tachyon.models import TachyonPreset
+    from servicenow.services.ai_assist import _get_ai_config
+
+    cfg = _get_ai_config()
+    preset_slug = cfg.get('tachyon_preset_slug', 'default')
+    if not TachyonPreset.objects.filter(slug=preset_slug, enabled=True).exists():
+        return render(request, 'sploc/partials/ai_analysis.html', {
+            'ai_error': (
+                f"Tachyon preset '{preset_slug}' isn't configured or is disabled. "
+                "Add or enable a preset in the Django admin, then retry."
+            ),
+            'ai_error_action_url': '/admin/tachyon/tachyonpreset/',
+            'ai_error_action_label': 'Manage presets',
+        })
+
     system = get_prompt('sploc_trace_analysis')
     user_prompt = "Analyze the SignalFx trace waterfall in the attached file."
     if user_context:
@@ -249,12 +294,10 @@ def ai_analyze_trace(request):
     tmp_path.write_text(result_data, encoding='utf-8')
 
     from tachyon.tasks import run_tachyon_llm_with_file_task
-    from servicenow.services.ai_assist import _get_ai_config
 
-    cfg = _get_ai_config()
     task = run_tachyon_llm_with_file_task.delay(
         user_key='localuser',
-        preset_slug=cfg.get('tachyon_preset_slug', 'default'),
+        preset_slug=preset_slug,
         query=user_prompt,
         file_path=str(tmp_path),
         folder_name='sploc_analysis',
@@ -286,15 +329,28 @@ def ai_analyze_poll(request, task_id):
         })
 
     if ar.state == 'FAILURE':
-        return render(request, 'sploc/partials/ai_analysis.html', {
-            'ai_error': str(ar.result),
-        })
+        # Celery exception — common cases: BrowserLoginRequired (Tachyon auth lost mid-task)
+        err_str = str(ar.result or 'Unknown error')
+        ctx = {'ai_error': err_str}
+        low = err_str.lower()
+        if 'loginrequired' in low or 'login required' in low or 'auth' in low:
+            ctx['ai_error'] = "Tachyon browser session expired mid-analysis. Reconnect Tachyon and retry."
+            ctx['ai_error_action_url'] = '/tachyon/'
+            ctx['ai_error_action_label'] = 'Open Tachyon'
+        return render(request, 'sploc/partials/ai_analysis.html', ctx)
 
     result = ar.result or {}
     if result.get('error'):
-        return render(request, 'sploc/partials/ai_analysis.html', {
-            'ai_error': result.get('detail') or result.get('error'),
-        })
+        kind = result.get('error')
+        detail = result.get('detail') or kind
+        ctx = {'ai_error': detail}
+        if kind == 'preset_not_found':
+            ctx['ai_error_action_url'] = '/admin/tachyon/tachyonpreset/'
+            ctx['ai_error_action_label'] = 'Manage presets'
+        elif kind in ('login_required', 'browser_login_required', 'unauthorized'):
+            ctx['ai_error_action_url'] = '/tachyon/'
+            ctx['ai_error_action_label'] = 'Open Tachyon'
+        return render(request, 'sploc/partials/ai_analysis.html', ctx)
 
     raw = ''
     data = result.get('data') or result
