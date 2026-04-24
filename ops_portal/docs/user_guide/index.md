@@ -33,6 +33,14 @@ Quick reference for every page in the Ops Command Center.
 15. [AI Features](15_ai_features.md) — AI providers, prompt editing, AI-powered workflows
 16. [Session Management](16_session_management.md) — browser sessions for all integrations
 
+## SPLOC (Splunk Observability Cloud / SignalFx)
+
+17. [SPLOC Overview](17_sploc_overview.md) — pages, session model, what the app is (and isn't)
+18. [Trace Scraper](18_sploc_trace_scraper.md) — waterfall extraction, export, AI analysis, recents, cross-app
+19. [AI Assistant](19_sploc_ai_assistant.md) — query SignalFx's built-in AI panel
+20. [Prompt Packs](20_sploc_prompt_packs.md) — manage reusable AI prompts with CRUD + import/export
+21. [Service Catalog](21_sploc_service_catalog.md) — curated SignalFx service names for trace-form autocomplete
+
 ## Conventions
 
 - **Session widgets** (sidebar) — green = connected, blue = saved, red = no session

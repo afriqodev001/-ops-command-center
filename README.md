@@ -1,6 +1,6 @@
 # Ops Command Center
 
-A Django-based operations portal that unifies ServiceNow, Splunk, Microsoft Copilot, and Tachyon AI into a single command center for IT operations engineers.
+A Django-based operations portal that unifies ServiceNow, Splunk, Splunk Observability Cloud (SignalFx), Microsoft Copilot, and Tachyon AI into a single command center for IT operations engineers.
 
 Each integration uses browser-based authentication (Selenium + Edge CDP) so SSO credentials are never stored. Read and write operations go through Celery tasks that hit real APIs asynchronously — the UI never blocks.
 
@@ -41,6 +41,18 @@ Search, analyze, and manage Splunk queries.
 - **Smart Preset Generator** — AI analyzes raw SPL and generates a clean preset with parameters and defaults
 - **Auto-continue polling** — searches that take longer than 60s automatically continue polling until complete
 
+### SPLOC (`/sploc/`)
+Splunk Observability Cloud (SignalFx) APM trace analysis and AI querying.
+
+- **Trace Scraper** — enter a trace ID + service name, scrape the full waterfall (service, operation, duration, depth), export as JSON/TSV
+- **Service Catalog** — user-curated list of SignalFx service names with HTML5 `<datalist>` autocomplete on the trace form; CRUD, tags, export/import JSON
+- **AI Trace Analysis** — upload scraped trace to AI for structured breakdown (bottlenecks, N+1 patterns, service hotspots, recommendations)
+- **AI Assistant** — send prompts to SignalFx's built-in AI Assistant panel, response extracted as markdown
+- **Prompt Packs** — reusable AI prompts with full CRUD, tags, export/import, keyboard shortcuts; one-click "Use" sends prompt to the AI page pre-filled
+- **Trace History (Recents)** — one-click re-run of recently scraped traces, deduped, sidebar-resident
+- **Cross-app linking** — one click from a scraped trace to "Search Splunk for this trace"; Splunk events auto-detect 32-hex trace IDs and offer one-click jump to SPLOC trace scrape
+- **Preflight checks** — "Analyze with AI" validates Tachyon session + preset before dispatching, fails fast with actionable error
+
 ### Copilot Chat (`/copilot/`)
 Microsoft Teams Copilot automation via browser.
 
@@ -72,7 +84,7 @@ Shared services used by all apps.
 
 ## Features Across Apps
 
-- **Unified session management** — sidebar widgets for ServiceNow, Tachyon, Copilot, and Splunk with connect/disconnect/status polling
+- **Unified session management** — sidebar widgets for ServiceNow, Tachyon, Copilot, Splunk, and SPLOC with connect / close-browser / reset / status polling. Reset available from both connected and disconnected states for stale-session recovery
 - **AI-powered creation** — describe issues or changes in plain English, AI fills structured fields
 - **Editable AI prompts** — all system prompts editable via Preferences → AI Prompts
 - **Export/Import** — presets, prompt packs, and search configurations are portable as JSON
@@ -156,6 +168,8 @@ All environment variables documented in [`.env.example`](.env.example):
 | `SPLUNK_BASE` | Splunk Cloud/Enterprise URL |
 | `SPLUNK_APP` | Splunk app namespace (default: `search`) |
 | `SPLUNK_NAMESPACE_USER` | Splunk API namespace user |
+| `SPLOC_BASE` | SignalFx realm URL (e.g. `https://<org>.signalfx.com`) |
+| `SPLOC_APM_PATH` | Path to the APM page (default `/#/apm`) |
 | `COPILOT_TEAMS_URL` | Microsoft Teams URL for Copilot |
 | `AI_API_KEY` | API key for Claude or OpenAI (if not using Tachyon) |
 | `AI_MODEL` | LLM model override |
@@ -174,6 +188,9 @@ User-authored content stored as flat JSON files (all git-ignored):
 | `field_options.json` | ServiceNow | Category/reason options, combobox values |
 | `prompts.json` | ServiceNow | Editable AI system prompts |
 | `splunk_presets.json` | Splunk | Search preset definitions |
+| `prompt_packs.json` | SPLOC | AI Assistant prompt packs |
+| `trace_history.json` | SPLOC | Recently scraped traces (dedup, capped at 30) |
+| `service_catalog.json` | SPLOC | Curated SignalFx service names for trace-form autocomplete |
 
 ## Project Layout
 
@@ -192,6 +209,7 @@ ops-command-center/
     ├── tachyon/              # Tachyon AI playground app
     ├── copilot_chat/         # Microsoft Copilot chat app
     ├── splunk/               # Splunk search & analysis app
+    ├── sploc/                # Splunk Observability Cloud (SignalFx) app
     ├── harness/              # Harness CI/CD app (scaffold)
     ├── templates/            # project-level base templates
     └── static/               # shared static assets (CSS, JS)

@@ -19,6 +19,10 @@ from .services.prompt_packs import (
 from .services.trace_history import (
     add_recent, list_recent, delete_recent, clear_recent,
 )
+from .services.service_catalog import (
+    list_catalog, get_service, save_service, delete_service,
+    export_catalog, import_catalog,
+)
 
 
 # ─── Full Pages ─────────────────────────────────────────────
@@ -33,6 +37,7 @@ def sploc_traces(request):
         'prefill_service_name': request.GET.get('service_name', '').strip(),
         'autorun': request.GET.get('autorun', '').strip(),
         'recents': list_recent(limit=10),
+        'services': list_catalog(),
     })
 
 
@@ -570,4 +575,131 @@ def recents_clear(request):
     clear_recent()
     return render(request, 'sploc/partials/recents_panel.html', {
         'recents': list_recent(limit=10),
+    })
+
+
+# ─── Service catalog management ────────────────────────────
+
+def sploc_services_page(request):
+    return render(request, 'sploc/services.html', {
+        'services': list_catalog(),
+    })
+
+
+def services_list_partial(request):
+    return render(request, 'sploc/partials/services_list.html', {
+        'services': list_catalog(),
+    })
+
+
+def service_editor(request):
+    name = request.GET.get('name', '').strip()
+    service = get_service(name) if name else None
+    return render(request, 'sploc/partials/service_editor.html', {
+        'name': name,
+        'service': service,
+    })
+
+
+@csrf_exempt
+@require_POST
+def service_save_view(request):
+    name = request.POST.get('name', '').strip()
+    if not name:
+        return render(request, 'sploc/partials/services_list.html', {
+            'services': list_catalog(),
+            'error': 'Service name is required.',
+        })
+    save_service(name, {
+        'description': request.POST.get('description', '').strip(),
+        'tags': request.POST.get('tags', '').strip(),
+    })
+    return render(request, 'sploc/partials/services_list.html', {
+        'services': list_catalog(),
+        'saved_name': name,
+    })
+
+
+@csrf_exempt
+@require_POST
+def service_delete_view(request):
+    name = request.POST.get('name', '').strip()
+    if name:
+        delete_service(name)
+    return render(request, 'sploc/partials/services_list.html', {
+        'services': list_catalog(),
+    })
+
+
+def service_export_all(request):
+    data = json.dumps(export_catalog(), indent=2, default=str)
+    resp = HttpResponse(data, content_type='application/json')
+    resp['Content-Disposition'] = 'attachment; filename="sploc_service_catalog.json"'
+    return resp
+
+
+def service_export_one(request, name):
+    data = json.dumps(export_catalog([name]), indent=2, default=str)
+    safe = name[:40].replace(' ', '_').replace('/', '_')
+    resp = HttpResponse(data, content_type='application/json')
+    resp['Content-Disposition'] = f'attachment; filename="sploc_service_{safe}.json"'
+    return resp
+
+
+def service_import_form(request):
+    return render(request, 'sploc/partials/service_import_form.html')
+
+
+@csrf_exempt
+@require_POST
+def service_import_preview(request):
+    upload = request.FILES.get('file')
+    if not upload:
+        return render(request, 'sploc/partials/service_import_preview.html', {
+            'error': 'No file selected.',
+        })
+    try:
+        raw = upload.read()
+        if isinstance(raw, bytes):
+            raw = raw.decode('utf-8-sig', errors='replace')
+        data = json.loads(raw)
+    except Exception as e:
+        return render(request, 'sploc/partials/service_import_preview.html', {
+            'error': f'Invalid JSON: {e}',
+        })
+
+    incoming = data.get('services') or data.get('catalog') or {}
+    if not incoming:
+        return render(request, 'sploc/partials/service_import_preview.html', {
+            'error': 'No services found in file. Expected format: {"services": {"name": {"description": "...", "tags": "..."}}}',
+        })
+
+    existing = list_catalog()
+    preview = []
+    for name, cfg in incoming.items():
+        preview.append({
+            'name': name,
+            'description': (cfg or {}).get('description', ''),
+            'tags': (cfg or {}).get('tags', ''),
+            'exists': name in existing,
+        })
+
+    return render(request, 'sploc/partials/service_import_preview.html', {
+        'preview': preview,
+        'services_json': json.dumps(data),
+    })
+
+
+@csrf_exempt
+@require_POST
+def service_import_confirm(request):
+    try:
+        data = json.loads(request.POST.get('services_json', '{}'))
+    except json.JSONDecodeError:
+        data = {}
+    mode = request.POST.get('conflict_mode', 'skip')
+    imported = import_catalog(data, mode)
+    return render(request, 'sploc/partials/services_list.html', {
+        'services': list_catalog(),
+        'import_count': imported,
     })

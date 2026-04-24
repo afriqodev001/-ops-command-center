@@ -39,6 +39,18 @@ urlpatterns = [
     path("export/trace/json/",               pages.export_trace_json,  name="sploc-export-json"),
     path("export/trace/tsv/",                pages.export_trace_tsv,   name="sploc-export-tsv"),
 
+    # ─── Service catalog management ────────────
+    path("services/",                      pages.sploc_services_page,    name="sploc-services"),
+    path("services/list/partial/",         pages.services_list_partial,  name="sploc-services-list"),
+    path("services/editor/",               pages.service_editor,         name="sploc-service-editor"),
+    path("services/save/",                 pages.service_save_view,      name="sploc-service-save"),
+    path("services/delete/",               pages.service_delete_view,    name="sploc-service-delete"),
+    path("services/export/",               pages.service_export_all,     name="sploc-services-export"),
+    path("services/export/<str:name>/",    pages.service_export_one,     name="sploc-service-export-one"),
+    path("services/import/",               pages.service_import_form,    name="sploc-services-import"),
+    path("services/import/preview/",       pages.service_import_preview, name="sploc-services-import-preview"),
+    path("services/import/confirm/",       pages.service_import_confirm, name="sploc-services-import-confirm"),
+
     # ─── Prompt pack management ────────────────
     path("prompts/list/partial/",          pages.packs_list_partial,  name="sploc-packs-list"),
     path("prompts/quick/partial/",         pages.packs_quick_partial, name="sploc-packs-quick"),

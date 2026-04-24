@@ -114,8 +114,24 @@
         <div>
           <label class="label">Service Name</label>
           <input type="text" name="service_name" x-model="serviceName"
+                 list="sploc-service-catalog"
                  class="input-dark text-xs"
-                 placeholder="e.g. my-service">
+                 placeholder="e.g. my-service — start typing for catalog matches">
+          <datalist id="sploc-service-catalog">
+            {% for name, meta in services.items %}
+            <option value="{{ name }}"{% if meta.description %} label="{{ meta.description }}"{% endif %}>
+            {% endfor %}
+          </datalist>
+          {% if services %}
+          <p class="text-[10px] text-ink-muted mt-0.5">
+            {{ services|length }} service{{ services|length|pluralize }} in catalog ·
+            <a href="/sploc/services/" class="text-brand-light hover:text-brand">manage</a>
+          </p>
+          {% else %}
+          <p class="text-[10px] text-ink-muted mt-0.5">
+            No catalog yet — <a href="/sploc/services/" class="text-brand-light hover:text-brand">add services</a> for autocomplete
+          </p>
+          {% endif %}
         </div>
 
         <div x-data="{ showAdvanced: false }">

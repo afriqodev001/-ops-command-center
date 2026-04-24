@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block page_title %}Prompt Packs{% endblock %}
-{% block page_subtitle %}Manage reusable AI Assistant prompts{% endblock %}
+{% block page_title %}Service Catalog{% endblock %}
+{% block page_subtitle %}SignalFx service names for Trace Scraper autocomplete{% endblock %}
 
 {% block content %}
-<div class="space-y-4" x-data="splocPrompts()">
+<div class="space-y-4" x-data="splocServices()">
 
   <!-- ─── Stats + actions header ─────────────────────────── -->
   <div class="glass-card p-4">
@@ -16,45 +16,35 @@
           <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Total</p>
           <p class="text-2xl font-semibold text-ink-primary tabular-nums leading-none mt-1" x-text="totalCount"></p>
         </div>
-        <div class="h-10 w-px bg-edge"></div>
-        <div>
-          <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Built-in</p>
-          <p class="text-2xl font-semibold text-ink-secondary tabular-nums leading-none mt-1" x-text="builtinCount"></p>
-        </div>
-        <div class="h-10 w-px bg-edge"></div>
-        <div>
-          <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Custom</p>
-          <p class="text-2xl font-semibold text-brand-light tabular-nums leading-none mt-1" x-text="customCount"></p>
-        </div>
       </div>
 
       <!-- Header actions -->
       <div class="flex items-center gap-2">
-        <a href="/sploc/prompts/export/" class="btn-ghost text-xs py-1.5 px-3" title="Export all packs as JSON">
+        <a href="/sploc/services/export/" class="btn-ghost text-xs py-1.5 px-3" title="Export all services as JSON">
           <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
           Export
         </a>
-        <button hx-get="/sploc/prompts/import/"
-                hx-target="#pack-import-area"
+        <button hx-get="/sploc/services/import/"
+                hx-target="#service-import-area"
                 hx-swap="innerHTML"
-                onclick="document.getElementById('pack-import-modal').classList.remove('hidden')"
+                onclick="document.getElementById('service-import-modal').classList.remove('hidden')"
                 class="btn-ghost text-xs py-1.5 px-3">
           <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14v-6m0 0l3 3m-3-3l-3 3m9 6H6a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2v14a2 2 0 01-2 2z"/>
           </svg>
           Import
         </button>
-        <button hx-get="/sploc/prompts/editor/"
-                hx-target="#pack-editor-area"
+        <button hx-get="/sploc/services/editor/"
+                hx-target="#service-editor-area"
                 hx-swap="innerHTML"
-                onclick="document.getElementById('pack-editor-modal').classList.remove('hidden')"
+                onclick="document.getElementById('service-editor-modal').classList.remove('hidden')"
                 class="btn-primary text-xs py-1.5 px-3">
           <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
           </svg>
-          New Pack
+          New Service
           <kbd class="ml-1.5 hidden sm:inline-block text-[9px] px-1 py-0.5 rounded bg-white/10 text-white/70 font-mono leading-none">N</kbd>
         </button>
       </div>
@@ -68,7 +58,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
         <input type="text" x-model="filter" x-ref="filterInput"
-               placeholder="Search packs by name, tag, or prompt…"
+               placeholder="Search services by name, description, or tag…"
                class="input-dark text-xs w-full !pl-10 !pr-9">
         <button x-show="filter" x-cloak
                 @click="filter = ''; $refs.filterInput.focus()"
@@ -80,53 +70,34 @@
         </button>
       </div>
 
-      <!-- Filter tabs -->
-      <div class="flex items-center gap-1 bg-surface-3 rounded-lg p-0.5 border border-edge flex-shrink-0">
-        <button @click="kind = 'all'"
-                :class="kind === 'all' ? 'bg-surface-5 text-ink-primary' : 'text-ink-muted hover:text-ink-secondary'"
-                class="text-[11px] px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">
-          All <span class="text-[9px] opacity-60 ml-0.5" x-text="totalCount"></span>
-        </button>
-        <button @click="kind = 'custom'"
-                :class="kind === 'custom' ? 'bg-surface-5 text-ink-primary' : 'text-ink-muted hover:text-ink-secondary'"
-                class="text-[11px] px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">
-          Custom <span class="text-[9px] opacity-60 ml-0.5" x-text="customCount"></span>
-        </button>
-        <button @click="kind = 'builtin'"
-                :class="kind === 'builtin' ? 'bg-surface-5 text-ink-primary' : 'text-ink-muted hover:text-ink-secondary'"
-                class="text-[11px] px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">
-          Built-in <span class="text-[9px] opacity-60 ml-0.5" x-text="builtinCount"></span>
-        </button>
-      </div>
-
       <!-- Sort -->
       <select x-model="sort" class="input-dark text-[11px] py-1 pl-2 pr-7 w-auto flex-shrink-0">
         <option value="name">Sort: Name (A→Z)</option>
         <option value="name-desc">Sort: Name (Z→A)</option>
-        <option value="kind">Sort: Custom first</option>
+        <option value="added-desc">Sort: Recently added</option>
       </select>
     </div>
   </div>
 
-  <!-- ─── Packs list (HTMX-swappable) ─────────────────────── -->
-  <div id="packs-list-area">
-    {% include "sploc/partials/packs_list.html" %}
+  <!-- ─── Services list (HTMX-swappable) ─────────────────── -->
+  <div id="services-list-area">
+    {% include "sploc/partials/services_list.html" %}
   </div>
 
 </div>
 
 <!-- ─── Editor modal ─────────────────────────────────────── -->
-<div id="pack-editor-modal"
+<div id="service-editor-modal"
      class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
      onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="glass-card max-w-lg w-full p-5 max-h-[90vh] overflow-y-auto shadow-2xl border-edge-strong">
     <div class="flex items-center justify-between mb-4">
       <div>
-        <h3 class="text-sm font-semibold text-ink-primary">Prompt Pack</h3>
+        <h3 class="text-sm font-semibold text-ink-primary">Service Catalog Entry</h3>
         <p class="text-[10px] text-ink-muted mt-0.5">Press <kbd class="text-[9px] px-1 py-0.5 rounded bg-surface-5 border border-edge font-mono">Esc</kbd> to close</p>
       </div>
       <button type="button"
-              onclick="document.getElementById('pack-editor-modal').classList.add('hidden')"
+              onclick="document.getElementById('service-editor-modal').classList.add('hidden')"
               class="text-ink-muted hover:text-ink-primary p-1 -m-1 rounded hover:bg-white/5"
               aria-label="Close">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,22 +105,22 @@
         </svg>
       </button>
     </div>
-    <div id="pack-editor-area"></div>
+    <div id="service-editor-area"></div>
   </div>
 </div>
 
 <!-- ─── Import modal ─────────────────────────────────────── -->
-<div id="pack-import-modal"
+<div id="service-import-modal"
      class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
      onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="glass-card max-w-2xl w-full p-5 max-h-[90vh] overflow-y-auto shadow-2xl border-edge-strong">
     <div class="flex items-center justify-between mb-4">
       <div>
-        <h3 class="text-sm font-semibold text-ink-primary">Import Prompt Packs</h3>
+        <h3 class="text-sm font-semibold text-ink-primary">Import Service Catalog</h3>
         <p class="text-[10px] text-ink-muted mt-0.5">Press <kbd class="text-[9px] px-1 py-0.5 rounded bg-surface-5 border border-edge font-mono">Esc</kbd> to close</p>
       </div>
       <button type="button"
-              onclick="document.getElementById('pack-import-modal').classList.add('hidden')"
+              onclick="document.getElementById('service-import-modal').classList.add('hidden')"
               class="text-ink-muted hover:text-ink-primary p-1 -m-1 rounded hover:bg-white/5"
               aria-label="Close">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,7 +128,7 @@
         </svg>
       </button>
     </div>
-    <div id="pack-import-area"></div>
+    <div id="service-import-area"></div>
   </div>
 </div>
 
@@ -165,38 +136,26 @@
 
 {% block extra_js %}
 <script>
-function _defineSplocPrompts() {
-  Alpine.data('splocPrompts', () => ({
+function _defineSplocServices() {
+  Alpine.data('splocServices', () => ({
     filter: '',
-    kind: 'all',
     sort: 'name',
     totalCount: 0,
-    builtinCount: 0,
-    customCount: 0,
-
-    openEditor() { document.getElementById('pack-editor-modal').classList.remove('hidden'); },
-    closeEditor() { document.getElementById('pack-editor-modal').classList.add('hidden'); },
-    openImport() { document.getElementById('pack-import-modal').classList.remove('hidden'); },
-    closeImport() { document.getElementById('pack-import-modal').classList.add('hidden'); },
-    closeAllModals() { this.closeEditor(); this.closeImport(); },
 
     recountFromDOM() {
-      var cards = document.querySelectorAll('.pack-card');
-      this.totalCount = cards.length;
-      this.builtinCount = Array.from(cards).filter(c => c.dataset.builtin === 'true').length;
-      this.customCount = this.totalCount - this.builtinCount;
+      this.totalCount = document.querySelectorAll('.service-card').length;
     },
 
     applySort() {
-      var grid = document.getElementById('packs-grid');
+      var grid = document.getElementById('services-grid');
       if (!grid) return;
-      var cards = Array.from(grid.querySelectorAll('.pack-card'));
+      var cards = Array.from(grid.querySelectorAll('.service-card'));
       var sortKey = this.sort;
       cards.sort((a, b) => {
-        if (sortKey === 'kind') {
-          var ak = a.dataset.builtin === 'true' ? 1 : 0;
-          var bk = b.dataset.builtin === 'true' ? 1 : 0;
-          if (ak !== bk) return ak - bk;
+        if (sortKey === 'added-desc') {
+          var ad = parseFloat(a.dataset.added || '0');
+          var bd = parseFloat(b.dataset.added || '0');
+          if (ad !== bd) return bd - ad;
           return (a.dataset.name || '').localeCompare(b.dataset.name || '');
         }
         var cmp = (a.dataset.name || '').localeCompare(b.dataset.name || '');
@@ -209,40 +168,34 @@ function _defineSplocPrompts() {
       this.recountFromDOM();
       this.applySort();
 
-      // Recount + re-sort when HTMX swaps the list partial
       document.body.addEventListener('htmx:afterSwap', (e) => {
-        if (e.detail.target && e.detail.target.id === 'packs-list-area') {
+        if (e.detail.target && e.detail.target.id === 'services-list-area') {
           this.$nextTick(() => { this.recountFromDOM(); this.applySort(); });
         }
       });
 
-      // Re-sort when user changes the dropdown
       this.$watch('sort', () => this.applySort());
 
-      // Keyboard shortcuts — guarded against firing while typing in any input/textarea/select
+      // Keyboard shortcuts
       var self = this;
       document.addEventListener('keydown', function(e) {
         var typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)
                      || document.activeElement.isContentEditable;
 
-        // Esc — always closes modals (even from inside a form input)
         if (e.key === 'Escape') {
-          document.getElementById('pack-editor-modal').classList.add('hidden');
-          document.getElementById('pack-import-modal').classList.add('hidden');
+          document.getElementById('service-editor-modal').classList.add('hidden');
+          document.getElementById('service-import-modal').classList.add('hidden');
           return;
         }
         if (typing) return;
-
-        // / — focus search
         if (e.key === '/') {
           e.preventDefault();
           if (self.$refs.filterInput) self.$refs.filterInput.focus();
           return;
         }
-        // n — open new-pack modal
         if (e.key === 'n') {
           e.preventDefault();
-          var btn = document.querySelector('[hx-get="/sploc/prompts/editor/"]');
+          var btn = document.querySelector('[hx-get="/sploc/services/editor/"]');
           if (btn) btn.click();
         }
       });
@@ -251,24 +204,18 @@ function _defineSplocPrompts() {
     matches(card) {
       var name = (card.dataset.name || '').toLowerCase();
       var desc = (card.dataset.description || '').toLowerCase();
-      var prompt = (card.dataset.prompt || '').toLowerCase();
       var tags = (card.dataset.tags || '').toLowerCase();
-      var isBuiltin = card.dataset.builtin === 'true';
-
-      if (this.kind === 'custom' && isBuiltin) return false;
-      if (this.kind === 'builtin' && !isBuiltin) return false;
-
       if (!this.filter) return true;
       var f = this.filter.toLowerCase();
-      return name.includes(f) || desc.includes(f) || prompt.includes(f) || tags.includes(f);
+      return name.includes(f) || desc.includes(f) || tags.includes(f);
     },
 
     get visibleCount() {
-      return Array.from(document.querySelectorAll('.pack-card')).filter(c => this.matches(c)).length;
+      return Array.from(document.querySelectorAll('.service-card')).filter(c => this.matches(c)).length;
     },
   }));
 }
-if (window.Alpine) _defineSplocPrompts();
-else document.addEventListener('alpine:init', _defineSplocPrompts);
+if (window.Alpine) _defineSplocServices();
+else document.addEventListener('alpine:init', _defineSplocServices);
 </script>
 {% endblock %}

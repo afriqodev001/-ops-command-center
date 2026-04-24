@@ -1,0 +1,42 @@
+<form hx-post="/sploc/services/save/"
+      hx-target="#services-list-area"
+      hx-swap="innerHTML"
+      hx-on::after-request="document.getElementById('service-editor-modal').classList.add('hidden')"
+      class="space-y-3">
+  {% csrf_token %}
+
+  <div>
+    <label class="label">Service name <span class="text-danger">*</span></label>
+    <input type="text" name="name" value="{{ name }}"
+           {% if service %}readonly{% endif %}
+           class="input-dark text-xs font-mono"
+           placeholder="e.g. api-gateway"
+           pattern="[a-zA-Z0-9_\-\.]+"
+           required>
+    <p class="text-[10px] text-ink-muted mt-0.5">Must match the exact SignalFx service name. Delete and re-add to rename.</p>
+  </div>
+
+  <div>
+    <label class="label">Description</label>
+    <input type="text" name="description" value="{{ service.description|default:'' }}"
+           class="input-dark text-xs"
+           placeholder="e.g. Main ingress / routing layer">
+  </div>
+
+  <div>
+    <label class="label">Tags</label>
+    <input type="text" name="tags" value="{{ service.tags|default:'' }}"
+           class="input-dark text-xs"
+           placeholder="infra, ingress, frontend">
+    <p class="text-[10px] text-ink-muted mt-0.5">Comma-separated — used by the filter search.</p>
+  </div>
+
+  <div class="flex items-center justify-end gap-2 pt-2 border-t border-edge">
+    <button type="button"
+            onclick="document.getElementById('service-editor-modal').classList.add('hidden')"
+            class="btn-ghost text-xs py-1.5 px-3">Cancel</button>
+    <button type="submit" class="btn-primary text-xs py-1.5 px-3">
+      {% if service %}Update Service{% else %}Add Service{% endif %}
+    </button>
+  </div>
+</form>

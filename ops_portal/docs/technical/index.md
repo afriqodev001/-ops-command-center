@@ -27,6 +27,7 @@ Developer-oriented documentation covering architecture, patterns, and feature in
 14. [Copilot Chat](14_copilot_chat.md) — Teams automation, prompt packs, session gating
 15. [Tachyon](15_tachyon.md) — LLM playground, preset management
 16. [Adding a New Integration](16_adding_integration.md) — session widget, runner, tasks pattern
+17. [SPLOC (SignalFx)](17_sploc.md) — trace scraper, AI Assistant, prompt packs, cross-app linking
 
 ## Terminology
 
@@ -38,7 +39,8 @@ Developer-oriented documentation covering architecture, patterns, and feature in
 | **Prompt Store** | File-backed editable AI prompts (`prompts.json`) |
 | **Preset** | Saved query/search template (ServiceNow or Splunk) |
 | **Template** | Write (create) payload for ServiceNow records |
-| **Prompt Pack** | Reusable collection of Copilot Chat prompts |
+| **Prompt Pack** | Reusable collection of Copilot Chat or SPLOC AI prompts |
+| **SPLOC** | Splunk Observability Cloud (SignalFx) — APM traces + built-in AI Assistant |
 | **Partial** | Template fragment for HTMX swaps |
 | **hx-boost** | HTMX SPA-like nav — causes Alpine/JS re-execution issues |
 

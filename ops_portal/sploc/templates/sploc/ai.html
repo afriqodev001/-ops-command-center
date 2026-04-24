@@ -64,7 +64,8 @@
             hx-target="#sploc-results"
             hx-swap="innerHTML"
             @htmx:before-request="running = true"
-            @htmx:after-request="running = false"
+            @htmx:response-error="running = false"
+            @htmx:send-error="running = false"
             class="space-y-3">
         {% csrf_token %}
 
@@ -156,6 +157,18 @@ function _defineSplocAI() {
       };
       await check();
       this._pollTimer = setInterval(check, 15000);
+    },
+
+    init() {
+      // Keep `running` true while a polling card is in #sploc-results.
+      // A polling card has hx-trigger="load delay:..." — terminal results don't.
+      var self = this;
+      document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (!e.detail.target || e.detail.target.id !== 'sploc-results') return;
+        var firstChild = e.detail.target.querySelector(':scope > *');
+        var trigger = firstChild && firstChild.getAttribute('hx-trigger') || '';
+        self.running = /load\s+delay/.test(trigger);
+      });
     },
 
     destroy() {
