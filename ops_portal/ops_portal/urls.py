@@ -24,4 +24,5 @@ urlpatterns = [
     path('tachyon/', include('tachyon.urls')),
     path('copilot/', include('copilot_chat.urls')),
     path('splunk/', include('splunk.urls')),
+    path('sploc/', include('sploc.urls')),
 ]

@@ -164,6 +164,24 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
             "- Tags should reflect the query's domain (errors, performance, security, etc.)"
         ),
     },
+    # ── SPLOC AI prompts ─────────────────────────────────────
+    'sploc_trace_analysis': {
+        'label': 'SPLOC Trace Analysis',
+        'description': 'Analyzes a scraped SignalFx trace waterfall and identifies bottlenecks, errors, and unusual patterns.',
+        'prompt': (
+            "You are an experienced distributed systems engineer and APM analyst.\n"
+            "Analyze the SignalFx trace waterfall data below and provide a structured assessment in Markdown.\n\n"
+            "The data contains span rows with: index, span_id, service, operation, duration, indent_px (parent-child depth).\n\n"
+            "Use these sections:\n"
+            "## Trace Summary\nOne paragraph: total spans, services involved, overall shape of the call graph (linear, fan-out, deep nesting).\n\n"
+            "## Critical Path & Bottlenecks\nIdentify the slowest operations and which service owns each. Use ⚠️ for spans whose duration looks anomalous relative to peers.\n\n"
+            "## Service Breakdown\nWhich services contribute the most spans / time? Are there suspicious repeated calls to the same operation (N+1 patterns)?\n\n"
+            "## Errors & Concerns\nFlag anything unusual: missing durations, deeply nested chains, repeated operations, services that appear only once, etc.\n\n"
+            "## Recommendations\nActionable next steps — specific spans/services to investigate, instrumentation gaps, or follow-up queries to run.\n\n"
+            "Be concrete and reference actual span_ids, services, and durations from the data. "
+            "If the trace is small or trivial, say so plainly rather than padding."
+        ),
+    },
 }
 
 PROMPT_KEYS = list(DEFAULTS.keys())

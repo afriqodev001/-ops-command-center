@@ -1,0 +1,195 @@
+{# Toast banners — Alpine recomputes header counts from DOM via htmx:afterSwap #}
+{% if saved_name %}
+<div class="rounded-lg px-3 py-2 bg-ok/10 border border-ok/20 mb-3 animate-fade-in flex items-center gap-2">
+  <svg class="w-3.5 h-3.5 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+  </svg>
+  <p class="text-xs text-ok">Saved pack <span class="font-mono">{{ saved_name }}</span></p>
+</div>
+{% endif %}
+
+{% if import_count %}
+<div class="rounded-lg px-3 py-2 bg-ok/10 border border-ok/20 mb-3 animate-fade-in flex items-center gap-2">
+  <svg class="w-3.5 h-3.5 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+  </svg>
+  <p class="text-xs text-ok">Imported {{ import_count }} pack{{ import_count|pluralize }}</p>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="rounded-lg px-3 py-2 bg-danger/10 border border-danger/20 mb-3">
+  <p class="text-xs text-danger">{{ error }}</p>
+</div>
+{% endif %}
+
+{% if packs %}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="packs-grid">
+  {% for name, meta in packs.items %}
+  <div class="pack-card glass-card p-4 flex flex-col gap-3 hover:border-edge-strong hover:-translate-y-0.5 transition-all duration-150"
+       data-name="{{ name }}"
+       data-description="{{ meta.description }}"
+       data-prompt="{{ meta.prompt }}"
+       data-tags="{{ meta.tags }}"
+       data-builtin="{% if meta.is_builtin %}true{% else %}false{% endif %}"
+       x-show="matches($el)"
+       x-data="{ expanded: false, copied: false }">
+
+    <!-- Header -->
+    <div class="flex items-start justify-between gap-2 min-w-0">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <p class="text-sm font-semibold text-ink-primary truncate" title="{{ name }}">{{ name }}</p>
+          {% if meta.is_builtin %}
+          <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-5 text-ink-muted border border-edge font-medium">built-in</span>
+          {% else %}
+          <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-brand-subtle/40 text-brand-light border border-brand/20 font-medium">custom</span>
+          {% endif %}
+        </div>
+        {% if meta.description %}
+        <p class="text-[11px] text-ink-secondary mt-1 leading-relaxed line-clamp-2">{{ meta.description }}</p>
+        {% else %}
+        <p class="text-[11px] text-ink-muted mt-1 italic">No description</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tag chips -->
+    {% if meta.tags %}
+    <div class="flex flex-wrap gap-1">
+      {% for tag in meta.tags.split %}
+      <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-brand-subtle/30 text-brand-light border border-brand/10">{{ tag|cut:"," }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Prompt body -->
+    <div class="relative rounded-lg bg-surface-2 border border-edge p-2.5">
+      <div class="text-[11px] text-ink-secondary leading-relaxed font-mono whitespace-pre-wrap break-words"
+           :class="expanded ? '' : 'line-clamp-3'">{{ meta.prompt }}</div>
+
+      {% if meta.prompt|length > 140 %}
+      <button @click="expanded = !expanded"
+              class="text-[10px] text-brand-light hover:text-brand mt-1.5 transition-colors">
+        <span x-text="expanded ? '« Show less' : 'Show more »'"></span>
+      </button>
+      {% endif %}
+    </div>
+
+    <!-- Default options badges -->
+    {% if meta.defaults %}
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-ink-muted">
+      {% if meta.defaults.start_new_chat %}
+      <span class="inline-flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-info"></span>
+        new chat
+      </span>
+      {% endif %}
+      {% if meta.defaults.use_page_filters %}
+      <span class="inline-flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-info"></span>
+        page filters
+      </span>
+      {% endif %}
+      {% if meta.defaults.close_panel_at_end %}
+      <span class="inline-flex items-center gap-1 opacity-60">
+        <span class="w-1.5 h-1.5 rounded-full bg-ink-muted"></span>
+        auto-close
+      </span>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Action toolbar -->
+    <div class="flex items-center gap-1 pt-2 mt-auto border-t border-edge-subtle">
+      <a href="/sploc/ai/?use={{ name|urlencode }}"
+         class="btn-primary text-[11px] py-1.5 px-3 flex-1 justify-center"
+         title="Open AI page with this prompt loaded">
+        <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+        </svg>
+        Use
+      </a>
+
+      <button @click="navigator.clipboard.writeText(`{{ meta.prompt|escapejs }}`).then(() => { copied = true; setTimeout(() => copied = false, 1500) })"
+              class="btn-ghost text-[11px] py-1.5 px-2 relative" :title="copied ? 'Copied!' : 'Copy prompt'">
+        <svg x-show="!copied" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+        <svg x-show="copied" x-cloak class="w-3 h-3 text-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </button>
+
+      <button hx-get="/sploc/prompts/editor/?name={{ name|urlencode }}"
+              hx-target="#pack-editor-area"
+              hx-swap="innerHTML"
+              onclick="document.getElementById('pack-editor-modal').classList.remove('hidden')"
+              class="btn-ghost text-[11px] py-1.5 px-2" title="Edit pack">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+      </button>
+
+      <a href="/sploc/prompts/export/{{ name|urlencode }}/"
+         class="btn-ghost text-[11px] py-1.5 px-2" title="Export this pack as JSON">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </a>
+
+      <form hx-post="/sploc/prompts/delete/"
+            hx-target="#packs-list-area"
+            hx-swap="innerHTML"
+            hx-confirm="Delete pack '{{ name }}'?{% if meta.is_builtin %}\n\nThis is a built-in pack — it will be hidden but can be restored later by re-importing.{% endif %}"
+            class="contents">
+        {% csrf_token %}
+        <input type="hidden" name="name" value="{{ name }}">
+        <button type="submit" class="btn-ghost text-[11px] py-1.5 px-2 text-ink-muted hover:text-danger hover:bg-danger/10" title="Delete pack">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Empty filter result -->
+<div x-show="visibleCount === 0" x-cloak
+     class="glass-card p-8 text-center mt-3">
+  <svg class="w-10 h-10 text-ink-muted mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <p class="text-sm text-ink-secondary">No packs match your filter</p>
+  <button @click="filter = ''; kind = 'all'"
+          class="btn-ghost text-xs py-1.5 px-3 mt-3">Clear filters</button>
+</div>
+
+{% else %}
+<!-- True empty state -->
+<div class="glass-card p-10 text-center">
+  <div class="w-14 h-14 rounded-full bg-brand-subtle/30 border border-brand/10 flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+    </svg>
+  </div>
+  <h3 class="text-sm font-semibold text-ink-primary">No prompt packs yet</h3>
+  <p class="text-[11px] text-ink-muted mt-1 max-w-sm mx-auto leading-relaxed">
+    Create reusable prompts you can fire at SignalFx's AI Assistant in one click — or import a pack file someone shared with you.
+  </p>
+  <div class="flex items-center gap-2 justify-center mt-4">
+    <button hx-get="/sploc/prompts/editor/"
+            hx-target="#pack-editor-area"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('pack-editor-modal').classList.remove('hidden')"
+            class="btn-primary text-xs py-1.5 px-3">Create your first pack</button>
+    <button hx-get="/sploc/prompts/import/"
+            hx-target="#pack-import-area"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('pack-import-modal').classList.remove('hidden')"
+            class="btn-ghost text-xs py-1.5 px-3">Import from file</button>
+  </div>
+</div>
+{% endif %}

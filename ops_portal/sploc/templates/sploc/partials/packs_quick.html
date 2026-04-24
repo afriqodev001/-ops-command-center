@@ -1,0 +1,27 @@
+{% if packs %}
+<div class="space-y-1.5">
+  {% for name, meta in packs.items %}
+  <button type="button"
+          @click="
+            prompt = '{{ meta.prompt|escapejs }}';
+            startNewChat = {% if meta.defaults.start_new_chat %}true{% else %}false{% endif %};
+            usePageFilters = {% if meta.defaults.use_page_filters %}true{% else %}false{% endif %};
+          "
+          class="w-full text-left p-2 rounded-lg bg-surface-3/60 border border-edge hover:border-edge-strong transition-colors group">
+    <div class="flex items-start gap-2">
+      <div class="flex-1 min-w-0">
+        <p class="text-[11px] font-semibold text-ink-primary truncate">{{ name|cut:"_"|title }}</p>
+        <p class="text-[9px] text-ink-muted truncate">{{ meta.description }}</p>
+      </div>
+      {% if meta.is_builtin %}
+      <span class="text-[8px] text-ink-muted opacity-50 flex-shrink-0" title="Built-in">●</span>
+      {% endif %}
+    </div>
+  </button>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-[11px] text-ink-muted py-3 text-center">No prompt packs.
+  <a href="/sploc/prompts/" class="text-brand-light hover:text-brand">Create one →</a>
+</p>
+{% endif %}

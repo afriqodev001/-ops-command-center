@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     'copilot_chat',
     'harness',
     'splunk',
+    'sploc',
     # celery results backend
     'django_celery_results',
 ]
@@ -281,6 +282,21 @@ SPLUNK_DEFAULT_LATEST = os.environ.get('SPLUNK_DEFAULT_LATEST', 'now')
 SPLUNK_RUN_MAX_POLLS = int(os.environ.get('SPLUNK_RUN_MAX_POLLS', 30))
 SPLUNK_RUN_POLL_INTERVAL = float(os.environ.get('SPLUNK_RUN_POLL_INTERVAL', 2.0))
 SPLUNK_NAMESPACE_USER = os.environ.get('SPLUNK_NAMESPACE_USER', 'nobody')
+
+
+# =========================
+# SPLOC (Splunk Observability Cloud / SignalFx)
+# =========================
+SPLOC_BASE = os.environ.get(
+    'SPLOC_BASE',
+    'https://your-org.signalfx.com',
+)
+SPLOC_APM_PATH = os.environ.get('SPLOC_APM_PATH', '/#/apm')
+SPLOC_RESPONSE_TIMEOUT = int(os.environ.get('SPLOC_RESPONSE_TIMEOUT', 120))
+SPLOC_STABLE_WINDOW = float(os.environ.get('SPLOC_STABLE_WINDOW', 1.25))
+SPLOC_SCROLL_STEP_FACTOR = float(os.environ.get('SPLOC_SCROLL_STEP_FACTOR', 0.85))
+SPLOC_NO_NEW_LIMIT = int(os.environ.get('SPLOC_NO_NEW_LIMIT', 6))
+SPLOC_MAX_SPANS = int(os.environ.get('SPLOC_MAX_SPANS', 0))
 
 
 # ============================================================

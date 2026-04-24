@@ -1,0 +1,64 @@
+<div class="flex items-center justify-between mb-3">
+  <h3 class="text-sm font-semibold text-ink-primary">Recent Traces</h3>
+  {% if recents %}
+  <form hx-post="/sploc/ui/recents/clear/"
+        hx-target="#sploc-recents-area"
+        hx-swap="innerHTML"
+        hx-confirm="Clear all recent trace history?"
+        class="contents">
+    {% csrf_token %}
+    <button type="submit" class="text-[10px] text-ink-muted hover:text-danger transition-colors" title="Clear all">
+      Clear
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+{% if recents %}
+<div class="space-y-1.5">
+  {% for r in recents %}
+  <div class="group rounded-lg bg-surface-3/60 border border-edge hover:border-edge-strong transition-colors flex items-center gap-1 pl-2 pr-1">
+    <button type="button"
+            @click="
+              traceId = '{{ r.trace_id|escapejs }}';
+              serviceName = '{{ r.service_name|escapejs }}';
+              $nextTick(() => {
+                if (sessionAlive) {
+                  var form = document.querySelector('#trace-form');
+                  if (form) htmx.trigger(form, 'submit');
+                }
+              });
+            "
+            class="flex-1 min-w-0 py-1.5 text-left">
+      <p class="text-[10px] font-mono text-ink-primary truncate" title="{{ r.trace_id }}">{{ r.trace_id|truncatechars:20 }}</p>
+      <div class="flex items-center gap-1.5 mt-0.5">
+        <span class="text-[9px] text-brand-light truncate" title="{{ r.service_name }}">{{ r.service_name|truncatechars:24 }}</span>
+        {% if r.total_spans %}
+        <span class="text-[8px] text-ink-muted opacity-70 flex-shrink-0">· {{ r.total_spans }} span{{ r.total_spans|pluralize }}</span>
+        {% endif %}
+      </div>
+    </button>
+    <form hx-post="/sploc/ui/recents/delete/"
+          hx-target="#sploc-recents-area"
+          hx-swap="innerHTML"
+          class="contents">
+      {% csrf_token %}
+      <input type="hidden" name="trace_id" value="{{ r.trace_id }}">
+      <input type="hidden" name="service_name" value="{{ r.service_name }}">
+      <button type="submit"
+              class="opacity-0 group-hover:opacity-100 text-ink-muted hover:text-danger p-1 transition-opacity"
+              title="Remove from recents">
+        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-[10px] text-ink-muted py-2 text-center leading-relaxed">
+  No recent traces yet.<br>
+  Scraped traces will appear here for one-click re-runs.
+</p>
+{% endif %}

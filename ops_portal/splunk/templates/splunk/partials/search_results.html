@@ -216,3 +216,52 @@
   <!-- AI preset generation result -->
   <div id="ai-preset-result"></div>
 </div>
+
+<!-- SPLOC trace_id auto-detection: scans event raw text for 32-hex strings and adds jump links -->
+<script>
+(function() {
+  var HEX32 = /\b[a-f0-9]{32}\b/gi;
+  document.querySelectorAll('pre[id^="evt-raw-"]').forEach(function(pre) {
+    var text = pre.textContent || '';
+    var matches = (text.match(HEX32) || []);
+    // Dedupe (preserve order)
+    var seen = {};
+    matches = matches.filter(function(m) { if (seen[m]) return false; seen[m] = true; return true; });
+    if (!matches.length) return;
+
+    // Avoid double-inject if partial re-renders
+    var rawContainer = pre.closest('div.relative');
+    if (!rawContainer || rawContainer.previousElementSibling
+        && rawContainer.previousElementSibling.classList
+        && rawContainer.previousElementSibling.classList.contains('sploc-trace-banner')) return;
+
+    var banner = document.createElement('div');
+    banner.className = 'sploc-trace-banner flex items-center gap-1.5 mb-2 px-2 py-1.5 rounded bg-brand-subtle/20 border border-brand/10 flex-wrap';
+
+    var label = document.createElement('span');
+    label.className = 'text-[9px] text-brand-light font-semibold flex-shrink-0 uppercase tracking-wider';
+    label.textContent = matches.length === 1 ? 'Trace ID:' : matches.length + ' Trace IDs:';
+    banner.appendChild(label);
+
+    matches.slice(0, 3).forEach(function(tid) {
+      var link = document.createElement('a');
+      link.href = '/sploc/traces/?trace_id=' + encodeURIComponent(tid);
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.className = 'text-[10px] font-mono text-brand-light hover:text-brand inline-flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-white/5 transition-colors';
+      link.title = 'Open in SPLOC trace scraper · ' + tid;
+      link.innerHTML = '<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>' + tid.slice(0, 12) + '…';
+      banner.appendChild(link);
+    });
+
+    if (matches.length > 3) {
+      var more = document.createElement('span');
+      more.className = 'text-[9px] text-ink-muted';
+      more.textContent = '+' + (matches.length - 3) + ' more';
+      banner.appendChild(more);
+    }
+
+    rawContainer.parentElement.insertBefore(banner, rawContainer);
+  });
+})();
+</script>

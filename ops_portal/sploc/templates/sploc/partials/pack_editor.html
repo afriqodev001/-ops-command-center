@@ -1,0 +1,72 @@
+<form hx-post="/sploc/prompts/save/"
+      hx-target="#packs-list-area"
+      hx-swap="innerHTML"
+      hx-on::after-request="document.getElementById('pack-editor-modal').classList.add('hidden')"
+      class="space-y-3">
+  {% csrf_token %}
+
+  <div>
+    <label class="label">Name <span class="text-danger">*</span></label>
+    <input type="text" name="name" value="{{ name }}"
+           {% if pack and pack.is_builtin %}readonly{% endif %}
+           class="input-dark text-xs font-mono"
+           placeholder="e.g. recent_5xx_errors"
+           pattern="[a-z0-9_]+"
+           required>
+    <p class="text-[10px] text-ink-muted mt-0.5">Lowercase, numbers, underscores only</p>
+  </div>
+
+  <div>
+    <label class="label">Description <span class="text-danger">*</span></label>
+    <input type="text" name="description" value="{{ pack.description|default:'' }}"
+           class="input-dark text-xs"
+           placeholder="e.g. 5xx errors in the past hour"
+           required>
+  </div>
+
+  <div>
+    <label class="label">Prompt <span class="text-danger">*</span></label>
+    <textarea name="prompt" rows="4"
+              class="input-dark text-xs resize-y"
+              placeholder="The text sent to SignalFx's AI Assistant"
+              required>{{ pack.prompt|default:'' }}</textarea>
+  </div>
+
+  <div>
+    <label class="label">Tags</label>
+    <input type="text" name="tags" value="{{ pack.tags|default:'' }}"
+           class="input-dark text-xs"
+           placeholder="comma, separated, tags">
+  </div>
+
+  <div class="space-y-1.5 pt-2 border-t border-edge">
+    <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Default options</p>
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" name="start_new_chat"
+             {% if pack.defaults.start_new_chat %}checked{% endif %}
+             class="rounded border-edge bg-surface-3 text-brand focus:ring-brand/50">
+      <span class="text-[11px] text-ink-secondary">Start new chat by default</span>
+    </label>
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" name="use_page_filters"
+             {% if pack.defaults.use_page_filters %}checked{% endif %}
+             class="rounded border-edge bg-surface-3 text-brand focus:ring-brand/50">
+      <span class="text-[11px] text-ink-secondary">Use current page filters by default</span>
+    </label>
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" name="close_panel_at_end"
+             {% if pack.defaults.close_panel_at_end or not pack %}checked{% endif %}
+             class="rounded border-edge bg-surface-3 text-brand focus:ring-brand/50">
+      <span class="text-[11px] text-ink-secondary">Close AI panel when done</span>
+    </label>
+  </div>
+
+  <div class="flex items-center justify-end gap-2 pt-2 border-t border-edge">
+    <button type="button"
+            onclick="document.getElementById('pack-editor-modal').classList.add('hidden')"
+            class="btn-ghost text-xs py-1.5 px-3">Cancel</button>
+    <button type="submit" class="btn-primary text-xs py-1.5 px-3">
+      {% if pack %}Update Pack{% else %}Create Pack{% endif %}
+    </button>
+  </div>
+</form>
