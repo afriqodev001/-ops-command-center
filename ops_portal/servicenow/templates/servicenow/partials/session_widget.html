@@ -41,6 +41,18 @@
       Close browser
     </button>
   </form>
+  <form hx-post="/servicenow/session/reset/"
+        hx-target="#session-widget-container"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button"
+        hx-confirm="Reset session? This kills the browser and deletes saved cookies/profile data. You'll need to log in again."
+        class="flex-shrink-0">
+    {% csrf_token %}
+    <button type="submit" title="Force-kill browser, wipe profile, start over (use if auth looks stale)"
+            class="text-[10px] text-ink-muted hover:text-danger transition-colors px-1 py-0.5 rounded hover:bg-danger/10 disabled:opacity-50">
+      Reset
+    </button>
+  </form>
 </div>
 
 {% elif status == 'disconnected' %}
