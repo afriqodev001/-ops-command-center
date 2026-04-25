@@ -174,12 +174,23 @@ def execution_inputset_v2_task(self, body: dict):
 
 @shared_task(bind=True)
 def active_service_instances_task(self, body: dict):
+    """
+    Active service instances for a (project, env) pair.
+
+    project_identifier is intentionally NOT gated by HARNESS_ALLOW_PROJECT_OVERRIDE
+    here — Active Instances is a discovery view and the UI form is the
+    primary caller, so explicit per-request project selection is the expected
+    flow. Falls back to settings.HARNESS_PROJECT_ID when the request omits it.
+    """
+    body = body or {}
+
     runner = HarnessRunner(user_key=_user_key(body))
     driver = runner.get_driver()
 
     return get_active_service_instances(
         driver,
         env_id=body.get("env_id"),
+        project_identifier=body.get("project_identifier"),
     )
 
 
@@ -320,6 +331,7 @@ def fetch_plan_task(self, body: dict):
     out["active_service_instances"] = get_active_service_instances(
         driver,
         env_id=body.get("env_id"),
+        project_identifier=body.get("project_identifier"),
     )
 
     return out

@@ -524,8 +524,16 @@ def get_inputset_v2(driver, *, execution_id: str) -> Dict[str, Any]:
         "variables": variables,
     }
 
-def get_active_service_instances(driver, *, env_id: Optional[str] = None) -> Dict[str, Any]:
-    url = urls_builders.build_active_service_instances(env_id)
+def get_active_service_instances(
+    driver,
+    *,
+    env_id: Optional[str] = None,
+    project_identifier: Optional[str] = None,
+) -> Dict[str, Any]:
+    url = urls_builders.build_active_service_instances(
+        env_id=env_id,
+        project_identifier=project_identifier,
+    )
     raw = browser_fetch(driver, url=url, method="GET", body_obj=None)
     return _extract_meaningful_active_services(raw)
 

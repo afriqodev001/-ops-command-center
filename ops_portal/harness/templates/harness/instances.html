@@ -17,6 +17,30 @@
     </div>
   </div>
 
+  {% if ws_pinned_projects %}
+  <!-- Pinned projects quick-pick: clicking sets project + submits -->
+  <div class="glass-card p-3">
+    <div class="flex items-center gap-2 mb-2">
+      <svg class="w-3.5 h-3.5 text-warn" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+      </svg>
+      <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Pinned projects</p>
+      <a href="/harness/workspace/?tab=projects" class="text-[10px] text-brand-light hover:text-brand ml-auto">Manage →</a>
+    </div>
+    <div class="flex items-center gap-1.5 flex-wrap">
+      {% for p in ws_pinned_projects %}
+      <button type="button"
+              @click="projectId = '{{ p.identifier|escapejs }}'; submitForm()"
+              :class="projectId === '{{ p.identifier|escapejs }}' ? 'bg-warn/20 border-warn/45' : 'bg-warn/5 border-warn/25'"
+              class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border text-ink-secondary hover:bg-warn/15 hover:text-ink-primary transition-colors">
+        <span class="font-mono text-ink-primary">{{ p.identifier }}</span>
+        {% if p.name %}<span class="text-ink-muted">·</span><span class="truncate max-w-[120px]">{{ p.name }}</span>{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div class="glass-card p-4">
     <div class="flex items-center gap-2 mb-3">
       <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,7 +48,7 @@
       </svg>
       <div>
         <h3 class="text-sm font-semibold text-ink-primary">Active Instances</h3>
-        <p class="text-[10px] text-ink-muted">Lists instances grouped by service and artifact version for the chosen environment.</p>
+        <p class="text-[10px] text-ink-muted">Pick a project + environment to see what's currently running.</p>
       </div>
     </div>
 
@@ -34,35 +58,66 @@
           hx-swap="innerHTML"
           @htmx:before-request="running = true"
           @htmx:after-request="running = false"
-          class="flex flex-wrap items-end gap-3">
+          class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
       {% csrf_token %}
-      <div class="flex-1 min-w-[200px]">
+
+      <div>
+        <label class="label">
+          Project identifier
+          {% if not prefill_project %}<span class="text-danger">*</span>{% else %}<span class="text-ink-muted">(default from settings)</span>{% endif %}
+        </label>
+        <input type="text" name="project_identifier" x-model="projectId"
+               list="ws-instance-projects"
+               class="input-dark text-xs font-mono"
+               placeholder="e.g. app_foo">
+        <datalist id="ws-instance-projects">
+          {% for ident, p in ws_projects.items %}
+          <option value="{{ ident }}"{% if p.name %} label="{{ p.name }}"{% endif %}>
+          {% endfor %}
+        </datalist>
+        {% if not ws_projects %}
+        <p class="text-[10px] text-ink-muted mt-1">Add projects in your <a href="/harness/workspace/?tab=projects" class="text-brand-light hover:text-brand">workspace</a> for autocomplete.</p>
+        {% endif %}
+      </div>
+
+      <div>
         <label class="label">Environment identifier <span class="text-ink-muted">(default from settings)</span></label>
         <input type="text" name="env_id" x-model="envId"
                list="ws-instance-envs"
                class="input-dark text-xs font-mono"
-               placeholder="e.g. {{ prefill_env|default:'prod' }}">
+               placeholder="e.g. prod">
         <datalist id="ws-instance-envs">
           {% for name, s in ws_services.items %}{% for e in s.envs %}<option value="{{ e }}">{% endfor %}{% endfor %}
         </datalist>
       </div>
-      <button type="submit" class="btn-primary text-xs px-4 py-2"
-              :disabled="!sessionAlive || running">
-        <template x-if="!running">
-          <span class="inline-flex items-center gap-2">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-            </svg>
-            Load Instances
-          </span>
-        </template>
-        <template x-if="running">
-          <span class="inline-flex items-center gap-2">
-            <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            Loading…
-          </span>
-        </template>
-      </button>
+
+      <div class="md:col-span-2 flex items-center gap-2">
+        <button type="submit" class="btn-primary text-xs px-4 py-2"
+                :disabled="!sessionAlive || running">
+          <template x-if="!running">
+            <span class="inline-flex items-center gap-2">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+              </svg>
+              Load Instances
+            </span>
+          </template>
+          <template x-if="running">
+            <span class="inline-flex items-center gap-2">
+              <div class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Loading…
+            </span>
+          </template>
+        </button>
+        <button type="button" @click="projectId = ''; envId = ''"
+                class="btn-ghost text-xs py-2 px-3">Clear</button>
+        {% if not prefill_project and not prefill_env %}
+        <p class="text-[10px] text-ink-muted ml-auto">
+          Tip: omit either field to use the value from settings
+          <span class="font-mono">(.env)</span>.
+        </p>
+        {% endif %}
+      </div>
     </form>
   </div>
 
@@ -75,6 +130,7 @@
 function _defineHarnessInstances() {
   Alpine.data('harnessInstances', () => ({
     envId: '{{ prefill_env|escapejs }}' || '',
+    projectId: '{{ prefill_project|escapejs }}' || '',
     running: false,
     sessionAlive: false,
     _pollTimer: null,
@@ -88,6 +144,10 @@ function _defineHarnessInstances() {
       };
       await check();
       this._pollTimer = setInterval(check, 15000);
+    },
+    submitForm() {
+      var form = document.getElementById('instances-form');
+      if (form) htmx.trigger(form, 'submit');
     },
     destroy() { if (this._pollTimer) clearInterval(this._pollTimer); },
   }));

@@ -195,15 +195,19 @@ def build_inputset_v2(execution_id: str):
 # ACTIVE SERVICE INSTANCES
 # ---------------------------
 
-def build_active_service_instances(env_id: str | None = None):
+def build_active_service_instances(
+    env_id: str | None = None,
+    project_identifier: str | None = None,
+):
     env = env_id or settings.HARNESS_ENV_ID
+    proj = _resolve_project(project_identifier)
 
     url = (
         f"{_base()}/gateway/ng/api/environmentsV2/getActiveServiceInstancesForEnvironment"
         f"?routingId={_acct()}"
         f"&accountIdentifier={_acct()}"
         f"&orgIdentifier={_org()}"
-        f"&projectIdentifier={_proj()}"
+        f"&projectIdentifier={proj}"
         f"&environmentIdentifier={env}"
     )
 

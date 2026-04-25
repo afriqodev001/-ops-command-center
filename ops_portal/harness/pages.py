@@ -59,6 +59,8 @@ def harness_instances_page(request):
     return render(request, 'harness/instances.html', {
         'prefill_env': request.GET.get('env_id', '').strip()
             or getattr(dj_settings, 'HARNESS_ENV_ID', ''),
+        'prefill_project': request.GET.get('project_identifier', '').strip()
+            or getattr(dj_settings, 'HARNESS_PROJECT_ID', ''),
         **_ws_context(),
     })
 
@@ -98,13 +100,17 @@ def service_now_running(request):
 
     name = request.POST.get('service_name', '').strip()
     env_id = request.POST.get('env_id', '').strip() or None
+    project_identifier = request.POST.get('project_identifier', '').strip() or None
     if not name:
         return render(request, 'harness/partials/error.html', {
             'error': 'Service name is required.',
         })
 
     from .tasks import active_service_instances_task
-    task = active_service_instances_task.delay({'env_id': env_id})
+    task = active_service_instances_task.delay({
+        'env_id': env_id,
+        'project_identifier': project_identifier,
+    })
 
     return render(request, 'harness/partials/running.html', {
         'task_id': task.id,
@@ -605,16 +611,24 @@ def run_instances(request):
         return err
 
     env_id = request.POST.get('env_id', '').strip() or None
+    project_identifier = request.POST.get('project_identifier', '').strip() or None
 
     from .tasks import active_service_instances_task
-    task = active_service_instances_task.delay({'env_id': env_id})
+    task = active_service_instances_task.delay({
+        'env_id': env_id,
+        'project_identifier': project_identifier,
+    })
+
+    detail_bits = [f'Environment: {env_id or "default"}']
+    if project_identifier:
+        detail_bits.append(f'Project: {project_identifier}')
 
     return render(request, 'harness/partials/running.html', {
         'task_id': task.id,
         'poll_url': f'/harness/ui/instances/poll/{task.id}/',
         'target_id': 'harness-results',
         'description': 'Fetching active service instances…',
-        'detail': f'Environment: {env_id or "default"}',
+        'detail': ' · '.join(detail_bits),
     })
 
 
