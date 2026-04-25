@@ -60,9 +60,15 @@ class HarnessRunner(SeleniumRunner):
 
     def get_driver(self):
         """
-        Convenience wrapper used by tasks.
+        Convenience wrapper used by Celery tasks.
+
+        Uses headless=True so that if the alive-check ever fails mid-task
+        (e.g. user closed the browser between sidebar polls) we relaunch
+        headless with the saved profile rather than popping a UI window
+        on the user's screen. When the existing browser IS alive, this
+        flag is irrelevant — ensure_browser attaches via CDP either way.
         """
-        return self.ensure_browser(headless=False)
+        return self.ensure_browser(headless=True)
 
     # ============================================
     # Internal helpers

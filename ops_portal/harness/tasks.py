@@ -23,7 +23,12 @@ from core.browser.registry import get_or_create_session
 
 
 def _user_key(body: dict) -> str:
-    return body.get("user_key") or "default"
+    # Must match the user_key the sidebar widget uses (session_views.py).
+    # When the UI dispatches tasks without an explicit user_key, fall back
+    # to 'localuser' so the runner attaches to the existing browser session
+    # instead of creating a brand-new (harness, default) session and
+    # launching a fresh Edge instance.
+    return (body or {}).get("user_key") or "localuser"
 
 
 def _allow_project_override() -> bool:
