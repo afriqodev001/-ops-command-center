@@ -61,7 +61,11 @@
         </a>
 
         <!-- ServiceNow section -->
-        <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-ink-muted uppercase tracking-wider">ServiceNow</p>
+        <div class="px-3 mt-5 mb-1.5 flex items-center gap-2">
+          <span class="w-1 h-3.5 rounded-sm bg-brand-light flex-shrink-0"></span>
+          <p class="text-[10px] font-bold text-ink-primary uppercase tracking-[0.15em] flex-shrink-0">ServiceNow</p>
+          <div class="h-px flex-1 bg-edge/70"></div>
+        </div>
 
         <a href="/servicenow/incidents/"
            class="{% if '/servicenow/incidents' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
@@ -136,7 +140,11 @@
         </a>
 
         <!-- Tachyon -->
-        <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-ink-muted uppercase tracking-wider">Tachyon</p>
+        <div class="px-3 mt-5 mb-1.5 flex items-center gap-2">
+          <span class="w-1 h-3.5 rounded-sm bg-info flex-shrink-0"></span>
+          <p class="text-[10px] font-bold text-ink-primary uppercase tracking-[0.15em] flex-shrink-0">Tachyon</p>
+          <div class="h-px flex-1 bg-edge/70"></div>
+        </div>
 
         <a href="/tachyon/playground/"
            class="{% if '/tachyon/playground' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
@@ -148,7 +156,11 @@
         </a>
 
         <!-- Copilot Chat -->
-        <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-ink-muted uppercase tracking-wider">Copilot</p>
+        <div class="px-3 mt-5 mb-1.5 flex items-center gap-2">
+          <span class="w-1 h-3.5 rounded-sm bg-ok flex-shrink-0"></span>
+          <p class="text-[10px] font-bold text-ink-primary uppercase tracking-[0.15em] flex-shrink-0">Copilot</p>
+          <div class="h-px flex-1 bg-edge/70"></div>
+        </div>
 
         <a href="/copilot/"
            class="{% if '/copilot/' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
@@ -160,7 +172,11 @@
         </a>
 
         <!-- Splunk -->
-        <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-ink-muted uppercase tracking-wider">Splunk</p>
+        <div class="px-3 mt-5 mb-1.5 flex items-center gap-2">
+          <span class="w-1 h-3.5 rounded-sm bg-warn flex-shrink-0"></span>
+          <p class="text-[10px] font-bold text-ink-primary uppercase tracking-[0.15em] flex-shrink-0">Splunk</p>
+          <div class="h-px flex-1 bg-edge/70"></div>
+        </div>
 
         <a href="/splunk/"
            class="{% if request.path == '/splunk/' %}nav-item-active{% else %}nav-item{% endif %}">
@@ -185,7 +201,11 @@
         </a>
 
         <!-- SPLOC (Splunk Observability Cloud) -->
-        <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-ink-muted uppercase tracking-wider">SPLOC</p>
+        <div class="px-3 mt-5 mb-1.5 flex items-center gap-2">
+          <span class="w-1 h-3.5 rounded-sm bg-warn/70 flex-shrink-0"></span>
+          <p class="text-[10px] font-bold text-ink-primary uppercase tracking-[0.15em] flex-shrink-0">SPLOC</p>
+          <div class="h-px flex-1 bg-edge/70"></div>
+        </div>
 
         <a href="/sploc/"
            class="{% if request.path == '/sploc/' %}nav-item-active{% else %}nav-item{% endif %}">
@@ -224,7 +244,11 @@
         </a>
 
         <!-- Harness (CI/CD) -->
-        <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-ink-muted uppercase tracking-wider">Harness</p>
+        <div class="px-3 mt-5 mb-1.5 flex items-center gap-2">
+          <span class="w-1 h-3.5 rounded-sm bg-danger flex-shrink-0"></span>
+          <p class="text-[10px] font-bold text-ink-primary uppercase tracking-[0.15em] flex-shrink-0">Harness</p>
+          <div class="h-px flex-1 bg-edge/70"></div>
+        </div>
 
         <a href="/harness/"
            class="{% if request.path == '/harness/' %}nav-item-active{% else %}nav-item{% endif %}">
@@ -284,7 +308,11 @@
         </a>
 
         <!-- Placeholder future integrations -->
-        <p class="px-3 pt-5 pb-1.5 text-xs font-semibold text-ink-muted uppercase tracking-wider">Coming Soon</p>
+        <div class="px-3 mt-5 mb-1.5 flex items-center gap-2 opacity-60">
+          <span class="w-1 h-3.5 rounded-sm bg-edge flex-shrink-0"></span>
+          <p class="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] flex-shrink-0">Coming Soon</p>
+          <div class="h-px flex-1 bg-edge/70"></div>
+        </div>
 
         <div class="nav-item opacity-40 cursor-not-allowed">
           <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
