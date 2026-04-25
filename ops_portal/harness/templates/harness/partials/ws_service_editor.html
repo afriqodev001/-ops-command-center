@@ -1,0 +1,68 @@
+<form hx-post="/harness/workspace/services/save/"
+      hx-target="#ws-services-area"
+      hx-swap="innerHTML"
+      class="space-y-3">
+  {% csrf_token %}
+  <div>
+    <label class="label">Service name <span class="text-danger">*</span></label>
+    <input type="text" name="name" value="{{ name|default:'' }}"
+           class="input-dark text-xs font-mono"
+           {% if name %}readonly{% endif %}
+           required>
+  </div>
+  <div>
+    <label class="label">Project identifier</label>
+    <input type="text" name="project" value="{{ service.project|default:'' }}"
+           list="ws-svc-project-options"
+           class="input-dark text-xs font-mono"
+           placeholder="e.g. app_foo">
+    <datalist id="ws-svc-project-options">
+      {% for ident, p in projects.items %}
+      <option value="{{ ident }}"{% if p.name %} label="{{ p.name }}"{% endif %}>
+      {% endfor %}
+    </datalist>
+  </div>
+  <div>
+    <label class="label">Pipelines that deploy this service <span class="text-ink-muted">(comma-separated)</span></label>
+    <input type="text" name="pipelines" value="{{ service.pipelines|join:', ' }}"
+           list="ws-svc-pipeline-options"
+           class="input-dark text-xs font-mono"
+           placeholder="deploy_foo, deploy_foo_canary">
+    <datalist id="ws-svc-pipeline-options">
+      {% for ident, p in pipelines.items %}
+      <option value="{{ ident }}"{% if p.name %} label="{{ p.name }}"{% endif %}>
+      {% endfor %}
+    </datalist>
+  </div>
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="label">Environments</label>
+      <input type="text" name="envs" value="{{ service.envs|join:', ' }}"
+             class="input-dark text-xs font-mono"
+             placeholder="prod, staging">
+    </div>
+    <div>
+      <label class="label">Infrastructures</label>
+      <input type="text" name="infras" value="{{ service.infras|join:', ' }}"
+             class="input-dark text-xs font-mono"
+             placeholder="manassas, irving">
+    </div>
+  </div>
+  <div>
+    <label class="label">Notes</label>
+    <textarea name="notes" rows="2" class="input-dark text-xs"
+              placeholder="Owner team, runbook link, anything useful…">{{ service.notes|default:'' }}</textarea>
+  </div>
+  <label class="flex items-center gap-2 cursor-pointer pt-1">
+    <input type="checkbox" name="default" value="true"
+           {% if service.default %}checked{% endif %}
+           class="rounded border-edge bg-surface-3">
+    <span class="text-xs text-ink-secondary">Pin as default — surfaces in quick-pick chips and the harness home page</span>
+  </label>
+  <div class="flex items-center justify-end gap-2 pt-2 border-t border-edge">
+    <button type="button"
+            onclick="document.getElementById('ws-editor-modal').classList.add('hidden')"
+            class="btn-ghost text-xs py-1.5 px-3">Cancel</button>
+    <button type="submit" class="btn-primary text-xs py-1.5 px-3">Save</button>
+  </div>
+</form>

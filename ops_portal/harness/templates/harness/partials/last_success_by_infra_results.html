@@ -1,0 +1,144 @@
+<div class="space-y-3 animate-fade-in" x-data="{ tab: 'table', filter: '' }">
+  <div class="glass-card p-4">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <svg class="w-4 h-4 text-ok flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span class="text-xs font-semibold text-ok">{{ rows|length }} of {{ requested|length }} infrastructure{{ requested|length|pluralize }} resolved</span>
+        {% if pipeline_identifier %}<span class="text-[10px] text-ink-muted">· pipeline <span class="font-mono">{{ pipeline_identifier }}</span></span>{% endif %}
+      </div>
+      <div class="flex items-center gap-1">
+        <button @click="tab = 'table'" :class="tab === 'table' ? 'tab-active' : 'tab-inactive'" class="text-xs">Table</button>
+        <button @click="tab = 'cards'" :class="tab === 'cards' ? 'tab-active' : 'tab-inactive'" class="text-xs">Cards</button>
+        <button @click="tab = 'raw'" :class="tab === 'raw' ? 'tab-active' : 'tab-inactive'" class="text-xs">Raw JSON</button>
+      </div>
+    </div>
+
+    {% if missing %}
+    <div class="rounded-lg px-3 py-2 mb-3 bg-warn/10 border border-warn/20 flex items-start gap-2">
+      <svg class="w-3.5 h-3.5 text-warn flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+      </svg>
+      <div class="flex-1">
+        <p class="text-[11px] font-semibold text-warn">No successful deployment found for {{ missing|length }} infra{{ missing|length|pluralize }}</p>
+        <p class="text-[10px] text-ink-muted font-mono mt-0.5">{{ missing|join:", " }}</p>
+        <p class="text-[10px] text-ink-muted mt-1 leading-relaxed">Try widening the time range, or verify that these infra IDs match what Harness reports (the matcher normalises hyphens, underscores, and trailing 'p').</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="mb-3" x-show="tab !== 'raw'">
+      <input type="text" x-model="filter"
+             placeholder="Filter by infra, service, or version…"
+             class="input-dark text-xs w-full">
+    </div>
+
+    <!-- Table tab -->
+    <div x-show="tab === 'table'">
+      {% if rows %}
+      <div class="overflow-auto max-h-[70vh] rounded-lg border border-edge">
+        <table class="w-full text-xs border-collapse">
+          <thead class="bg-surface-3 sticky top-0 z-10">
+            <tr>
+              <th class="th">Infra</th>
+              <th class="th">Service</th>
+              <th class="th">Environment</th>
+              <th class="th">Image tag</th>
+              <th class="th">Branch</th>
+              <th class="th">Started</th>
+              <th class="th">Execution</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr class="table-row"
+                x-show="!filter
+                       || '{{ r.infra_id|default:''|lower|escapejs }}'.includes(filter.toLowerCase())
+                       || '{{ r.serviceRef|default:''|lower|escapejs }}'.includes(filter.toLowerCase())
+                       || '{{ r.variables.imageTag|default:''|lower|escapejs }}'.includes(filter.toLowerCase())">
+              <td class="td font-mono text-ink-primary">{{ r.infra_id }}</td>
+              <td class="td font-mono text-ink-secondary">{{ r.serviceRef|default:"—" }}</td>
+              <td class="td text-ink-secondary">{{ r.environment|default:"—" }}</td>
+              <td class="td font-mono text-ink-secondary">{{ r.variables.imageTag|default:"—" }}</td>
+              <td class="td font-mono text-ink-secondary">{{ r.variables.githubBranch|default:"—" }}</td>
+              <td class="td font-mono text-[10px] text-ink-muted">{{ r.startTs|default:"—" }}</td>
+              <td class="td font-mono text-[10px] text-ink-muted truncate max-w-[140px]" title="{{ r.planExecutionId }}">{{ r.planExecutionId|slice:":12" }}…</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-xs text-ink-muted py-6 text-center">No matching successful deployments found for the requested infrastructures.</p>
+      {% endif %}
+    </div>
+
+    <!-- Cards tab -->
+    <div x-show="tab === 'cards'" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {% for r in rows %}
+      <div class="rounded-lg border border-edge bg-surface-3/40 p-3"
+           x-show="!filter
+                  || '{{ r.infra_id|default:''|lower|escapejs }}'.includes(filter.toLowerCase())
+                  || '{{ r.serviceRef|default:''|lower|escapejs }}'.includes(filter.toLowerCase())">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono font-semibold text-ink-primary">{{ r.infra_id }}</span>
+          <span class="text-[9px] px-1.5 py-0.5 rounded bg-ok/10 text-ok border border-ok/20 font-semibold">SUCCESS</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-[11px]">
+          <div>
+            <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Service</p>
+            <p class="font-mono text-ink-secondary truncate" title="{{ r.serviceRef }}">{{ r.serviceRef|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Environment</p>
+            <p class="text-ink-secondary truncate">{{ r.environment|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Image tag</p>
+            <p class="font-mono text-ink-secondary truncate" title="{{ r.variables.imageTag }}">{{ r.variables.imageTag|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Branch</p>
+            <p class="font-mono text-ink-secondary truncate" title="{{ r.variables.githubBranch }}">{{ r.variables.githubBranch|default:"—" }}</p>
+          </div>
+          <div class="col-span-2">
+            <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Execution</p>
+            <p class="font-mono text-[10px] text-ink-muted truncate">{{ r.planExecutionId|default:"—" }}</p>
+          </div>
+          {% if r.variables and r.variables|length > 2 %}
+          <div class="col-span-2">
+            <details>
+              <summary class="cursor-pointer text-[10px] text-brand-light hover:text-brand">All variables ({{ r.variables|length }})</summary>
+              <pre class="text-[10px] text-ink-secondary mt-1 font-mono leading-relaxed">{% for k, v in r.variables.items %}{{ k }}: {{ v }}
+{% endfor %}</pre>
+            </details>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <p class="text-xs text-ink-muted py-6 text-center md:col-span-2">No matching successful deployments.</p>
+      {% endfor %}
+    </div>
+
+    <!-- Raw JSON -->
+    <div x-show="tab === 'raw'" x-cloak>
+      <pre class="text-[11px] text-ink-secondary font-mono whitespace-pre-wrap break-words leading-relaxed p-3 rounded-lg bg-surface-2 border border-edge max-h-[70vh] overflow-y-auto">{{ result_json }}</pre>
+    </div>
+
+    <div class="pt-3 mt-3 border-t border-edge">
+      <form method="post" action="/harness/export/json/" class="inline-block">
+        {% csrf_token %}
+        <input type="hidden" name="result_data" value="{{ result_json }}">
+        <input type="hidden" name="filename" value="harness_last_success_by_infra.json">
+        <button type="submit" class="btn-ghost text-xs py-1.5 px-3">
+          <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export JSON
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block page_title %}Service Explorer{% endblock %}
+{% block page_subtitle %}{% if service_name %}Deployment view · {{ service_name }}{% else %}Pick a service to see all deployment info{% endif %}{% endblock %}
+
+{% block content %}
+<div class="space-y-4" x-data="harnessServiceExplorer()" x-init="pollSession()">
+
+  <!-- Session warning -->
+  <div x-show="!sessionAlive" x-cloak
+       class="rounded-lg px-3 py-2.5 bg-warn/10 border border-warn/20 flex items-center gap-2.5">
+    <svg class="w-4 h-4 text-warn flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+    </svg>
+    <div class="flex-1">
+      <p class="text-xs font-semibold text-warn">Harness not connected</p>
+      <p class="text-[10px] text-ink-muted">Click Connect Harness in the sidebar — this page fans out to multiple Harness API calls.</p>
+    </div>
+  </div>
+
+  <!-- Pinned services chips (always visible) -->
+  {% if ws_pinned_services %}
+  <div class="glass-card p-3">
+    <div class="flex items-center gap-2 mb-2">
+      <svg class="w-3.5 h-3.5 text-warn" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+      </svg>
+      <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Pinned services</p>
+      <a href="/harness/workspace/?tab=services" class="text-[10px] text-brand-light hover:text-brand ml-auto">Manage →</a>
+    </div>
+    <div class="flex items-center gap-1.5 flex-wrap">
+      {% for s in ws_pinned_services %}
+      <a href="/harness/service/?name={{ s.name|urlencode }}"
+         class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full
+                {% if s.name == service_name %}bg-brand text-white border border-brand{% else %}bg-warn/5 border border-warn/25 text-ink-secondary hover:bg-warn/15 hover:text-ink-primary{% endif %}
+                transition-colors">
+        <span class="font-mono {% if s.name == service_name %}text-white{% else %}text-ink-primary{% endif %}">{{ s.name }}</span>
+        {% if s.project %}<span class="opacity-70">·</span><span class="opacity-70">{{ s.project }}</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Picker (when no service selected) -->
+  {% if not service_name %}
+  <div class="glass-card p-5">
+    <div class="flex items-start gap-3 mb-4">
+      <div class="w-10 h-10 rounded-lg bg-brand-subtle/30 border border-brand/10 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-ink-primary">Pick a service</h3>
+        <p class="text-[11px] text-ink-muted leading-relaxed mt-0.5">
+          Type a service name (or pick from pinned above). The explorer pulls active instances, recent runs, and last-success-per-infra into one view, using the pipeline + infra identifiers from your <a href="/harness/workspace/?tab=services" class="text-brand-light hover:text-brand">workspace entry</a>.
+        </p>
+      </div>
+    </div>
+
+    <form method="get" action="/harness/service/" class="flex flex-col sm:flex-row sm:items-end gap-3">
+      <div class="flex-1 min-w-0">
+        <label class="label">Service name</label>
+        <input type="text" name="name" list="ws-explorer-services"
+               class="input-dark text-xs font-mono"
+               placeholder="e.g. svc-orders" autofocus required>
+        <datalist id="ws-explorer-services">
+          {% for nm, s in ws_services.items %}
+          <option value="{{ nm }}"{% if s.project %} label="{{ s.project }}"{% endif %}>
+          {% endfor %}
+        </datalist>
+        {% if not ws_services %}
+        <p class="text-[10px] text-ink-muted mt-1">No services in workspace yet — <a href="/harness/workspace/?tab=services" class="text-brand-light hover:text-brand">add one</a> for autocomplete + pre-filled pipeline/infra info.</p>
+        {% endif %}
+      </div>
+      <button type="submit" class="btn-primary text-xs px-4 py-2">Open</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- Service detail (when one is selected) -->
+  {% if service_name %}
+  <div class="glass-card p-4">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-lg bg-brand-subtle/30 border border-brand/10 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="text-base font-semibold text-ink-primary font-mono">{{ service_name }}</h2>
+          {% if service.project %}
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-brand-subtle/30 text-brand-light border border-brand/10 font-mono">{{ service.project }}</span>
+          {% endif %}
+        </div>
+        {% if service.notes %}
+        <p class="text-[11px] text-ink-secondary mt-1 leading-relaxed">{{ service.notes }}</p>
+        {% endif %}
+        {% if service.envs or service.infras or service.pipelines %}
+        <div class="flex items-center gap-3 mt-2 flex-wrap text-[10px] text-ink-muted">
+          {% if service.pipelines %}<span><span class="opacity-70">Pipelines:</span> <span class="font-mono">{{ service.pipelines|join:", " }}</span></span>{% endif %}
+          {% if service.envs %}<span><span class="opacity-70">Envs:</span> <span class="font-mono">{{ service.envs|join:", " }}</span></span>{% endif %}
+          {% if service.infras %}<span><span class="opacity-70">Infras:</span> <span class="font-mono">{{ service.infras|join:", " }}</span></span>{% endif %}
+        </div>
+        {% endif %}
+        {% if not service %}
+        <p class="text-[11px] text-warn mt-1">
+          <svg class="w-3 h-3 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Not in workspace — only the service name is known. Some panels need a pipeline / infra hint to render.
+          <a href="/harness/workspace/services/editor/?name={{ service_name|urlencode }}" class="text-brand-light hover:text-brand">Add to workspace →</a>
+        </p>
+        {% endif %}
+      </div>
+      <a href="/harness/service/" class="text-[10px] text-ink-muted hover:text-ink-primary">Pick another →</a>
+    </div>
+  </div>
+
+  <!-- Hidden form holding the service-level params used by all three panels -->
+  <form id="svc-params" class="hidden">
+    {% csrf_token %}
+    <input type="hidden" name="service_name" value="{{ service_name }}">
+    <!-- editable defaults below -->
+  </form>
+
+  <!-- Knobs (collapsible) -->
+  <div class="glass-card p-4" x-data="{ open: {% if not service or not service.pipelines %}true{% else %}false{% endif %} }">
+    <button type="button" @click="open = !open"
+            class="flex items-center gap-2 w-full text-left">
+      <svg class="w-3 h-3 text-ink-muted transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+      <span class="text-xs font-semibold text-ink-primary">Pipeline / infra / time range</span>
+      <span class="text-[10px] text-ink-muted ml-auto">Used to fan out the panels below</span>
+    </button>
+
+    <div x-show="open" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+      <div>
+        <label class="label">Pipeline identifier</label>
+        <input type="text" x-model="pipelineId" list="svc-pipeline-options"
+               class="input-dark text-xs font-mono">
+        <datalist id="svc-pipeline-options">
+          {% for p in service_pipelines %}<option value="{{ p.identifier }}">{% endfor %}
+          {% for ident, p in ws_pipelines.items %}<option value="{{ ident }}">{% endfor %}
+        </datalist>
+      </div>
+      <div>
+        <label class="label">Time range</label>
+        <select x-model="timeRange" class="input-dark text-xs">
+          <option value="LAST_24_HOURS">Last 24 hours</option>
+          <option value="LAST_7_DAYS">Last 7 days</option>
+          <option value="LAST_30_DAYS">Last 30 days</option>
+          <option value="LAST_12_MONTHS">Last 12 months</option>
+        </select>
+      </div>
+      <div class="md:col-span-2">
+        <label class="label">Infrastructure identifiers <span class="text-ink-muted">(comma-separated, for "Last success per env")</span></label>
+        <input type="text" x-model="infras" class="input-dark text-xs font-mono"
+               placeholder="manassas, irving, charlotte">
+      </div>
+      <div>
+        <label class="label">Active-instances env <span class="text-ink-muted">(for "Now running")</span></label>
+        <input type="text" x-model="envId" class="input-dark text-xs font-mono"
+               placeholder="defaults to settings env">
+      </div>
+      <div class="flex items-end">
+        <button type="button" @click="refreshAll()"
+                class="btn-primary text-xs px-4 py-2 w-full"
+                :disabled="!sessionAlive">
+          <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Refresh all
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three panels stacked -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <!-- Now running -->
+    <div class="glass-card p-0 overflow-hidden lg:col-span-2">
+      <div class="px-4 py-2.5 bg-info/5 border-b border-info/15 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-info animate-pulse"></span>
+          <h3 class="text-xs font-semibold text-info uppercase tracking-wider">Now running</h3>
+          <span class="text-[10px] text-ink-muted">active instances of {{ service_name }}</span>
+        </div>
+        <button type="button" @click="loadNowRunning()" :disabled="!sessionAlive"
+                class="text-[10px] text-ink-muted hover:text-ink-primary disabled:opacity-30">Refresh</button>
+      </div>
+      <div id="svc-now-running" class="p-3 min-h-[80px]">
+        <p class="text-[11px] text-ink-muted text-center py-4">Click Refresh — needs a connected Harness session.</p>
+      </div>
+    </div>
+
+    <!-- Recent runs -->
+    <div class="glass-card p-0 overflow-hidden">
+      <div class="px-4 py-2.5 bg-surface-3/40 border-b border-edge flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <svg class="w-3.5 h-3.5 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <h3 class="text-xs font-semibold text-ink-primary uppercase tracking-wider">Recent runs</h3>
+          <span class="text-[10px] text-ink-muted" x-text="pipelineId ? '· ' + pipelineId : '(set pipeline)'"></span>
+        </div>
+        <button type="button" @click="loadRecentRuns()" :disabled="!sessionAlive || !pipelineId.trim()"
+                class="text-[10px] text-ink-muted hover:text-ink-primary disabled:opacity-30">Refresh</button>
+      </div>
+      <div id="svc-recent-runs" class="p-3 min-h-[80px]">
+        <p class="text-[11px] text-ink-muted text-center py-4">Set a pipeline identifier above and click Refresh.</p>
+      </div>
+    </div>
+
+    <!-- Last success per env -->
+    <div class="glass-card p-0 overflow-hidden">
+      <div class="px-4 py-2.5 bg-ok/5 border-b border-ok/20 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <svg class="w-3.5 h-3.5 text-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+          <h3 class="text-xs font-semibold text-ok uppercase tracking-wider">Last success per env</h3>
+          <span class="text-[10px] text-ink-muted" x-text="infras.trim() ? '· ' + infras.split(',').filter(s=>s.trim()).length + ' DCs' : '(set infras)'"></span>
+        </div>
+        <button type="button" @click="loadLastSuccess()" :disabled="!sessionAlive || !pipelineId.trim() || !infras.trim()"
+                class="text-[10px] text-ink-muted hover:text-ink-primary disabled:opacity-30">Refresh</button>
+      </div>
+      <div id="svc-last-success" class="p-3 min-h-[80px]">
+        <p class="text-[11px] text-ink-muted text-center py-4">Set pipeline + infras above and click Refresh.</p>
+      </div>
+    </div>
+
+    <!-- Pipelines that deploy this service -->
+    <div class="glass-card p-4 lg:col-span-2">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-3.5 h-3.5 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/>
+        </svg>
+        <h3 class="text-xs font-semibold text-ink-primary uppercase tracking-wider">Pipelines that deploy this</h3>
+      </div>
+      {% if service_pipelines %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {% for p in service_pipelines %}
+        <div class="rounded-lg border border-edge bg-surface-3/40 p-3 flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-light flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-mono font-semibold text-ink-primary">{{ p.identifier }}</p>
+            {% if p.name %}<p class="text-[10px] text-ink-muted truncate">{{ p.name }}</p>{% endif %}
+            {% if p.project %}<p class="text-[10px] text-ink-muted">project: <span class="font-mono">{{ p.project }}</span></p>{% endif %}
+          </div>
+          <a href="/harness/executions/?pipeline_id={{ p.identifier|urlencode }}"
+             class="text-[10px] text-brand-light hover:text-brand whitespace-nowrap">Executions →</a>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-[11px] text-ink-muted text-center py-4">No pipelines listed for this service in the workspace. <a href="/harness/workspace/services/editor/?name={{ service_name|urlencode }}" class="text-brand-light hover:text-brand">Edit workspace entry →</a></p>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function _defineHarnessServiceExplorer() {
+  Alpine.data('harnessServiceExplorer', () => ({
+    sessionAlive: false,
+    _pollTimer: null,
+    serviceName: '{{ service_name|escapejs }}',
+    pipelineId: '{{ service.pipelines.0|default:''|escapejs }}',
+    infras: '{{ service.infras|join:', '|escapejs }}',
+    envId: '{{ service.envs.0|default:''|escapejs }}',
+    timeRange: 'LAST_30_DAYS',
+
+    async pollSession() {
+      var check = async () => {
+        try {
+          var resp = await fetch('/harness/session/status/');
+          var data = await resp.json();
+          this.sessionAlive = data.alive;
+        } catch(e) { this.sessionAlive = false; }
+      };
+      await check();
+      this._pollTimer = setInterval(check, 15000);
+
+      {% if service_name and autorun %}
+      // Auto-load on first arrival when session is up
+      this.$nextTick(() => {
+        if (this.sessionAlive) this.refreshAll();
+      });
+      setTimeout(() => { if (this.sessionAlive) this.refreshAll(); }, 800);
+      {% endif %}
+    },
+
+    refreshAll() {
+      this.loadNowRunning();
+      if (this.pipelineId.trim()) this.loadRecentRuns();
+      if (this.pipelineId.trim() && this.infras.trim()) this.loadLastSuccess();
+    },
+
+    _post(url, fields, target) {
+      var fd = new FormData();
+      Object.keys(fields).forEach(k => {
+        var v = fields[k];
+        if (v && String(v).trim()) fd.append(k, v);
+      });
+      var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (csrf) fd.append('csrfmiddlewaretoken', csrf.value);
+      fetch(url, { method: 'POST', body: fd })
+        .then(r => r.text())
+        .then(html => {
+          var el = document.getElementById(target);
+          if (el) {
+            el.innerHTML = html;
+            htmx.process(el);
+          }
+        });
+    },
+
+    loadNowRunning() {
+      if (!this.serviceName) return;
+      this._post('/harness/ui/service/now-running/run/', {
+        service_name: this.serviceName,
+        env_id: this.envId,
+      }, 'svc-now-running');
+    },
+
+    loadRecentRuns() {
+      if (!this.serviceName || !this.pipelineId.trim()) return;
+      this._post('/harness/ui/service/recent-runs/run/', {
+        service_name: this.serviceName,
+        pipeline_identifier: this.pipelineId,
+        time_range_filter_type: this.timeRange,
+      }, 'svc-recent-runs');
+    },
+
+    loadLastSuccess() {
+      if (!this.serviceName || !this.pipelineId.trim() || !this.infras.trim()) return;
+      this._post('/harness/ui/service/last-success/run/', {
+        service_name: this.serviceName,
+        pipeline_identifier: this.pipelineId,
+        infra_identifiers: this.infras,
+        time_range_filter_type: this.timeRange,
+      }, 'svc-last-success');
+    },
+
+    destroy() { if (this._pollTimer) clearInterval(this._pollTimer); },
+  }));
+}
+if (window.Alpine) _defineHarnessServiceExplorer();
+else document.addEventListener('alpine:init', _defineHarnessServiceExplorer);
+</script>
+{% endblock %}

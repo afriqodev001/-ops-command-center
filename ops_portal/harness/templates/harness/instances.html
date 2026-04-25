@@ -39,8 +39,12 @@
       <div class="flex-1 min-w-[200px]">
         <label class="label">Environment identifier <span class="text-ink-muted">(default from settings)</span></label>
         <input type="text" name="env_id" x-model="envId"
+               list="ws-instance-envs"
                class="input-dark text-xs font-mono"
                placeholder="e.g. {{ prefill_env|default:'prod' }}">
+        <datalist id="ws-instance-envs">
+          {% for name, s in ws_services.items %}{% for e in s.envs %}<option value="{{ e }}">{% endfor %}{% endfor %}
+        </datalist>
       </div>
       <button type="submit" class="btn-primary text-xs px-4 py-2"
               :disabled="!sessionAlive || running">

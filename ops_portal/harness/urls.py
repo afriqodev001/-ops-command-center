@@ -1,6 +1,6 @@
 # harness/urls.py
 from django.urls import path
-from . import views, pages, session_views
+from . import views, pages, session_views, workspace_pages
 
 app_name = 'harness'
 
@@ -33,6 +33,10 @@ urlpatterns = [
     path("ui/last-success/run/",              pages.run_last_success,    name="ui-last-success-run"),
     path("ui/last-success/poll/<str:task_id>/", pages.poll_last_success, name="ui-last-success-poll"),
 
+    # ─── HTMX partials: Last success per infra ─
+    path("ui/last-success-by-infra/run/",              pages.run_last_success_by_infra,    name="ui-last-success-by-infra-run"),
+    path("ui/last-success-by-infra/poll/<str:task_id>/", pages.poll_last_success_by_infra, name="ui-last-success-by-infra-poll"),
+
     # ─── HTMX partials: Active instances ───────
     path("ui/instances/run/",              pages.run_instances,    name="ui-instances-run"),
     path("ui/instances/poll/<str:task_id>/", pages.poll_instances, name="ui-instances-poll"),
@@ -44,6 +48,38 @@ urlpatterns = [
     # ─── HTMX partials: Environments ───────────
     path("ui/environments/run/",              pages.run_environments,    name="ui-environments-run"),
     path("ui/environments/poll/<str:task_id>/", pages.poll_environments, name="ui-environments-poll"),
+
+    # ─── Service Explorer (Track B) ────────────
+    path("service/",                                     pages.harness_service_explorer,         name="service-explorer"),
+    path("ui/service/now-running/run/",                  pages.service_now_running,              name="ui-svc-now-running-run"),
+    path("ui/service/now-running/poll/<str:task_id>/",   pages.service_now_running_poll,         name="ui-svc-now-running-poll"),
+    path("ui/service/recent-runs/run/",                  pages.service_recent_runs,              name="ui-svc-recent-runs-run"),
+    path("ui/service/recent-runs/poll/<str:task_id>/",   pages.service_recent_runs_poll,         name="ui-svc-recent-runs-poll"),
+    path("ui/service/last-success/run/",                 pages.service_last_success_per_env,     name="ui-svc-last-success-run"),
+    path("ui/service/last-success/poll/<str:task_id>/",  pages.service_last_success_per_env_poll, name="ui-svc-last-success-poll"),
+
+    # ─── Workspace (curated identifiers) ───────
+    path("workspace/",                            workspace_pages.workspace_page,         name="workspace"),
+    # Projects
+    path("workspace/projects/list/",              workspace_pages.projects_list_partial,  name="ws-projects-list"),
+    path("workspace/projects/editor/",            workspace_pages.project_editor,         name="ws-project-editor"),
+    path("workspace/projects/save/",              workspace_pages.project_save,           name="ws-project-save"),
+    path("workspace/projects/delete/",            workspace_pages.project_delete,         name="ws-project-delete"),
+    # Pipelines
+    path("workspace/pipelines/list/",             workspace_pages.pipelines_list_partial, name="ws-pipelines-list"),
+    path("workspace/pipelines/editor/",           workspace_pages.pipeline_editor,        name="ws-pipeline-editor"),
+    path("workspace/pipelines/save/",             workspace_pages.pipeline_save,          name="ws-pipeline-save"),
+    path("workspace/pipelines/delete/",           workspace_pages.pipeline_delete,        name="ws-pipeline-delete"),
+    # Services
+    path("workspace/services/list/",              workspace_pages.services_list_partial,  name="ws-services-list"),
+    path("workspace/services/editor/",            workspace_pages.service_editor,         name="ws-service-editor"),
+    path("workspace/services/save/",              workspace_pages.service_save,           name="ws-service-save"),
+    path("workspace/services/delete/",            workspace_pages.service_delete,         name="ws-service-delete"),
+    # Import / Export
+    path("workspace/export/",                     workspace_pages.export_all,             name="ws-export"),
+    path("workspace/import/",                     workspace_pages.import_form,            name="ws-import"),
+    path("workspace/import/preview/",             workspace_pages.import_preview,         name="ws-import-preview"),
+    path("workspace/import/confirm/",             workspace_pages.import_confirm,         name="ws-import-confirm"),
 
     # ─── Export ────────────────────────────────
     path("export/json/",           pages.export_json,        name="export-json"),

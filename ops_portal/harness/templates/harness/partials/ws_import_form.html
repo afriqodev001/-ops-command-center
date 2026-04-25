@@ -1,0 +1,18 @@
+<form hx-post="/harness/workspace/import/preview/"
+      hx-target="#ws-import-area"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      class="space-y-4">
+  {% csrf_token %}
+  <div>
+    <label class="label">Workspace JSON file</label>
+    <input type="file" name="file" accept=".json,application/json" class="input-dark text-xs" required>
+    <p class="text-[10px] text-ink-muted mt-1">Expected shape: <span class="font-mono">{"projects": {...}, "pipelines": {...}, "services": {...}}</span> — the file produced by Export.</p>
+  </div>
+  <div class="flex items-center justify-end gap-2 pt-2 border-t border-edge">
+    <button type="button"
+            onclick="document.getElementById('ws-import-modal').classList.add('hidden')"
+            class="btn-ghost text-xs py-1.5 px-3">Cancel</button>
+    <button type="submit" class="btn-primary text-xs py-1.5 px-3">Preview</button>
+  </div>
+</form>

@@ -1,0 +1,52 @@
+<form hx-post="/harness/workspace/pipelines/save/"
+      hx-target="#ws-pipelines-area"
+      hx-swap="innerHTML"
+      class="space-y-3">
+  {% csrf_token %}
+  <div>
+    <label class="label">Identifier <span class="text-danger">*</span></label>
+    <input type="text" name="identifier" value="{{ identifier|default:'' }}"
+           class="input-dark text-xs font-mono"
+           {% if identifier %}readonly{% endif %}
+           required>
+  </div>
+  <div>
+    <label class="label">Display name</label>
+    <input type="text" name="name" value="{{ pipeline.name|default:'' }}" class="input-dark text-xs">
+  </div>
+  <div>
+    <label class="label">Project identifier <span class="text-ink-muted">(optional, helps grouping)</span></label>
+    <input type="text" name="project" value="{{ pipeline.project|default:'' }}"
+           list="ws-project-options"
+           class="input-dark text-xs font-mono"
+           placeholder="Type or pick a project">
+    <datalist id="ws-project-options">
+      {% for ident, p in projects.items %}
+      <option value="{{ ident }}"{% if p.name %} label="{{ p.name }}"{% endif %}>
+      {% endfor %}
+    </datalist>
+  </div>
+  <div>
+    <label class="label">Services this pipeline deploys <span class="text-ink-muted">(comma-separated)</span></label>
+    <input type="text" name="services" value="{{ pipeline.services|join:', ' }}"
+           class="input-dark text-xs font-mono"
+           placeholder="svc-orders, svc-billing">
+    <p class="text-[10px] text-ink-muted mt-1">Used by the Service Explorer to find pipelines that deploy a service.</p>
+  </div>
+  <div>
+    <label class="label">Label / tag</label>
+    <input type="text" name="label" value="{{ pipeline.label|default:'' }}" class="input-dark text-xs">
+  </div>
+  <label class="flex items-center gap-2 cursor-pointer pt-1">
+    <input type="checkbox" name="default" value="true"
+           {% if pipeline.default %}checked{% endif %}
+           class="rounded border-edge bg-surface-3">
+    <span class="text-xs text-ink-secondary">Pin as default — surfaces in quick-pick chips on the Executions page</span>
+  </label>
+  <div class="flex items-center justify-end gap-2 pt-2 border-t border-edge">
+    <button type="button"
+            onclick="document.getElementById('ws-editor-modal').classList.add('hidden')"
+            class="btn-ghost text-xs py-1.5 px-3">Cancel</button>
+    <button type="submit" class="btn-primary text-xs py-1.5 px-3">Save</button>
+  </div>
+</form>

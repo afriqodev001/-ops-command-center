@@ -1,0 +1,35 @@
+<div class="animate-fade-in">
+  {% if missing %}
+  <div class="rounded-lg px-2.5 py-1.5 mb-2 bg-warn/10 border border-warn/20 text-[10px] text-warn">
+    Missing for: <span class="font-mono">{{ missing|join:", " }}</span>
+  </div>
+  {% endif %}
+
+  {% if rows %}
+  <div class="overflow-x-auto rounded-lg border border-edge">
+    <table class="w-full text-[11px] border-collapse">
+      <thead class="bg-surface-3 text-ink-muted">
+        <tr>
+          <th class="text-left py-1.5 px-2 font-semibold">Infra</th>
+          <th class="text-left py-1.5 px-2 font-semibold">Image tag</th>
+          <th class="text-left py-1.5 px-2 font-semibold">Branch</th>
+          <th class="text-left py-1.5 px-2 font-semibold">Started</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="border-t border-edge/40">
+          <td class="py-1.5 px-2 font-mono text-ink-primary">{{ r.infra_id }}</td>
+          <td class="py-1.5 px-2 font-mono text-ink-secondary">{{ r.variables.imageTag|default:"—" }}</td>
+          <td class="py-1.5 px-2 font-mono text-[10px] text-ink-secondary">{{ r.variables.githubBranch|default:"—" }}</td>
+          <td class="py-1.5 px-2 font-mono text-[10px] text-ink-muted">{{ r.startTs|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-[10px] text-ink-muted mt-2">{{ rows|length }} of {{ requested|length }} infrastructure{{ requested|length|pluralize }} resolved</p>
+  {% else %}
+  <p class="text-[11px] text-ink-muted text-center py-4">No successful deployments found for <span class="font-mono">{{ service_name }}</span> on the requested infrastructures.</p>
+  {% endif %}
+</div>

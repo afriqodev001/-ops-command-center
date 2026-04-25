@@ -1,0 +1,93 @@
+{% if error %}
+<div class="rounded-lg px-3 py-2 mb-3 bg-danger/10 border border-danger/20 text-xs text-danger">{{ error }}</div>
+<button type="button" hx-get="/harness/workspace/import/" hx-target="#ws-import-area" hx-swap="innerHTML"
+        class="btn-ghost text-xs py-1.5 px-3">Try another file</button>
+{% else %}
+<div class="space-y-4">
+  <p class="text-xs text-ink-muted">Review the items below, choose a conflict mode, and confirm.</p>
+
+  {% if preview.projects %}
+  <div>
+    <h4 class="text-[11px] font-semibold text-ink-primary uppercase tracking-wider mb-2">Projects ({{ preview.projects|length }})</h4>
+    <div class="rounded-lg border border-edge overflow-hidden">
+      <table class="w-full text-[11px]">
+        <tbody>
+          {% for p in preview.projects %}
+          <tr class="border-t border-edge/40 first:border-t-0">
+            <td class="py-1.5 px-2 font-mono text-ink-primary">{{ p.identifier }}</td>
+            <td class="py-1.5 px-2 text-ink-secondary">{{ p.name|default:"—" }}</td>
+            <td class="py-1.5 px-2 text-right">
+              {% if p.exists %}<span class="text-[9px] px-1.5 py-0.5 rounded bg-warn/10 text-warn border border-warn/20">exists</span>{% else %}<span class="text-[9px] px-1.5 py-0.5 rounded bg-ok/10 text-ok border border-ok/20">new</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if preview.pipelines %}
+  <div>
+    <h4 class="text-[11px] font-semibold text-ink-primary uppercase tracking-wider mb-2">Pipelines ({{ preview.pipelines|length }})</h4>
+    <div class="rounded-lg border border-edge overflow-hidden">
+      <table class="w-full text-[11px]">
+        <tbody>
+          {% for p in preview.pipelines %}
+          <tr class="border-t border-edge/40 first:border-t-0">
+            <td class="py-1.5 px-2 font-mono text-ink-primary">{{ p.identifier }}</td>
+            <td class="py-1.5 px-2 text-ink-secondary">{{ p.name|default:"—" }}</td>
+            <td class="py-1.5 px-2 font-mono text-ink-muted">{{ p.project|default:"—" }}</td>
+            <td class="py-1.5 px-2 text-right">
+              {% if p.exists %}<span class="text-[9px] px-1.5 py-0.5 rounded bg-warn/10 text-warn border border-warn/20">exists</span>{% else %}<span class="text-[9px] px-1.5 py-0.5 rounded bg-ok/10 text-ok border border-ok/20">new</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if preview.services %}
+  <div>
+    <h4 class="text-[11px] font-semibold text-ink-primary uppercase tracking-wider mb-2">Services ({{ preview.services|length }})</h4>
+    <div class="rounded-lg border border-edge overflow-hidden">
+      <table class="w-full text-[11px]">
+        <tbody>
+          {% for s in preview.services %}
+          <tr class="border-t border-edge/40 first:border-t-0">
+            <td class="py-1.5 px-2 font-mono text-ink-primary">{{ s.name }}</td>
+            <td class="py-1.5 px-2 font-mono text-ink-muted">{{ s.project|default:"—" }}</td>
+            <td class="py-1.5 px-2 text-right">
+              {% if s.exists %}<span class="text-[9px] px-1.5 py-0.5 rounded bg-warn/10 text-warn border border-warn/20">exists</span>{% else %}<span class="text-[9px] px-1.5 py-0.5 rounded bg-ok/10 text-ok border border-ok/20">new</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <form hx-post="/harness/workspace/import/confirm/"
+        hx-target="#ws-projects-area"
+        hx-swap="innerHTML"
+        class="flex items-end gap-3 pt-3 border-t border-edge">
+    {% csrf_token %}
+    <input type="hidden" name="workspace_json" value="{{ workspace_json }}">
+    <input type="hidden" name="tab" value="projects">
+    <div>
+      <label class="label">Conflict mode</label>
+      <select name="conflict_mode" class="input-dark text-xs">
+        <option value="skip">Skip existing</option>
+        <option value="overwrite">Overwrite existing</option>
+      </select>
+    </div>
+    <button type="button"
+            onclick="document.getElementById('ws-import-modal').classList.add('hidden')"
+            class="btn-ghost text-xs py-1.5 px-3 ml-auto">Cancel</button>
+    <button type="submit" class="btn-primary text-xs py-1.5 px-3">Import</button>
+  </form>
+</div>
+{% endif %}

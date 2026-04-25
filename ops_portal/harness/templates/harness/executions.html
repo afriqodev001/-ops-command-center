@@ -68,6 +68,30 @@
       </div>
     </div>
 
+    {% if ws_pinned_pipelines %}
+    <!-- Pinned pipelines quick-pick -->
+    <div class="glass-card p-3">
+      <div class="flex items-center gap-2 mb-2">
+        <svg class="w-3.5 h-3.5 text-warn" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+        </svg>
+        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Pinned pipelines</p>
+        <a href="/harness/workspace/?tab=pipelines" class="text-[10px] text-brand-light hover:text-brand ml-auto">Manage →</a>
+      </div>
+      <div class="flex items-center gap-1.5 flex-wrap">
+        {% for p in ws_pinned_pipelines %}
+        <button type="button"
+                @click="pipelineId = '{{ p.identifier|escapejs }}'; submitExec()"
+                class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-warn/5 border border-warn/25 text-ink-secondary hover:bg-warn/15 hover:text-ink-primary transition-colors"
+                :title="'Use ' + '{{ p.identifier|escapejs }}' + ' and run executions filter'">
+          <span class="font-mono text-ink-primary">{{ p.identifier }}</span>
+          {% if p.name %}<span class="text-ink-muted">·</span><span class="truncate max-w-[120px]">{{ p.name }}</span>{% endif %}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Filter form -->
     <div class="glass-card p-4">
       <div class="flex items-center gap-2 mb-3">
@@ -92,14 +116,26 @@
         <div class="md:col-span-2">
           <label class="label">Pipeline identifier <span class="text-danger">*</span></label>
           <input type="text" name="pipeline_identifier" x-model="pipelineId"
+                 list="ws-exec-pipelines"
                  class="input-dark text-xs font-mono" required>
+          <datalist id="ws-exec-pipelines">
+            {% for ident, p in ws_pipelines.items %}
+            <option value="{{ ident }}"{% if p.name %} label="{{ p.name }}"{% endif %}>
+            {% endfor %}
+          </datalist>
         </div>
 
         <div>
           <label class="label">Service identifiers <span class="text-ink-muted">(comma-separated)</span></label>
           <input type="text" name="service_identifiers" x-model="services"
+                 list="ws-exec-services"
                  class="input-dark text-xs font-mono"
                  placeholder="svc-a, svc-b">
+          <datalist id="ws-exec-services">
+            {% for name, s in ws_services.items %}
+            <option value="{{ name }}"{% if s.project %} label="{{ s.project }}"{% endif %}>
+            {% endfor %}
+          </datalist>
         </div>
 
         <div>
@@ -125,7 +161,8 @@
                  class="input-dark text-xs font-mono w-32">
         </div>
 
-        <div class="md:col-span-2 flex items-center gap-2 pt-1">
+        <div class="md:col-span-2 flex items-center gap-2 flex-wrap pt-1">
+          <!-- Primary action -->
           <button type="submit" class="btn-primary text-xs px-4 py-2"
                   :disabled="!pipelineId.trim() || !sessionAlive || running">
             <template x-if="!running">
@@ -143,19 +180,77 @@
               </span>
             </template>
           </button>
+
+          <!-- Standalone "Last success" — secondary, success-themed -->
           <button type="button" @click="runLastSuccess()"
-                  class="btn-ghost text-xs py-2 px-3"
+                  class="inline-flex items-center gap-1.5 text-xs py-2 px-3 rounded-lg border border-ok/25 bg-ok/5 text-ok hover:bg-ok/15 hover:border-ok/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-ok/5 disabled:hover:border-ok/25"
                   :disabled="!pipelineId.trim() || !sessionAlive || running"
-                  title="Find the most recent successful execution under the current filters">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  title="Most recent successful execution under the current filters">
+            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
             </svg>
-            Last success
+            <span class="font-medium">Last success</span>
           </button>
+
           <button type="button" @click="pipelineId = ''; services = ''; envs = ''"
-                  class="btn-ghost text-xs py-2">Clear</button>
+                  class="btn-ghost text-xs py-2 ml-auto">Clear</button>
         </div>
       </form>
+    </div>
+
+    <!-- ─── Per-DC sub-section: separate from the main filter form ─── -->
+    <div class="glass-card p-4 border-l-2 border-l-ok/40">
+      <div class="flex items-start gap-3 mb-3">
+        <div class="w-8 h-8 rounded-lg bg-ok/10 border border-ok/20 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h3 class="text-sm font-semibold text-ink-primary">Last success per data center</h3>
+          <p class="text-[11px] text-ink-muted mt-0.5 leading-relaxed">
+            Returns the most recent <span class="text-ok font-semibold">successful</span> deployment for each infrastructure — handy when DCs ship in separate executions (e.g. Manassas detaches from the multi-DC matrix). Uses the pipeline + service / env / time range from the filters above.
+          </p>
+        </div>
+      </div>
+
+      <form @submit.prevent="runLastSuccessByInfra()"
+            class="flex flex-col sm:flex-row sm:items-end gap-3">
+        <div class="flex-1 min-w-0">
+          <label class="label">
+            Infrastructure identifiers <span class="text-danger">*</span>
+            <span class="text-ink-muted font-normal">— comma-separated</span>
+          </label>
+          <input type="text" name="infra_identifiers" x-model="infras"
+                 class="input-dark text-xs font-mono"
+                 placeholder="e.g. manassas, irving, charlotte">
+          <p class="text-[10px] text-ink-muted mt-1" x-show="infras.trim()" x-cloak>
+            <svg class="w-3 h-3 inline -mt-0.5 text-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            <span x-text="infras.split(',').filter(s => s.trim()).length"></span> infrastructure<span x-show="infras.split(',').filter(s => s.trim()).length !== 1">s</span> queued
+          </p>
+        </div>
+
+        <button type="submit"
+                class="inline-flex items-center justify-center gap-2 text-xs py-2 px-4 rounded-lg bg-ok text-white hover:bg-ok/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-ok shadow-sm"
+                :disabled="!pipelineId.trim() || !infras.trim() || !sessionAlive || running"
+                :title="!pipelineId.trim() ? 'Pipeline identifier (above) is required' : (!infras.trim() ? 'Add at least one infrastructure identifier' : 'Find last success per DC')">
+          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+          <span class="font-medium whitespace-nowrap">Find last success per DC</span>
+        </button>
+      </form>
+
+      <!-- Subtle hint when pipeline isn't set -->
+      <p x-show="!pipelineId.trim()" x-cloak
+         class="text-[10px] text-warn mt-2 flex items-center gap-1">
+        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Set a pipeline identifier in the filters above first.
+      </p>
     </div>
 
     <!-- Results area -->
@@ -171,6 +266,7 @@ function _defineHarnessExecutions() {
     pipelineId: '{{ prefill_pipeline|escapejs }}' || '',
     services: '',
     envs: '',
+    infras: '',
     timeRange: '{{ prefill_time_range|escapejs }}' || 'LAST_30_DAYS',
     running: false,
     sessionAlive: false,
@@ -199,15 +295,35 @@ function _defineHarnessExecutions() {
 
     runLastSuccess() {
       if (!this.pipelineId.trim()) return;
+      this._postToResults('/harness/ui/last-success/run/', {
+        pipeline_identifier: this.pipelineId,
+        time_range_filter_type: this.timeRange,
+        service_identifiers: this.services,
+        env_identifiers: this.envs,
+      });
+    },
+
+    runLastSuccessByInfra() {
+      if (!this.pipelineId.trim() || !this.infras.trim()) return;
+      this._postToResults('/harness/ui/last-success-by-infra/run/', {
+        pipeline_identifier: this.pipelineId,
+        time_range_filter_type: this.timeRange,
+        service_identifiers: this.services,
+        env_identifiers: this.envs,
+        infra_identifiers: this.infras,
+      });
+    },
+
+    _postToResults(url, fields) {
       this.running = true;
       var formData = new FormData();
-      formData.append('pipeline_identifier', this.pipelineId);
-      formData.append('time_range_filter_type', this.timeRange);
-      if (this.services.trim()) formData.append('service_identifiers', this.services);
-      if (this.envs.trim()) formData.append('env_identifiers', this.envs);
+      Object.keys(fields).forEach(k => {
+        var v = fields[k];
+        if (v && String(v).trim()) formData.append(k, v);
+      });
       var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
       if (csrf) formData.append('csrfmiddlewaretoken', csrf.value);
-      fetch('/harness/ui/last-success/run/', { method: 'POST', body: formData })
+      fetch(url, { method: 'POST', body: formData })
         .then(r => r.text())
         .then(html => {
           document.getElementById('harness-results').innerHTML = html;

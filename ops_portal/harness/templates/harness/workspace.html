@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block page_title %}Workspace{% endblock %}
+{% block page_subtitle %}Curated projects · pipelines · services for fast navigation{% endblock %}
+
+{% block content %}
+<div class="space-y-4" x-data="harnessWorkspace()">
+
+  <!-- Header card -->
+  <div class="glass-card p-4">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-lg bg-brand-subtle/30 border border-brand/10 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-ink-primary">Harness Workspace</h3>
+          <p class="text-[11px] text-ink-muted leading-relaxed mt-0.5">
+            Engineer-curated identifiers — once added here, they become available as autocomplete + pinned chips on every Harness page (Pipelines, Executions, Instances, Service Explorer). Use the <span class="font-semibold text-brand-light">Default</span> toggle to mark items that should appear as pinned chips.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="/harness/workspace/export/" class="btn-ghost text-xs py-1.5 px-3" title="Export workspace as JSON">
+          <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export
+        </a>
+        <button hx-get="/harness/workspace/import/"
+                hx-target="#ws-import-area"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('ws-import-modal').classList.remove('hidden')"
+                class="btn-ghost text-xs py-1.5 px-3">
+          <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14v-6m0 0l3 3m-3-3l-3 3m9 6H6a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2v14a2 2 0 01-2 2z"/>
+          </svg>
+          Import
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-edge">
+      <button type="button" @click="tab = 'projects'"
+              :class="tab === 'projects' ? 'border-brand/40 bg-brand-subtle/20' : 'border-edge bg-surface-3/40 hover:border-edge-strong'"
+              class="rounded-lg px-3 py-2 text-left transition-colors border">
+        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Projects</p>
+        <p class="text-lg font-semibold text-ink-primary tabular-nums leading-none mt-1">{{ projects|length }}</p>
+      </button>
+      <button type="button" @click="tab = 'pipelines'"
+              :class="tab === 'pipelines' ? 'border-brand/40 bg-brand-subtle/20' : 'border-edge bg-surface-3/40 hover:border-edge-strong'"
+              class="rounded-lg px-3 py-2 text-left transition-colors border">
+        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Pipelines</p>
+        <p class="text-lg font-semibold text-ink-primary tabular-nums leading-none mt-1">{{ pipelines|length }}</p>
+      </button>
+      <button type="button" @click="tab = 'services'"
+              :class="tab === 'services' ? 'border-brand/40 bg-brand-subtle/20' : 'border-edge bg-surface-3/40 hover:border-edge-strong'"
+              class="rounded-lg px-3 py-2 text-left transition-colors border">
+        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Services</p>
+        <p class="text-lg font-semibold text-ink-primary tabular-nums leading-none mt-1">{{ services|length }}</p>
+      </button>
+    </div>
+  </div>
+
+  <!-- Projects tab -->
+  <div x-show="tab === 'projects'" x-transition>
+    <div class="flex items-center justify-end mb-3">
+      <button hx-get="/harness/workspace/projects/editor/"
+              hx-target="#ws-editor-area"
+              hx-swap="innerHTML"
+              onclick="document.getElementById('ws-editor-modal').classList.remove('hidden')"
+              class="btn-primary text-xs py-1.5 px-3">
+        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        New Project
+      </button>
+    </div>
+    <div id="ws-projects-area">
+      {% include "harness/partials/ws_projects_list.html" %}
+    </div>
+  </div>
+
+  <!-- Pipelines tab -->
+  <div x-show="tab === 'pipelines'" x-transition x-cloak>
+    <div class="flex items-center justify-end mb-3">
+      <button hx-get="/harness/workspace/pipelines/editor/"
+              hx-target="#ws-editor-area"
+              hx-swap="innerHTML"
+              onclick="document.getElementById('ws-editor-modal').classList.remove('hidden')"
+              class="btn-primary text-xs py-1.5 px-3">
+        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        New Pipeline
+      </button>
+    </div>
+    <div id="ws-pipelines-area">
+      {% include "harness/partials/ws_pipelines_list.html" %}
+    </div>
+  </div>
+
+  <!-- Services tab -->
+  <div x-show="tab === 'services'" x-transition x-cloak>
+    <div class="flex items-center justify-end mb-3">
+      <button hx-get="/harness/workspace/services/editor/"
+              hx-target="#ws-editor-area"
+              hx-swap="innerHTML"
+              onclick="document.getElementById('ws-editor-modal').classList.remove('hidden')"
+              class="btn-primary text-xs py-1.5 px-3">
+        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        New Service
+      </button>
+    </div>
+    <div id="ws-services-area">
+      {% include "harness/partials/ws_services_list.html" %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ─── Editor modal ───────────────────────────────────────── -->
+<div id="ws-editor-modal"
+     class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+     onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="glass-card max-w-lg w-full p-5 max-h-[90vh] overflow-y-auto shadow-2xl border-edge-strong">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold text-ink-primary">Workspace Entry</h3>
+      <button type="button"
+              onclick="document.getElementById('ws-editor-modal').classList.add('hidden')"
+              class="text-ink-muted hover:text-ink-primary p-1 -m-1 rounded hover:bg-white/5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="ws-editor-area"></div>
+  </div>
+</div>
+
+<!-- ─── Import modal ───────────────────────────────────────── -->
+<div id="ws-import-modal"
+     class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+     onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="glass-card max-w-2xl w-full p-5 max-h-[90vh] overflow-y-auto shadow-2xl border-edge-strong">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold text-ink-primary">Import Workspace</h3>
+      <button type="button"
+              onclick="document.getElementById('ws-import-modal').classList.add('hidden')"
+              class="text-ink-muted hover:text-ink-primary p-1 -m-1 rounded hover:bg-white/5">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="ws-import-area"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function _defineHarnessWorkspace() {
+  Alpine.data('harnessWorkspace', () => ({
+    tab: '{{ initial_tab }}',
+    init() {
+      // Close modals on Escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          document.getElementById('ws-editor-modal').classList.add('hidden');
+          document.getElementById('ws-import-modal').classList.add('hidden');
+        }
+      });
+      // Close editor modal after successful save (HTMX swap into ws-*-area)
+      document.body.addEventListener('htmx:afterSwap', (e) => {
+        var t = e.detail.target;
+        if (!t) return;
+        if (['ws-projects-area','ws-pipelines-area','ws-services-area'].includes(t.id)) {
+          document.getElementById('ws-editor-modal').classList.add('hidden');
+          document.getElementById('ws-import-modal').classList.add('hidden');
+        }
+      });
+    },
+  }));
+}
+if (window.Alpine) _defineHarnessWorkspace();
+else document.addEventListener('alpine:init', _defineHarnessWorkspace);
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+<div class="animate-fade-in space-y-1.5">
+  {% for ex in executions %}
+  <div class="rounded-lg border border-edge bg-surface-3/30 px-3 py-2 flex items-center gap-3">
+    <!-- Status -->
+    {% if ex.status == "Success" %}
+    <span class="text-[9px] px-1.5 py-0.5 rounded bg-ok/10 text-ok border border-ok/20 font-semibold flex-shrink-0">✓ OK</span>
+    {% elif ex.status == "Failed" or ex.status == "Errored" %}
+    <span class="text-[9px] px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/20 font-semibold flex-shrink-0">✗ {{ ex.status }}</span>
+    {% elif ex.status == "Aborted" %}
+    <span class="text-[9px] px-1.5 py-0.5 rounded bg-warn/10 text-warn border border-warn/20 font-semibold flex-shrink-0">Aborted</span>
+    {% elif ex.status == "Running" %}
+    <span class="text-[9px] px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/20 font-semibold flex-shrink-0 animate-pulse">Running</span>
+    {% else %}
+    <span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge flex-shrink-0">{{ ex.status|default:"—" }}</span>
+    {% endif %}
+
+    <!-- Run #-->
+    <span class="text-[11px] font-semibold text-ink-primary flex-shrink-0">#{{ ex.run_sequence|default:"—" }}</span>
+
+    <!-- Service-specific deployment info pulled from this exec -->
+    <div class="flex-1 min-w-0">
+      {% with d=ex.deployments.0 %}
+      <p class="text-[11px] text-ink-secondary truncate">
+        {% if d %}
+          {% if d.image_tag %}<span class="font-mono text-ink-primary">{{ d.image_tag }}</span>{% endif %}
+          {% if d.environment %}<span class="text-ink-muted">·</span> <span>{{ d.environment }}</span>{% endif %}
+          {% if d.github_branch %}<span class="text-ink-muted">·</span> <span class="font-mono text-[10px]">{{ d.github_branch }}</span>{% endif %}
+        {% else %}
+          <span class="text-ink-muted">no deployment data</span>
+        {% endif %}
+      </p>
+      <p class="text-[10px] text-ink-muted mt-0.5">
+        {% if ex.triggered_by.username %}{{ ex.triggered_by.username }}{% endif %}
+        {% if ex.start_ts %} · <span class="font-mono">{{ ex.start_ts }}</span>{% endif %}
+      </p>
+      {% endwith %}
+    </div>
+
+    {% if ex.failure_message %}
+    <span class="text-[9px] text-danger truncate max-w-[200px]" title="{{ ex.failure_message }}">{{ ex.failure_message|truncatechars:60 }}</span>
+    {% endif %}
+  </div>
+  {% empty %}
+  <p class="text-[11px] text-ink-muted text-center py-4">No executions found for <span class="font-mono">{{ service_name }}</span> on pipeline <span class="font-mono">{{ pipeline_identifier }}</span> in this time range.</p>
+  {% endfor %}
+
+  {% if executions %}
+  <a href="/harness/executions/?pipeline_id={{ pipeline_identifier|urlencode }}"
+     class="block text-center text-[10px] text-brand-light hover:text-brand mt-2 pt-2 border-t border-edge">
+    View all in Executions →
+  </a>
+  {% endif %}
+</div>

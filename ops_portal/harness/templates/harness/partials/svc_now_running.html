@@ -1,0 +1,36 @@
+<div class="animate-fade-in">
+  {% if rows %}
+  <div class="overflow-x-auto rounded-lg border border-edge">
+    <table class="w-full text-[11px] border-collapse">
+      <thead class="bg-surface-3 text-ink-muted">
+        <tr>
+          <th class="text-left py-1.5 px-2 font-semibold">Version</th>
+          <th class="text-left py-1.5 px-2 font-semibold">Environment</th>
+          <th class="text-left py-1.5 px-2 font-semibold">Infra</th>
+          <th class="text-right py-1.5 px-2 font-semibold">Count</th>
+          <th class="text-left py-1.5 px-2 font-semibold">Last deployed</th>
+          <th class="text-left py-1.5 px-2 font-semibold">By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="border-t border-edge/40">
+          <td class="py-1.5 px-2 font-mono text-ink-primary">{{ r.artifact_version|default:"—" }}</td>
+          <td class="py-1.5 px-2 text-ink-secondary">{{ r.environment|default:"—" }}</td>
+          <td class="py-1.5 px-2 text-ink-secondary font-mono">{{ r.infra_name|default:r.infra_identifier|default:"—" }}</td>
+          <td class="py-1.5 px-2 text-right text-ink-primary tabular-nums">{{ r.instance_count|default:0 }}</td>
+          <td class="py-1.5 px-2 font-mono text-[10px] text-ink-muted">{{ r.last_deployed_at|default:"—" }}</td>
+          <td class="py-1.5 px-2 text-ink-secondary truncate max-w-[160px]" title="{{ r.pipeline_name }}">{{ r.pipeline_name|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-[10px] text-ink-muted mt-2">{{ rows|length }} active deployment{{ rows|length|pluralize }} of <span class="font-mono">{{ service_name }}</span></p>
+  {% else %}
+  <p class="text-[11px] text-ink-muted text-center py-4">
+    No active instances reported for <span class="font-mono">{{ service_name }}</span>.
+    Try a different environment, or verify the service name matches what Harness reports.
+  </p>
+  {% endif %}
+</div>
