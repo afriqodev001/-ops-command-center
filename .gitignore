@@ -66,6 +66,7 @@ ops_portal/splunk/splunk_presets.json
 ops_portal/sploc/prompt_packs.json
 ops_portal/sploc/trace_history.json
 ops_portal/sploc/service_catalog.json
+ops_portal/harness/harness_workspace.json
 
 # ─── Personal notes (keep local) ────────────────────────────
 GIT_CHEATSHEET.md
