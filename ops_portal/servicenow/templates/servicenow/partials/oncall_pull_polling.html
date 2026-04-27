@@ -1,5 +1,5 @@
 <div class="glass-card p-4 animate-fade-in"
-     hx-get="/servicenow/oncall/pull/poll/{{ task_id }}/?preset={{ preset|urlencode }}&pull_purpose={{ pull_purpose|urlencode }}"
+     hx-get="/servicenow/oncall/pull/poll/{{ task_id }}/?preset={{ preset|urlencode }}&pull_purpose={{ pull_purpose|urlencode }}&change_numbers={{ change_numbers|urlencode }}"
      hx-trigger="load delay:2.5s"
      hx-target="#oncall-results"
      hx-swap="innerHTML">

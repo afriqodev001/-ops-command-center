@@ -200,7 +200,40 @@ def oncall_pull_changes(request):
     if purpose not in ('outage_triage', 'cr_approval'):
         purpose = 'outage_triage'
 
-    # Default preset depends on purpose if engineer didn't pick one explicitly
+    # Mode A: explicit list of change numbers (most common for CR approvals —
+    # requestors ping the engineer to review CHG-X). Takes priority over preset.
+    raw_numbers = (request.POST.get('change_numbers') or '').strip()
+    if raw_numbers:
+        import re
+        numbers = [n.strip().upper() for n in re.split(r'[\s,;]+', raw_numbers) if n.strip()]
+        seen = set()
+        deduped = []
+        for n in numbers:
+            if n not in seen:
+                seen.add(n)
+                deduped.append(n)
+
+        if not deduped:
+            return render(request, 'servicenow/partials/oncall_error.html', {
+                'error': 'Paste at least one change number.',
+            })
+
+        from .tasks import changes_bulk_get_by_number_task
+        task = changes_bulk_get_by_number_task.delay({
+            'numbers': deduped,
+            'fields': 'number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id',
+            'display_value': 'all',
+        })
+
+        return render(request, 'servicenow/partials/oncall_pull_polling.html', {
+            'task_id': task.id,
+            'preset': '',
+            'change_numbers': ','.join(deduped),
+            'pull_purpose': purpose,
+            'window_label': f'{len(deduped)} hand-picked change{"s" if len(deduped) != 1 else ""}',
+        })
+
+    # Mode B: time-window preset
     preset = (request.POST.get('preset') or '').strip()
     if not preset:
         preset = 'oncall_changes_next_week' if purpose == 'cr_approval' else 'oncall_changes_this_week'
@@ -222,17 +255,34 @@ def oncall_pull_changes(request):
 
 
 def oncall_pull_poll(request, task_id: str):
-    preset = request.GET.get('preset', 'oncall_changes_this_week')
+    preset = request.GET.get('preset', '')
     purpose = (request.GET.get('pull_purpose') or 'outage_triage').strip()
+    change_numbers_raw = (request.GET.get('change_numbers') or '').strip()
     if purpose not in ('outage_triage', 'cr_approval'):
         purpose = 'outage_triage'
-    win = _window_bounds(preset)
+
+    # Decide window bounds based on which mode this poll came from.
+    # By-numbers mode pins the row to "now"; the window range is just an
+    # index — actual scheduled_start on the row comes from the change record.
+    if change_numbers_raw:
+        from datetime import timedelta
+        now = dj_tz.now()
+        win = {
+            'window_start': now,
+            'window_end': now + timedelta(seconds=1),
+            'label': f'{len(change_numbers_raw.split(","))} hand-picked',
+        }
+    else:
+        if not preset:
+            preset = 'oncall_changes_next_week' if purpose == 'cr_approval' else 'oncall_changes_this_week'
+        win = _window_bounds(preset)
     ar = AsyncResult(task_id)
 
     if ar.state in ('PENDING', 'RECEIVED', 'STARTED'):
         return render(request, 'servicenow/partials/oncall_pull_polling.html', {
             'task_id': task_id,
             'preset': preset,
+            'change_numbers': change_numbers_raw,
             'pull_purpose': purpose,
             'window_label': win['label'],
         })
@@ -254,6 +304,18 @@ def oncall_pull_poll(request, task_id: str):
     elif isinstance(result, list):
         rows = result
 
+    # Detect missing change numbers (by-numbers mode only)
+    not_found = []
+    if change_numbers_raw:
+        def _num(row):
+            n = (row or {}).get('number') if isinstance(row, dict) else None
+            if isinstance(n, dict):
+                n = n.get('display_value') or n.get('value') or ''
+            return str(n or '').strip().upper()
+        requested = [n for n in change_numbers_raw.split(',') if n]
+        present = {_num(r) for r in rows}
+        not_found = [n for n in requested if n.upper() not in present]
+
     reviews = orsvc.upsert_pulled_changes(
         rows,
         window_start=win['window_start'],
@@ -265,6 +327,8 @@ def oncall_pull_poll(request, task_id: str):
     return render(request, 'servicenow/partials/oncall_pull_results.html', {
         'reviews': reviews,
         'preset': preset,
+        'change_numbers': change_numbers_raw,
+        'not_found': not_found,
         'pull_purpose': purpose,
         'window_label': win['label'],
         'pulled_count': len(reviews),

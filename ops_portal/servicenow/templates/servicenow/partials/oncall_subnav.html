@@ -10,6 +10,16 @@ list of pulled-and-being-reviewed changes.
 <div class="glass-card p-1 mb-4 inline-flex items-center gap-1 flex-wrap">
   {% with p=request.path %}
 
+  <a href="/servicenow/oncall/approvals/"
+     class="text-[11px] px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5
+     {% if '/servicenow/oncall/approvals' in p %}bg-brand-subtle text-brand-light border border-brand/20{% else %}text-ink-secondary hover:text-ink-primary hover:bg-white/5 border border-transparent{% endif %}"
+     title="CR approval — paste change numbers or pull a window">
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    CR Approvals
+  </a>
+
   <a href="/servicenow/oncall/"
      class="text-[11px] px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5
      {% if p == '/servicenow/oncall/' %}bg-warn/10 text-warn border border-warn/25{% else %}text-ink-secondary hover:text-ink-primary hover:bg-white/5 border border-transparent{% endif %}"
@@ -18,16 +28,6 @@ list of pulled-and-being-reviewed changes.
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
     </svg>
     Outage Triage
-  </a>
-
-  <a href="/servicenow/oncall/approvals/"
-     class="text-[11px] px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5
-     {% if '/servicenow/oncall/approvals' in p %}bg-brand-subtle text-brand-light border border-brand/20{% else %}text-ink-secondary hover:text-ink-primary hover:bg-white/5 border border-transparent{% endif %}"
-     title="CR approval — next week's changes">
-    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-    </svg>
-    CR Approvals
   </a>
 
   {% if '/servicenow/oncall/review/' in p %}
