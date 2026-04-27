@@ -125,29 +125,3 @@ The 'Outage Impact' control is a multi-entry list — one entry per
     </div>
   </div>
 </form>
-
-<script>
-(function() {
-  if (window._matrixRowEditorRegistered) return;
-  window._matrixRowEditorRegistered = true;
-  function _def() {
-    Alpine.data('matrixRowEditor', (initial) => ({
-      entries: [],
-      init(row) {
-        if (row && Array.isArray(row.outage_impact) && row.outage_impact.length) {
-          this.entries = row.outage_impact.map(e => ({
-            app: e.app || '',
-            description: e.description || '',
-            additional_emails: Array.isArray(e.additional_emails) ? e.additional_emails.join('; ') : (e.additional_emails || ''),
-          }));
-        } else {
-          this.entries = [{app: '', description: '', additional_emails: ''}];
-        }
-      },
-      addEntry() { this.entries.push({app: '', description: '', additional_emails: ''}); },
-      removeEntry(idx) { this.entries.splice(idx, 1); },
-    }));
-  }
-  if (window.Alpine) _def(); else document.addEventListener('alpine:init', _def);
-})();
-</script>

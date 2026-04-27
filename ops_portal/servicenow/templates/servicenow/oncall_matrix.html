@@ -173,5 +173,53 @@ document.addEventListener('keydown', function(e) {
     if (modal) modal.classList.add('hidden');
   }
 });
+
+// ── Open the row editor modal (shared by "New row", "+ Add first row", per-row Edit) ──
+// Explicit JS so we don't race Alpine + HTMX attribute binding on dynamically-swapped buttons.
+window.openMatrixEditor = function(ci) {
+  var modal = document.getElementById('matrix-row-modal');
+  var area = document.getElementById('matrix-row-editor-area');
+  if (modal) modal.classList.remove('hidden');
+  if (area) area.innerHTML = '<p class="text-[11px] text-ink-muted">Loading…</p>';
+  var url = ci
+    ? '/servicenow/oncall/matrix/row/editor/?ci=' + encodeURIComponent(ci)
+    : '/servicenow/oncall/matrix/row/editor/';
+  if (window.htmx) {
+    htmx.ajax('GET', url, '#matrix-row-editor-area');
+  } else {
+    // Fall back to a normal navigation if HTMX hasn't loaded yet
+    window.location.href = url;
+  }
+};
+
+// ── Alpine component for the multi-entry impact list inside the editor ──
+// Registered ONCE on the parent page so it's always defined before HTMX swaps
+// the form into the modal. (If we put this inside the partial, Alpine's
+// mutation observer can hit `x-data="matrixRowEditor()"` before the swapped
+// <script> runs, leaving the form inert.)
+function _defineMatrixRowEditor() {
+  if (!window.Alpine || window._matrixRowEditorRegistered) return;
+  window._matrixRowEditorRegistered = true;
+  Alpine.data('matrixRowEditor', () => ({
+    entries: [],
+    init(row) {
+      if (row && Array.isArray(row.outage_impact) && row.outage_impact.length) {
+        this.entries = row.outage_impact.map(e => ({
+          app: e.app || '',
+          description: e.description || '',
+          additional_emails: Array.isArray(e.additional_emails)
+            ? e.additional_emails.join('; ')
+            : (e.additional_emails || ''),
+        }));
+      } else {
+        this.entries = [{app: '', description: '', additional_emails: ''}];
+      }
+    },
+    addEntry()       { this.entries.push({app: '', description: '', additional_emails: ''}); },
+    removeEntry(idx) { this.entries.splice(idx, 1); },
+  }));
+}
+if (window.Alpine) _defineMatrixRowEditor();
+else document.addEventListener('alpine:init', _defineMatrixRowEditor);
 </script>
 {% endblock %}
