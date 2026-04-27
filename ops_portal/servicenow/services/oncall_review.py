@@ -161,12 +161,22 @@ def upsert_pulled_changes(
     window_start: datetime,
     window_end: datetime,
     window_label: str = '',
+    pull_purpose: str = 'outage_triage',
 ) -> List[OncallChangeReview]:
     """
     Insert (or refresh-pull-fields) rows from a ServiceNow query result.
 
-    Engineer-set fields (stage, comments, AI verdict, action timestamps)
-    are NEVER overwritten on re-pull — only identity / scheduling fields.
+    Engineer-set fields (stage, comments, AI verdict, action timestamps,
+    feedback log) are NEVER overwritten on re-pull — only identity /
+    scheduling fields.
+
+    pull_purpose:
+      'outage_triage' — pulled to decide outage impact (THIS week's changes)
+      'cr_approval'   — pulled for CR sign-off review (NEXT week's changes)
+
+    If a row already exists for the same (number, window) keyed pull but
+    with a different purpose, the row's purpose flips to 'both' so neither
+    review track is hidden.
     """
     out: List[OncallChangeReview] = []
 
@@ -179,6 +189,7 @@ def upsert_pulled_changes(
             'window_start': window_start,
             'window_end': window_end,
             'window_label': window_label,
+            'pull_purpose': pull_purpose,
         }
 
         review, created = OncallChangeReview.objects.get_or_create(
@@ -198,6 +209,12 @@ def upsert_pulled_changes(
         review.scheduled_start = _iso_to_dt(row.get('start_date'))
         review.scheduled_end = _iso_to_dt(row.get('end_date'))
         review.window_label = window_label or review.window_label
+
+        # Purpose merge: same row, second pull with the other track → 'both'.
+        if not created:
+            existing = review.pull_purpose or 'outage_triage'
+            if existing != pull_purpose and existing != 'both':
+                review.pull_purpose = 'both'
 
         # First time we've seen this change — apply matrix snapshot now so
         # the engineer sees the matched info even before AI runs.

@@ -1,0 +1,9 @@
+{% spaceless %}
+{% if purpose == 'cr_approval' %}
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-subtle text-brand-light border border-brand/25 font-semibold uppercase tracking-wider">CR approval</span>
+{% elif purpose == 'both' %}
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-info/10 text-info border border-info/25 font-semibold uppercase tracking-wider">Both tracks</span>
+{% else %}
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-warn/10 text-warn border border-warn/25 font-semibold uppercase tracking-wider">Outage triage</span>
+{% endif %}
+{% endspaceless %}

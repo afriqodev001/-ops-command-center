@@ -158,7 +158,15 @@ def oncall_review_detail(request, change_number: str):
 @csrf_exempt
 @require_POST
 def oncall_pull_changes(request):
-    preset = request.POST.get('preset', '').strip() or 'oncall_changes_this_week'
+    purpose = (request.POST.get('pull_purpose') or 'outage_triage').strip()
+    if purpose not in ('outage_triage', 'cr_approval'):
+        purpose = 'outage_triage'
+
+    # Default preset depends on purpose if engineer didn't pick one explicitly
+    preset = (request.POST.get('preset') or '').strip()
+    if not preset:
+        preset = 'oncall_changes_next_week' if purpose == 'cr_approval' else 'oncall_changes_this_week'
+
     win = _window_bounds(preset)
 
     from .tasks import presets_run_task
@@ -170,12 +178,16 @@ def oncall_pull_changes(request):
     return render(request, 'servicenow/partials/oncall_pull_polling.html', {
         'task_id': task.id,
         'preset': preset,
+        'pull_purpose': purpose,
         'window_label': win['label'],
     })
 
 
 def oncall_pull_poll(request, task_id: str):
     preset = request.GET.get('preset', 'oncall_changes_this_week')
+    purpose = (request.GET.get('pull_purpose') or 'outage_triage').strip()
+    if purpose not in ('outage_triage', 'cr_approval'):
+        purpose = 'outage_triage'
     win = _window_bounds(preset)
     ar = AsyncResult(task_id)
 
@@ -183,6 +195,7 @@ def oncall_pull_poll(request, task_id: str):
         return render(request, 'servicenow/partials/oncall_pull_polling.html', {
             'task_id': task_id,
             'preset': preset,
+            'pull_purpose': purpose,
             'window_label': win['label'],
         })
 
@@ -208,11 +221,13 @@ def oncall_pull_poll(request, task_id: str):
         window_start=win['window_start'],
         window_end=win['window_end'],
         window_label=win['label'],
+        pull_purpose=purpose,
     )
 
     return render(request, 'servicenow/partials/oncall_pull_results.html', {
         'reviews': reviews,
         'preset': preset,
+        'pull_purpose': purpose,
         'window_label': win['label'],
         'pulled_count': len(reviews),
     })
@@ -1184,6 +1199,7 @@ def oncall_history_partial(request):
     verdict = request.GET.get('verdict', '').strip()
     q = request.GET.get('q', '').strip()
     group = request.GET.get('assignment_group', '').strip()
+    purpose = request.GET.get('pull_purpose', '').strip()
 
     if stage and stage in ONCALL_STAGE_VALUES:
         qs = qs.filter(stage=stage)
@@ -1191,6 +1207,8 @@ def oncall_history_partial(request):
         qs = qs.filter(ai_outage_likely=verdict)
     if group:
         qs = qs.filter(assignment_group__icontains=group)
+    if purpose in ('outage_triage', 'cr_approval', 'both'):
+        qs = qs.filter(pull_purpose=purpose)
     if q:
         qs = qs.filter(change_number__icontains=q) | qs.filter(short_description__icontains=q)
 

@@ -11,8 +11,9 @@
   <div class="lg:col-span-4 space-y-4 lg:sticky lg:top-4 lg:self-start">
 
     <div class="glass-card p-4">
-      <div class="flex items-center gap-2 mb-3">
+      <div class="flex items-center gap-2 mb-3 flex-wrap">
         <span class="text-xs font-mono font-semibold text-ink-primary">{{ review.change_number }}</span>
+        {% include "servicenow/partials/oncall_purpose_pill.html" with purpose=review.pull_purpose %}
         {% include "servicenow/partials/oncall_stage_badge.html" with stage=review.stage %}
         {% include "servicenow/partials/oncall_verdict_pill.html" with verdict=review.ai_outage_likely %}
       </div>
@@ -96,7 +97,7 @@
         {% endif %}
       </div>
 
-      <div class="glass-card p-5" x-data="{ open: true }">
+      <div class="glass-card p-5" x-data="{ open: {% if review.pull_purpose == 'outage_triage' %}false{% else %}true{% endif %} }">
         <button type="button" @click="open = !open"
                 class="w-full flex items-center gap-2 text-left">
           <svg class="w-3 h-3 text-ink-muted transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,8 +177,8 @@
         <span class="text-[10px] text-ink-muted">AI verdict · declaration · outcome</span>
       </div>
 
-      <!-- AI outage verdict (collapsed unless run) -->
-      <div class="glass-card p-5" x-data="{ open: {% if review.ai_summary %}true{% else %}false{% endif %} }">
+      <!-- AI outage verdict (open if there's a result OR if outage is the primary purpose) -->
+      <div class="glass-card p-5" x-data="{ open: {% if review.ai_summary %}true{% elif review.pull_purpose == 'outage_triage' or review.pull_purpose == 'both' %}true{% else %}false{% endif %} }">
         <button type="button" @click="open = !open"
                 class="w-full flex items-center gap-2 text-left">
           <svg class="w-3 h-3 text-ink-muted transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">

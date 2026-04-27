@@ -128,6 +128,19 @@ BUILT_IN_PRESETS: Dict[str, Dict[str, Any]] = {
         "domain": "change",
     },
 
+    "oncall_changes_next_week": {
+        "description": "Oncall: changes scheduled to start next week (default for CR approval review).",
+        "table": "change_request",
+        "query": (
+            "start_dateBETWEENjavascript:gs.beginningOfNextWeek()"
+            "@javascript:gs.endOfNextWeek()^ORDERBYstart_date"
+        ),
+        "fields": "number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id",
+        "defaults": {"limit": 250, "display_value": True},
+        "required_params": [],
+        "domain": "change",
+    },
+
     "change_by_number": {
         "description": "Look up a single change by its CHG number.",
         "table": "change_request",

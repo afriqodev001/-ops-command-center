@@ -28,13 +28,30 @@
           hx-post="/servicenow/oncall/pull/"
           hx-target="#oncall-results"
           hx-swap="innerHTML"
+          x-data="{
+            purpose: 'outage_triage',
+            preset: 'oncall_changes_this_week',
+            applyDefault() {
+              this.preset = (this.purpose === 'cr_approval')
+                ? 'oncall_changes_next_week'
+                : 'oncall_changes_this_week';
+            }
+          }"
           class="flex flex-wrap items-end gap-3">
       {% csrf_token %}
-      <div class="flex-1 min-w-[260px]">
+      <div class="min-w-[200px]">
+        <label class="label">Review purpose</label>
+        <select name="pull_purpose" x-model="purpose" @change="applyDefault()"
+                class="input-dark text-xs">
+          <option value="outage_triage">Outage triage (this week's changes)</option>
+          <option value="cr_approval">CR approval (next week's changes)</option>
+        </select>
+      </div>
+      <div class="flex-1 min-w-[220px]">
         <label class="label">Window</label>
         <select name="preset" x-model="preset" class="input-dark text-xs">
           {% for p in presets %}
-          <option value="{{ p.name }}"{% if p.name == default_preset %} selected{% endif %}>{{ p.description }}</option>
+          <option value="{{ p.name }}">{{ p.description }}</option>
           {% endfor %}
         </select>
       </div>
@@ -46,6 +63,10 @@
       </button>
       <a href="/servicenow/oncall/history/" class="btn-ghost text-xs py-2 px-3 ml-auto">Review history →</a>
     </form>
+    <p class="text-[10px] text-ink-muted mt-2">
+      <strong class="text-ink-secondary">Outage triage</strong> looks at changes happening soon to decide downstream comms / suppressions / banners.
+      <strong class="text-ink-secondary">CR approval</strong> is the day-to-day sign-off review on next week's changes — usually a different cohort.
+    </p>
   </div>
 
   <!-- Results area (polling card → list) -->

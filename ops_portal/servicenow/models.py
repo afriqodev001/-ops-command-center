@@ -35,6 +35,17 @@ ACTUAL_OUTCOME_CHOICES = (
     ('aborted', 'Aborted / cancelled'),
 )
 
+# Why this row was pulled — outage triage looks at THIS week's changes
+# (current/imminent risk); CR approval looks at NEXT week's changes
+# (proactive sign-off). They mostly cover different cohorts; "both" is set
+# automatically when a change appears in both pulls.
+PULL_PURPOSE_CHOICES = (
+    ('outage_triage', 'Outage triage'),
+    ('cr_approval',   'CR approval'),
+    ('both',          'Both'),
+)
+
+
 # Engineer's CR-approval review state — independent of outage triage
 CR_APPROVAL_STATUS_CHOICES = (
     ('not_started',       'Not started'),
@@ -79,6 +90,14 @@ class OncallChangeReview(models.Model):
     window_start = models.DateTimeField()
     window_end = models.DateTimeField()
     window_label = models.CharField(max_length=64, blank=True)
+
+    # Why the engineer pulled this change.
+    pull_purpose = models.CharField(
+        max_length=32,
+        choices=PULL_PURPOSE_CHOICES,
+        default='outage_triage',
+        db_index=True,
+    )
 
     # AI outage-impact review (track 1)
     ai_outage_likely = models.CharField(
