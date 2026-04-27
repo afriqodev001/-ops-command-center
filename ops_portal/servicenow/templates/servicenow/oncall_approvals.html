@@ -7,27 +7,28 @@
 {% include "servicenow/partials/oncall_subnav.html" %}
 <div class="space-y-4">
 
-  <!-- Stats tiles -->
-  <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-    <div class="rounded-lg border border-edge bg-surface-3 px-3 py-2">
-      <p class="text-[9px] font-semibold text-ink-muted uppercase tracking-wider">Total in queue</p>
-      <p class="text-xl font-semibold text-ink-primary tabular-nums leading-none mt-1">{{ summary.total }}</p>
+  <!-- Compact stat strip — single inline row of "count · label" chips -->
+  <div class="glass-card px-3 py-1.5 flex items-center gap-3 flex-wrap text-[11px]">
+    <div class="flex items-center gap-1.5">
+      <span class="font-semibold text-ink-primary tabular-nums">{{ summary.total }}</span>
+      <span class="text-[9px] text-ink-muted uppercase tracking-wider">in queue</span>
     </div>
-    <div class="rounded-lg border border-info/25 bg-info/5 px-3 py-2">
-      <p class="text-[9px] font-semibold text-info uppercase tracking-wider">In review</p>
-      <p class="text-xl font-semibold text-info tabular-nums leading-none mt-1">{{ summary.in_review }}</p>
+    <span class="w-px h-3 bg-edge"></span>
+    <div class="flex items-center gap-1.5">
+      <span class="font-semibold text-info tabular-nums">{{ summary.in_review }}</span>
+      <span class="text-[9px] text-info/80 uppercase tracking-wider">in review</span>
     </div>
-    <div class="rounded-lg border border-warn/25 bg-warn/5 px-3 py-2">
-      <p class="text-[9px] font-semibold text-warn uppercase tracking-wider">Awaiting requestor</p>
-      <p class="text-xl font-semibold text-warn tabular-nums leading-none mt-1">{{ summary.awaiting }}</p>
+    <div class="flex items-center gap-1.5">
+      <span class="font-semibold text-warn tabular-nums">{{ summary.awaiting }}</span>
+      <span class="text-[9px] text-warn/80 uppercase tracking-wider">awaiting requestor</span>
     </div>
-    <div class="rounded-lg border border-brand/25 bg-brand-subtle/40 px-3 py-2">
-      <p class="text-[9px] font-semibold text-brand-light uppercase tracking-wider">Ready to approve</p>
-      <p class="text-xl font-semibold text-brand-light tabular-nums leading-none mt-1">{{ summary.ready }}</p>
+    <div class="flex items-center gap-1.5">
+      <span class="font-semibold text-brand-light tabular-nums">{{ summary.ready }}</span>
+      <span class="text-[9px] text-brand-light/80 uppercase tracking-wider">ready to approve</span>
     </div>
-    <div class="rounded-lg border border-ok/25 bg-ok/5 px-3 py-2">
-      <p class="text-[9px] font-semibold text-ok uppercase tracking-wider">Approved</p>
-      <p class="text-xl font-semibold text-ok tabular-nums leading-none mt-1">{{ summary.approved }}</p>
+    <div class="flex items-center gap-1.5">
+      <span class="font-semibold text-ok tabular-nums">{{ summary.approved }}</span>
+      <span class="text-[9px] text-ok/80 uppercase tracking-wider">approved</span>
     </div>
   </div>
 
