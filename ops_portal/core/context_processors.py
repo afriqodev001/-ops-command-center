@@ -48,7 +48,15 @@ def ui_context(request):
     # Don't overwrite ai_model from preferences — settings.AI_MODEL is the fallback,
     # prefs['ai_model'] is the user's override (set in Preferences panel)
 
+    # Oncall banner (servicenow app) — None on every page that doesn't have one.
+    try:
+        from servicenow.services.oncall_banner import get_active as _oncall_banner_active
+        oncall_banner = _oncall_banner_active()
+    except Exception:
+        oncall_banner = None
+
     return {
-        'os_user':    {'name': name, 'initials': _initials(name)},
-        'user_prefs': prefs,
+        'os_user':       {'name': name, 'initials': _initials(name)},
+        'user_prefs':    prefs,
+        'oncall_banner': oncall_banner,
     }

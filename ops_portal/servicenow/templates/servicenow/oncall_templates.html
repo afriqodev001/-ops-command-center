@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block page_title %}Oncall Email Templates{% endblock %}
+{% block page_subtitle %}Subject + body templates used when drafting downstream-app notifications{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+  <div class="glass-card p-4">
+    <h4 class="text-xs font-semibold text-ink-primary uppercase tracking-wider mb-2">Placeholders</h4>
+    <p class="text-[11px] text-ink-secondary leading-relaxed mb-2">
+      Use Python <code class="font-mono text-ink-primary">str.format()</code> placeholders in subject and body. Available:
+    </p>
+    <pre class="text-[10px] font-mono text-ink-secondary bg-surface-2 border border-edge rounded p-2 leading-relaxed">{change_number}  {short_description}  {risk}  {assignment_group}
+{scheduled_start}  {scheduled_end}
+{application}  {impact}  {recipients}</pre>
+  </div>
+
+  <div id="oncall-templates-area">
+    {% include "servicenow/partials/oncall_templates_list.html" with templates=templates %}
+  </div>
+</div>
+{% endblock %}

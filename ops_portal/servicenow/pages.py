@@ -1162,6 +1162,9 @@ def changes_list(request):
 
 
 def change_detail(request, number):
+    from .services.oncall_review import get_for_change as _oncall_for_change
+    oncall_review = _oncall_for_change(number)
+
     if _is_live(request):
         from .tasks import change_context_task
         task = change_context_task.delay({
@@ -1171,6 +1174,7 @@ def change_detail(request, number):
         return render(request, 'servicenow/change_detail.html', {
             'change':       None,
             'live_task_id': task.id,
+            'oncall_review': oncall_review,
         })
     change = _get_change(number)
     if not change:
@@ -1184,6 +1188,7 @@ def change_detail(request, number):
         'ctask_closed': closed,
         'ctask_total': total,
         'ctask_pct': pct,
+        'oncall_review': oncall_review,
     })
 
 
@@ -1323,6 +1328,9 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
 
 
 def change_briefing(request, number):
+    from .services.oncall_review import get_for_change as _oncall_for_change
+    oncall_review = _oncall_for_change(number)
+
     if _is_live(request):
         from .tasks import change_context_task
         task = change_context_task.delay({
@@ -1332,6 +1340,7 @@ def change_briefing(request, number):
         return render(request, 'servicenow/change_briefing.html', {
             'change':       None,
             'live_task_id': task.id,
+            'oncall_review': oncall_review,
         })
     change = _get_change(number)
     if not change:
@@ -1351,6 +1360,7 @@ def change_briefing(request, number):
         'prompt': prompt,
         'prompt_lines': len(prompt.splitlines()),
         'prompt_chars': len(prompt),
+        'oncall_review': oncall_review,
     })
 
 
@@ -1549,6 +1559,7 @@ def bulk_change_review_item(request):
     review = _heuristic_review(change, pct, closed, total)
     prompt = _build_briefing_prompt(change, closed, total, pct)
 
+    from .services.oncall_review import get_for_change as _oncall_for_change
     return render(request, 'servicenow/partials/bulk_review_card.html', {
         'change': change,
         'ctask_closed': closed,
@@ -1557,6 +1568,7 @@ def bulk_change_review_item(request):
         'review': review,
         'prompt': prompt,
         'not_found': False,
+        'oncall_review': _oncall_for_change(number),
     })
 
 
@@ -1920,13 +1932,12 @@ def preset_email_outlook(request):
     """POST (JSON): create an Outlook draft email with CSV attachment.
 
     Body: { recipients, subject, body, csv, filename }
-    Uses win32com (pywin32) to drive Outlook desktop. Returns {ok: true}
-    or {error: "..."}.
+    Returns {ok: true} or {error: "..."}.
     """
     from django.http import JsonResponse, HttpResponse
     import json as _json
-    import tempfile
-    import os
+    from .services.outlook import open_draft, write_temp_attachment
+
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -1944,49 +1955,23 @@ def preset_email_outlook(request):
     if not csv_text:
         return JsonResponse({'error': 'No CSV data provided'}, status=400)
 
-    # Write CSV to a temp file
-    tmp_dir = tempfile.mkdtemp()
-    csv_path = os.path.join(tmp_dir, filename)
-    with open(csv_path, 'w', encoding='utf-8-sig', newline='') as f:
-        f.write(csv_text)
+    csv_path = write_temp_attachment(csv_text, filename)
+    result = open_draft(
+        recipients=recipients,
+        subject=subject,
+        body=body,
+        attachment_path=csv_path,
+        cleanup_attachment=True,
+    )
 
-    try:
-        import win32com.client
-        outlook = win32com.client.Dispatch('Outlook.Application')
-        mail = outlook.CreateItem(0)  # olMailItem = 0
-        if recipients:
-            mail.To = recipients
-        mail.Subject = subject
-        mail.Body = body
-        mail.Attachments.Add(csv_path)
-        mail.Display()  # Open draft (don't send automatically)
-
+    if result.get('ok'):
         _push_activity(request,
                        type='email_draft',
                        title=f'Outlook draft: {subject}',
                        detail=f'To: {recipients}',
                        severity='success')
-
         return JsonResponse({'ok': True})
-    except ImportError:
-        return JsonResponse({'error': 'Outlook not available (pywin32 not installed)'})
-    except Exception as e:
-        return JsonResponse({'error': f'Outlook error: {e}'})
-    finally:
-        # Clean up temp file after a delay (Outlook may still be reading it)
-        try:
-            import threading
-            def cleanup():
-                import time
-                time.sleep(10)
-                try:
-                    os.remove(csv_path)
-                    os.rmdir(tmp_dir)
-                except Exception:
-                    pass
-            threading.Thread(target=cleanup, daemon=True).start()
-        except Exception:
-            pass
+    return JsonResponse({'error': result.get('error', 'Unknown Outlook error')})
 
 
 def presets_export(request):

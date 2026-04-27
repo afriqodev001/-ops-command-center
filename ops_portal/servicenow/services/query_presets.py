@@ -88,6 +88,46 @@ BUILT_IN_PRESETS: Dict[str, Dict[str, Any]] = {
         "domain": "change",
     },
 
+    # ── Oncall review presets — drive the time-window picker on /servicenow/oncall/
+    "oncall_changes_today": {
+        "description": "Oncall: changes scheduled to start today.",
+        "table": "change_request",
+        "query": (
+            "start_dateBETWEENjavascript:gs.beginningOfToday()"
+            "@javascript:gs.endOfToday()^ORDERBYstart_date"
+        ),
+        "fields": "number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id",
+        "defaults": {"limit": 100, "display_value": True},
+        "required_params": [],
+        "domain": "change",
+    },
+
+    "oncall_changes_this_week": {
+        "description": "Oncall: changes scheduled to start this week (default).",
+        "table": "change_request",
+        "query": (
+            "start_dateBETWEENjavascript:gs.beginningOfWeek()"
+            "@javascript:gs.endOfWeek()^ORDERBYstart_date"
+        ),
+        "fields": "number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id",
+        "defaults": {"limit": 250, "display_value": True},
+        "required_params": [],
+        "domain": "change",
+    },
+
+    "oncall_changes_this_month": {
+        "description": "Oncall: changes scheduled to start this month.",
+        "table": "change_request",
+        "query": (
+            "start_dateBETWEENjavascript:gs.beginningOfMonth()"
+            "@javascript:gs.endOfMonth()^ORDERBYstart_date"
+        ),
+        "fields": "number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id",
+        "defaults": {"limit": 500, "display_value": True},
+        "required_params": [],
+        "domain": "change",
+    },
+
     "change_by_number": {
         "description": "Look up a single change by its CHG number.",
         "table": "change_request",

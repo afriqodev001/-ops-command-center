@@ -1,0 +1,37 @@
+<div class="glass-card p-3 animate-fade-in">
+  <p class="text-[10px] text-ink-muted mb-2">{{ count }} review{{ count|pluralize }}</p>
+  {% if reviews %}
+  <div class="overflow-auto max-h-[70vh] rounded-lg border border-edge">
+    <table class="w-full text-xs border-collapse">
+      <thead class="bg-surface-3 sticky top-0 z-10">
+        <tr>
+          <th class="th">Change</th>
+          <th class="th">Description</th>
+          <th class="th">Group</th>
+          <th class="th">Scheduled</th>
+          <th class="th">Stage</th>
+          <th class="th">AI</th>
+          <th class="th">Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reviews %}
+        <tr class="table-row">
+          <td class="td font-mono text-ink-primary">
+            <a href="/servicenow/oncall/review/{{ r.change_number }}/" class="hover:text-brand-light">{{ r.change_number }}</a>
+          </td>
+          <td class="td text-ink-secondary truncate max-w-[280px]" title="{{ r.short_description }}">{{ r.short_description|default:"—" }}</td>
+          <td class="td text-[10px] text-ink-muted truncate max-w-[140px]">{{ r.assignment_group|default:"—" }}</td>
+          <td class="td font-mono text-[10px] text-ink-muted">{{ r.scheduled_start|date:"M j H:i"|default:"—" }}</td>
+          <td class="td">{% include "servicenow/partials/oncall_stage_badge.html" with stage=r.stage %}</td>
+          <td class="td">{% include "servicenow/partials/oncall_verdict_pill.html" with verdict=r.ai_outage_likely %}</td>
+          <td class="td text-[10px] text-ink-muted">{{ r.updated_at|timesince }} ago</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-xs text-ink-muted py-6 text-center">No reviews match the filters.</p>
+  {% endif %}
+</div>

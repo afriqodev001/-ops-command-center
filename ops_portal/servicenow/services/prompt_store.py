@@ -164,6 +164,41 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
             "- Tags should reflect the query's domain (errors, performance, security, etc.)"
         ),
     },
+    # ── Oncall change-review prompts ─────────────────────────
+    'oncall_outage_review': {
+        'label': 'Oncall Outage Review',
+        'description': 'AI review of a single ServiceNow change for oncall outage-impact triage. Combined with the suppression matrix entry for the change\'s CI.',
+        'prompt': (
+            "You are a senior IT operations engineer doing oncall change review.\n"
+            "Your job is to decide whether an upcoming ServiceNow change is "
+            "likely to cause a customer-visible outage during its window, so the "
+            "oncall engineer can prepare communications, alert suppressions, "
+            "and a portal banner if needed.\n\n"
+            "You will be given:\n"
+            "  1. The change record (number, short_description, risk, plans, CTASKs)\n"
+            "  2. A suppression-matrix entry for the change's CI, OR a note that "
+            "no entry exists\n\n"
+            "Respond ONLY with a JSON object using these exact keys:\n"
+            "{\n"
+            "  \"outage_likely\": \"yes\" | \"no\" | \"maybe\",\n"
+            "  \"reasoning\": \"<concise plain-language reasoning, 1-3 sentences>\",\n"
+            "  \"downstream_apps_to_notify\": [\"<app>\", ...],\n"
+            "  \"suggested_banner_message\": \"<short user-facing banner if banner_required, else empty>\",\n"
+            "  \"open_questions\": [\"<things the engineer should verify>\"],\n"
+            "  \"summary_markdown\": \"<full markdown body — 1-2 paragraphs with bullets — for the engineer to read>\"\n"
+            "}\n\n"
+            "Rules:\n"
+            "- Anchor your verdict in concrete details from the change (risk, plans, type=emergency, "
+            "CTASK state, the matrix entry's outage_likely flag and impact_description).\n"
+            "- If the matrix says outage_likely=yes for this CI, lean 'yes' unless the change record "
+            "clearly indicates the work is non-disruptive (e.g. read-only, doc-only).\n"
+            "- If no matrix entry was matched, say so in 'reasoning' and lean 'maybe' unless the change "
+            "is clearly trivial.\n"
+            "- 'summary_markdown' is what shows up in the engineer's UI; use ⚠️ for concerns and ✅ for positives.\n"
+            "- Keep all fields concise; this is a triage check, not a full RCR briefing."
+        ),
+    },
+
     # ── SPLOC AI prompts ─────────────────────────────────────
     'sploc_trace_analysis': {
         'label': 'SPLOC Trace Analysis',

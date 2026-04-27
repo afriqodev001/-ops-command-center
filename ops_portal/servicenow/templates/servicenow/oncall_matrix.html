@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block page_title %}Suppression Matrix{% endblock %}
+{% block page_subtitle %}Curated list of CIs/apps + outage / impact / comms metadata used by oncall AI review{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+  <!-- Header / actions -->
+  <div class="glass-card p-4">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-lg bg-brand-subtle/30 border border-brand/10 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-ink-primary">Suppression Matrix</h3>
+          <p class="text-[11px] text-ink-muted leading-relaxed mt-0.5">
+            One row per CI / application. Drives the oncall AI review and downstream comms / banner / suppression decisions. Upload as CSV or JSON — both formats round-trip.
+          </p>
+          <p class="text-[10px] text-ink-muted mt-1">
+            <strong class="text-ink-secondary">{{ meta.row_count }}</strong> row{{ meta.row_count|pluralize }} ·
+            {% if meta.updated_at %}updated <span class="text-ink-secondary">{{ meta.updated_at|date:"M j H:i" }}</span>{% else %}never updated{% endif %}
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="/servicenow/oncall/matrix/export/json/" class="btn-ghost text-xs py-1.5 px-3">
+          Export JSON
+        </a>
+        <a href="/servicenow/oncall/matrix/export/csv/" class="btn-ghost text-xs py-1.5 px-3">
+          Export CSV
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload form -->
+  <div class="glass-card p-4">
+    <h4 class="text-xs font-semibold text-ink-primary uppercase tracking-wider mb-3">Upload</h4>
+    <form hx-post="/servicenow/oncall/matrix/upload/"
+          hx-target="#matrix-preview-area"
+          hx-swap="innerHTML"
+          hx-encoding="multipart/form-data"
+          class="flex flex-wrap items-end gap-3">
+      {% csrf_token %}
+      <div class="flex-1 min-w-[260px]">
+        <label class="label">Matrix file (.csv or .json)</label>
+        <input type="file" name="file" accept=".csv,.json,.tsv,application/json,text/csv"
+               class="input-dark text-xs" required>
+      </div>
+      <button type="submit" class="btn-primary text-xs px-4 py-2">Preview</button>
+    </form>
+
+    <details class="mt-3">
+      <summary class="text-[11px] text-brand-light hover:text-brand cursor-pointer">Format help</summary>
+      <div class="mt-2 space-y-2 text-[11px] text-ink-secondary">
+        <p>Either format is accepted. Canonical columns / keys:</p>
+        <pre class="font-mono text-[10px] bg-surface-2 border border-edge rounded p-2 leading-relaxed">{{ columns|join:", " }}</pre>
+        <p>CSV: comma or tab delimited; semicolons separate emails / suppression IDs; <code class="font-mono">Yes</code>/<code class="font-mono">No</code> for booleans; column names are case-insensitive (<code class="font-mono">space → underscore</code>).</p>
+        <p>JSON: <code class="font-mono">{"rows": [{"ci_name": "…", "notification_emails": ["a", "b"], "banner_required": true, …}]}</code> (or a bare list of row objects). Arrays and booleans are preserved as-is.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- Preview / apply area -->
+  <div id="matrix-preview-area"></div>
+
+  <!-- Current matrix -->
+  <div id="matrix-table-area">
+    {% include "servicenow/partials/oncall_matrix_table.html" with rows=rows meta=meta columns=columns %}
+  </div>
+</div>
+{% endblock %}

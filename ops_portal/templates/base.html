@@ -122,6 +122,33 @@
           Bulk Create
         </a>
 
+        <a href="/servicenow/oncall/"
+           class="{% if request.path == '/servicenow/oncall/' or '/servicenow/oncall/review' in request.path or '/servicenow/oncall/pull' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+          Oncall Review
+        </a>
+
+        <a href="/servicenow/oncall/matrix/"
+           class="{% if '/servicenow/oncall/matrix' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
+          Suppression Matrix
+        </a>
+
+        <a href="/servicenow/oncall/history/"
+           class="{% if '/servicenow/oncall/history' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Review History
+        </a>
+
         <a href="/servicenow/presets/"
            class="{% if '/servicenow/presets' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
           <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -513,6 +540,30 @@
           Click the <strong>Mode</strong> chip to switch back to Demo.
         </p>
       </div>
+      {% endif %}
+
+      {% if oncall_banner and oncall_banner.active %}
+      {% with sev=oncall_banner.severity|default:"warn" %}
+      <!-- Oncall banner — posted by an oncall reviewer when a change needs portal-wide visibility -->
+      <div class="px-6 py-2 flex items-center gap-2.5 flex-shrink-0 border-b
+                  {% if sev == 'danger' %}bg-danger/10 border-danger/30
+                  {% elif sev == 'warn' %}bg-warn/10 border-warn/30
+                  {% elif sev == 'ok' %}bg-ok/10 border-ok/30
+                  {% else %}bg-info/10 border-info/30{% endif %}">
+        <svg class="w-4 h-4 flex-shrink-0
+                    {% if sev == 'danger' %}text-danger{% elif sev == 'warn' %}text-warn{% elif sev == 'ok' %}text-ok{% else %}text-info{% endif %}"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+        <p class="text-xs leading-snug flex-1
+                  {% if sev == 'danger' %}text-danger{% elif sev == 'warn' %}text-warn{% elif sev == 'ok' %}text-ok{% else %}text-info{% endif %}">
+          {% if oncall_banner.change_number %}<strong>{{ oncall_banner.change_number }}:</strong> {% endif %}{{ oncall_banner.message }}
+        </p>
+        <a href="/servicenow/oncall/{% if oncall_banner.change_number %}review/{{ oncall_banner.change_number }}/{% endif %}"
+           class="text-[10px] text-ink-muted hover:text-ink-primary">Open review →</a>
+      </div>
+      {% endwith %}
       {% endif %}
 
       <!-- Page content -->

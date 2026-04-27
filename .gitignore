@@ -67,6 +67,9 @@ ops_portal/sploc/prompt_packs.json
 ops_portal/sploc/trace_history.json
 ops_portal/sploc/service_catalog.json
 ops_portal/harness/harness_workspace.json
+ops_portal/servicenow/oncall_suppression_matrix.json
+ops_portal/servicenow/oncall_email_templates.json
+ops_portal/servicenow/oncall_banner_state.json
 
 # ─── Personal notes (keep local) ────────────────────────────
 GIT_CHEATSHEET.md

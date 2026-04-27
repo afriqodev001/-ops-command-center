@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block page_title %}Oncall Review{% endblock %}
+{% block page_subtitle %}Pull upcoming changes · AI outage triage · downstream comms{% endblock %}
+
+{% block content %}
+<div class="space-y-4" x-data="oncallDashboard()">
+
+  <!-- Time-window picker -->
+  <div class="glass-card p-4">
+    <div class="flex items-center gap-2 mb-3">
+      <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      <div>
+        <h3 class="text-sm font-semibold text-ink-primary">Pull changes</h3>
+        <p class="text-[10px] text-ink-muted">Default is changes scheduled this week. Edit the underlying queries on <a href="/servicenow/presets/" class="text-brand-light hover:text-brand">Presets</a>.</p>
+      </div>
+      {% if matrix_meta.row_count %}
+      <span class="text-[10px] text-ink-muted ml-auto">Matrix: <span class="font-semibold text-ink-primary">{{ matrix_meta.row_count }}</span> row{{ matrix_meta.row_count|pluralize }}</span>
+      {% else %}
+      <a href="/servicenow/oncall/matrix/" class="text-[10px] text-warn hover:text-warn ml-auto">⚠ Matrix empty — upload one →</a>
+      {% endif %}
+    </div>
+
+    <form id="oncall-pull-form"
+          hx-post="/servicenow/oncall/pull/"
+          hx-target="#oncall-results"
+          hx-swap="innerHTML"
+          class="flex flex-wrap items-end gap-3">
+      {% csrf_token %}
+      <div class="flex-1 min-w-[260px]">
+        <label class="label">Window</label>
+        <select name="preset" x-model="preset" class="input-dark text-xs">
+          {% for p in presets %}
+          <option value="{{ p.name }}"{% if p.name == default_preset %} selected{% endif %}>{{ p.description }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-primary text-xs px-4 py-2">
+        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Pull changes
+      </button>
+      <a href="/servicenow/oncall/history/" class="btn-ghost text-xs py-2 px-3 ml-auto">Review history →</a>
+    </form>
+  </div>
+
+  <!-- Results area (polling card → list) -->
+  <div id="oncall-results">
+    {% if recent_reviews %}
+    <div class="glass-card p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-4 h-4 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="text-sm font-semibold text-ink-primary">Recent reviews</h3>
+        <span class="text-[10px] text-ink-muted">last {{ recent_reviews|length }} updated</span>
+      </div>
+      {% include "servicenow/partials/oncall_pull_results.html" with reviews=recent_reviews preset='' window_label='recent' %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function _defineOncallDashboard() {
+  Alpine.data('oncallDashboard', () => ({
+    preset: '{{ default_preset|escapejs }}',
+  }));
+}
+if (window.Alpine) _defineOncallDashboard();
+else document.addEventListener('alpine:init', _defineOncallDashboard);
+</script>
+{% endblock %}

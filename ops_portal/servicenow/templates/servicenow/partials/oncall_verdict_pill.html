@@ -1,0 +1,11 @@
+{% spaceless %}
+{% if verdict == 'yes' %}
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/25 font-bold uppercase">Outage</span>
+{% elif verdict == 'maybe' %}
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-warn/10 text-warn border border-warn/25 font-bold uppercase">Maybe</span>
+{% elif verdict == 'no' %}
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-ok/10 text-ok border border-ok/25 font-bold uppercase">No outage</span>
+{% else %}
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-5 text-ink-muted border border-edge uppercase">—</span>
+{% endif %}
+{% endspaceless %}

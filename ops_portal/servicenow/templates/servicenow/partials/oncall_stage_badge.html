@@ -1,0 +1,22 @@
+{% comment %}stage badge — pass `stage` (one of the stage codes){% endcomment %}{% spaceless %}
+<span class="text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider
+{% if stage == 'pulled' %}bg-surface-5 text-ink-muted border border-edge
+{% elif stage == 'ai_reviewed' %}bg-info/10 text-info border border-info/20
+{% elif stage == 'decided' %}bg-info/15 text-info border border-info/30
+{% elif stage == 'comms_drafted' %}bg-warn/10 text-warn border border-warn/20
+{% elif stage == 'comms_sent' %}bg-warn/15 text-warn border border-warn/30
+{% elif stage == 'suppressions_done' %}bg-brand-subtle text-brand-light border border-brand/20
+{% elif stage == 'banner_posted' %}bg-danger/10 text-danger border border-danger/20
+{% elif stage == 'closed' %}bg-ok/10 text-ok border border-ok/20
+{% else %}bg-surface-5 text-ink-muted border border-edge{% endif %}">
+{% if stage == 'pulled' %}Pulled
+{% elif stage == 'ai_reviewed' %}AI reviewed
+{% elif stage == 'decided' %}Decided
+{% elif stage == 'comms_drafted' %}Comms drafted
+{% elif stage == 'comms_sent' %}Comms sent
+{% elif stage == 'suppressions_done' %}Suppressions done
+{% elif stage == 'banner_posted' %}Banner posted
+{% elif stage == 'closed' %}Closed
+{% else %}{{ stage }}{% endif %}
+</span>
+{% endspaceless %}

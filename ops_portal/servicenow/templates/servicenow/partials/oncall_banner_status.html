@@ -1,0 +1,10 @@
+<div class="rounded-lg px-3 py-2 animate-fade-in
+{% if banner and banner.active %}bg-warn/10 border border-warn/20
+{% else %}bg-surface-3/40 border border-edge{% endif %}">
+  {% if banner and banner.active %}
+  <p class="text-[11px] text-warn font-semibold">🔔 Banner active</p>
+  <p class="text-[10px] text-ink-secondary mt-0.5">"{{ banner.message }}"</p>
+  {% else %}
+  <p class="text-[11px] text-ink-muted">No active banner.</p>
+  {% endif %}
+</div>

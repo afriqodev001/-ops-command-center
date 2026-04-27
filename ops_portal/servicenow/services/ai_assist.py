@@ -17,10 +17,90 @@ on the field names.
 """
 
 from __future__ import annotations
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import json
+import urllib.request
 
 from .creation_templates import KIND_FIELDS, FIELD_LABELS
+
+
+# ─── AI preflight helpers (shared) ───────────────────────────
+
+def tachyon_browser_alive(user_key: str = 'localuser') -> bool:
+    """Quick check: is the Tachyon Edge instance running on its debug port?
+
+    Used to short-circuit Celery dispatch when Tachyon isn't connected, so
+    the worker doesn't spend ~30s trying to launch a new browser while the
+    UI just spins. Mirrors the helper in sploc/pages.py:229.
+    """
+    try:
+        from core.browser.registry import load_session
+    except Exception:
+        return False
+    session = load_session('tachyon', user_key)
+    if not session:
+        return False
+    port = session.get('debug_port')
+    if not port:
+        return False
+    try:
+        with urllib.request.urlopen(
+            f'http://127.0.0.1:{port}/json/version', timeout=1.5
+        ) as resp:
+            return getattr(resp, 'status', 200) == 200
+    except Exception:
+        return False
+
+
+def tachyon_preset_enabled(preset_slug: Optional[str] = None) -> bool:
+    """True if the requested Tachyon preset exists and is enabled.
+
+    Pass None to check the preset configured in user_preferences.
+    """
+    try:
+        from tachyon.models import TachyonPreset
+        if not preset_slug:
+            cfg = _get_ai_config()
+            preset_slug = cfg.get('tachyon_preset_slug', 'default')
+        return TachyonPreset.objects.filter(slug=preset_slug, enabled=True).exists()
+    except Exception:
+        return False
+
+
+def ai_preflight() -> Dict[str, Any]:
+    """Single-shot preflight for any view about to dispatch a Tachyon AI task.
+
+    Returns:
+      {'ok': True} when ready, or
+      {'ok': False, 'error': '<message>', 'action_url': '...', 'action_label': '...'}
+      that view code can render directly.
+    """
+    cfg = _get_ai_config()
+    if cfg.get('provider') != 'tachyon':
+        # Non-Tachyon providers don't need browser preflight.
+        return {'ok': True}
+
+    if not tachyon_browser_alive():
+        return {
+            'ok': False,
+            'error': "Tachyon isn't connected. Open Tachyon from the sidebar and complete login, then retry.",
+            'action_url': '/tachyon/',
+            'action_label': 'Open Tachyon',
+        }
+
+    preset_slug = cfg.get('tachyon_preset_slug', 'default')
+    if not tachyon_preset_enabled(preset_slug):
+        return {
+            'ok': False,
+            'error': (
+                f"Tachyon preset '{preset_slug}' isn't configured or is disabled. "
+                "Add or enable a preset in the Django admin, then retry."
+            ),
+            'action_url': '/admin/tachyon/tachyonpreset/',
+            'action_label': 'Manage presets',
+        }
+
+    return {'ok': True}
 
 
 # ─── Prompt templates ────────────────────────────────────────

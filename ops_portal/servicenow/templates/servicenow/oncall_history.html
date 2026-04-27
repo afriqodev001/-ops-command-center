@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block page_title %}Review History{% endblock %}
+{% block page_subtitle %}Filter and search past oncall change reviews{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+  <!-- Filter bar -->
+  <div class="glass-card p-4">
+    <form hx-get="/servicenow/oncall/history/partial/"
+          hx-target="#oncall-history-area"
+          hx-swap="innerHTML"
+          hx-trigger="change, keyup changed delay:300ms from:input[type=text]"
+          class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div>
+        <label class="label">Search</label>
+        <input type="text" name="q" placeholder="CHG number, description…" class="input-dark text-xs">
+      </div>
+      <div>
+        <label class="label">Stage</label>
+        <select name="stage" class="input-dark text-xs">
+          <option value="">All</option>
+          {% for code, label in stages %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">AI verdict</label>
+        <select name="verdict" class="input-dark text-xs">
+          <option value="">All</option>
+          {% for code, label in verdicts %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">Assignment group</label>
+        <input type="text" name="assignment_group" placeholder="contains…" class="input-dark text-xs">
+      </div>
+    </form>
+  </div>
+
+  <div id="oncall-history-area"
+       hx-get="/servicenow/oncall/history/partial/"
+       hx-trigger="load"
+       hx-swap="innerHTML">
+    <div class="glass-card p-4 text-center">
+      <p class="text-xs text-ink-muted">Loading…</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

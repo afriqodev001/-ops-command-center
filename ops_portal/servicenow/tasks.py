@@ -1071,3 +1071,101 @@ def changes_create_task(self, body: dict):
         return create_change_via_table_api(driver, kind=kind, fields=fields)
 
     return with_servicenow_auth_retry(body=body, operation=op, retry_once=True)
+
+
+# ============================================================
+# Oncall change review — batch AI review task
+# ============================================================
+
+@shared_task(bind=True)
+def oncall_run_ai_batch_task(self, body: dict):
+    """
+    Run the oncall AI review for a list of changes, sequentially, persisting
+    each result to its OncallChangeReview row before moving to the next so
+    the UI sees progressive updates.
+
+    Body:
+      {
+        "change_numbers": ["CHG0034567", ...],
+        "user_key": "localuser",
+        "force": bool,                 # re-run even if already ai_reviewed
+      }
+
+    Returns:
+      {
+        "total": N,
+        "ok": [...],
+        "skipped": [...],
+        "errors": [{"change_number": "...", "detail": "..."}]
+      }
+    """
+    from servicenow.models import OncallChangeReview
+    from servicenow.services import oncall_review as orsvc
+
+    body = body or {}
+    numbers: list = body.get("change_numbers") or []
+    force: bool = bool(body.get("force"))
+
+    out = {
+        "total": len(numbers),
+        "ok": [],
+        "skipped": [],
+        "errors": [],
+    }
+
+    if not numbers:
+        return {**out, "error": "missing_parameter",
+                "detail": "change_numbers is required (list of CHG numbers)"}
+
+    for number in numbers:
+        review = (
+            OncallChangeReview.objects
+            .filter(change_number=number)
+            .order_by('-window_end', '-updated_at')
+            .first()
+        )
+        if not review:
+            out["errors"].append({
+                "change_number": number,
+                "detail": "no oncall review row for this change — pull it first",
+            })
+            continue
+
+        if review.ai_run_at and not force:
+            out["skipped"].append(number)
+            continue
+
+        # Fetch the change record (with description / plans / type) for the prompt.
+        ctx_body = {
+            "change_number": number,
+            "user_key": _user_key(body),
+            "display_value": "all",
+        }
+        ctx_result = change_context_task.apply(args=(ctx_body,)).result or {}
+        if isinstance(ctx_result, dict) and ctx_result.get("error"):
+            out["errors"].append({
+                "change_number": number,
+                "detail": ctx_result.get("detail") or ctx_result.get("error"),
+            })
+            continue
+
+        change_record = (
+            (ctx_result.get("change") or {}).get("result")
+            if isinstance(ctx_result, dict) else {}
+        ) or {}
+
+        try:
+            parsed = orsvc.run_ai_review_for(review, change_record)
+        except Exception as e:
+            out["errors"].append({"change_number": number, "detail": f"AI review failed: {e}"})
+            continue
+
+        if parsed.get("_ai_error"):
+            out["errors"].append({
+                "change_number": number,
+                "detail": parsed["_ai_error"],
+            })
+        else:
+            out["ok"].append(number)
+
+    return out

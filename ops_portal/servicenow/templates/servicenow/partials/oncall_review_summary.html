@@ -1,0 +1,44 @@
+{% comment %}
+Inline "Oncall Review" summary panel.
+
+Renders nothing when oncall_review is None — safe to include unconditionally
+on any change-related surface (lookup detail, RCR briefing, bulk review card,
+search rows). Pass `oncall_review` in context.
+{% endcomment %}
+{% if oncall_review %}
+<div class="rounded-lg border border-edge bg-surface-3/40 px-3 py-2.5 mb-3">
+  <div class="flex items-start gap-2 flex-wrap">
+    <svg class="w-4 h-4 text-brand-light flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 11H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v2a2 2 0 01-2 2h-2m-4 0h4m-4 0v8m4-8v8m-4 0H7a2 2 0 01-2-2v-2a2 2 0 012-2h10a2 2 0 012 2v2a2 2 0 01-2 2h-2"/>
+    </svg>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[11px] font-semibold text-ink-primary uppercase tracking-wider">Oncall review</span>
+        {% include "servicenow/partials/oncall_stage_badge.html" with stage=oncall_review.stage %}
+        {% include "servicenow/partials/oncall_verdict_pill.html" with verdict=oncall_review.ai_outage_likely %}
+        {% if oncall_review.ai_run_at %}
+        <span class="text-[10px] text-ink-muted">AI run {{ oncall_review.ai_run_at|timesince }} ago</span>
+        {% endif %}
+      </div>
+      {% if oncall_review.matched_app %}
+      <p class="text-[10px] text-ink-muted mt-1">
+        Matched matrix entry:
+        <span class="text-ink-secondary">{{ oncall_review.matched_app }}</span>
+        {% if oncall_review.matched_banner %} · <span class="text-warn">banner required</span>{% endif %}
+      </p>
+      {% endif %}
+      {% if oncall_review.comments %}
+      <p class="text-[10px] text-ink-secondary mt-1 italic">"{{ oncall_review.comments|truncatechars:160 }}"</p>
+      {% endif %}
+      {% if oncall_review.ai_summary %}
+      <details class="mt-1.5">
+        <summary class="text-[10px] text-brand-light hover:text-brand cursor-pointer">AI summary</summary>
+        <pre class="text-[11px] text-ink-secondary whitespace-pre-wrap leading-relaxed mt-1">{{ oncall_review.ai_summary|truncatechars:600 }}</pre>
+      </details>
+      {% endif %}
+    </div>
+    <a href="/servicenow/oncall/review/{{ oncall_review.change_number }}/"
+       class="text-[10px] text-brand-light hover:text-brand whitespace-nowrap flex-shrink-0">Open full review →</a>
+  </div>
+</div>
+{% endif %}

@@ -1,0 +1,12 @@
+{% spaceless %}
+<div class="rounded-lg px-3 py-2 animate-fade-in
+{% if severity == 'ok' %}bg-ok/10 border border-ok/20 text-ok
+{% elif severity == 'danger' %}bg-danger/10 border border-danger/20 text-danger
+{% elif severity == 'warn' %}bg-warn/10 border border-warn/20 text-warn
+{% else %}bg-info/10 border border-info/20 text-info{% endif %}">
+  <p class="text-xs font-semibold">{{ message }}</p>
+  {% if review %}
+  <p class="text-[10px] opacity-80 mt-0.5">{{ review.change_number }} · stage now <strong>{{ review.get_stage_display }}</strong></p>
+  {% endif %}
+</div>
+{% endspaceless %}

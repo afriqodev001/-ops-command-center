@@ -1,8 +1,36 @@
 from django.urls import path
 from . import views
 from . import pages
+from . import oncall_pages
 
 urlpatterns = [
+
+    # ─── Oncall change-review workflow ──────────
+    path("oncall/",                               oncall_pages.oncall_dashboard,        name="oncall-dashboard"),
+    path("oncall/pull/",                          oncall_pages.oncall_pull_changes,     name="oncall-pull"),
+    path("oncall/pull/poll/<str:task_id>/",       oncall_pages.oncall_pull_poll,        name="oncall-pull-poll"),
+    path("oncall/review/<str:change_number>/",    oncall_pages.oncall_review_detail,    name="oncall-review-detail"),
+    path("oncall/review/<str:change_number>/run-ai/",
+         oncall_pages.oncall_run_ai_for_change,                                          name="oncall-run-ai"),
+    path("oncall/review/<str:change_number>/draft-email/",
+         oncall_pages.oncall_draft_email,                                                name="oncall-draft-email"),
+    path("oncall/review/<str:change_number>/mark/",
+         oncall_pages.oncall_mark_stage,                                                 name="oncall-mark-stage"),
+    path("oncall/run-ai-batch/",                  oncall_pages.oncall_run_ai_batch,     name="oncall-run-ai-batch"),
+    path("oncall/poll-ai/<str:task_id>/",         oncall_pages.oncall_poll_ai,          name="oncall-poll-ai"),
+    path("oncall/matrix/",                        oncall_pages.oncall_matrix_page,      name="oncall-matrix"),
+    path("oncall/matrix/upload/",                 oncall_pages.oncall_matrix_upload,    name="oncall-matrix-upload"),
+    path("oncall/matrix/apply/",                  oncall_pages.oncall_matrix_apply,     name="oncall-matrix-apply"),
+    path("oncall/matrix/clear/",                  oncall_pages.oncall_matrix_clear,     name="oncall-matrix-clear"),
+    path("oncall/matrix/export/json/",            oncall_pages.oncall_matrix_export_json,name="oncall-matrix-export-json"),
+    path("oncall/matrix/export/csv/",             oncall_pages.oncall_matrix_export_csv, name="oncall-matrix-export-csv"),
+    path("oncall/templates/",                     oncall_pages.oncall_templates_page,   name="oncall-templates"),
+    path("oncall/templates/save/",                oncall_pages.oncall_template_save,    name="oncall-template-save"),
+    path("oncall/banner/post/",                   oncall_pages.oncall_banner_post,      name="oncall-banner-post"),
+    path("oncall/banner/clear/",                  oncall_pages.oncall_banner_clear,     name="oncall-banner-clear"),
+    path("oncall/history/",                       oncall_pages.oncall_history_page,     name="oncall-history"),
+    path("oncall/history/partial/",               oncall_pages.oncall_history_partial,  name="oncall-history-partial"),
+
 
     # ─── UI pages ───────────────────────────────
     path("incidents/",                 pages.incidents_list,   name="incidents-list"),

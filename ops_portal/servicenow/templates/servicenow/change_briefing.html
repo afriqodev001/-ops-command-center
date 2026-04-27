@@ -15,6 +15,7 @@
 {% endblock %}
 
 {% block content %}
+{% include 'servicenow/partials/oncall_review_summary.html' with oncall_review=oncall_review %}
 {% if live_task_id %}
 {% include 'servicenow/partials/live_loading.html' with shape='change-briefing' task_id=live_task_id label='Building briefing from ServiceNow…' placeholder_id='briefing-placeholder' extras='' %}
 {% else %}

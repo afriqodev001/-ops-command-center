@@ -19,6 +19,12 @@
 <div class="glass-card overflow-hidden animate-fade-in"
      x-data="{ detailOpen: false, promptOpen: false }">
 
+  {% if oncall_review %}
+  <div class="px-5 pt-4">
+    {% include 'servicenow/partials/oncall_review_summary.html' with oncall_review=oncall_review %}
+  </div>
+  {% endif %}
+
   <!-- ── Card header ───────────────────────────────────────── -->
   <div class="flex flex-wrap items-start gap-3 px-5 py-4 border-b border-edge">
 

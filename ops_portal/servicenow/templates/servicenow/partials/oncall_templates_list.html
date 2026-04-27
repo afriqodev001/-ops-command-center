@@ -1,0 +1,30 @@
+<div class="space-y-3">
+  {% if saved_name %}
+  <div class="rounded-lg px-3 py-2 bg-ok/10 border border-ok/20 text-[11px] text-ok">Saved <span class="font-mono">{{ saved_name }}</span></div>
+  {% endif %}
+  {% if error %}
+  <div class="rounded-lg px-3 py-2 bg-danger/10 border border-danger/20 text-[11px] text-danger">{{ error }}</div>
+  {% endif %}
+
+  {% for name, t in templates.items %}
+  <div class="glass-card p-4">
+    <form hx-post="/servicenow/oncall/templates/save/"
+          hx-target="#oncall-templates-area"
+          hx-swap="innerHTML"
+          class="space-y-2">
+      {% csrf_token %}
+      <input type="hidden" name="name" value="{{ name }}">
+      <div class="flex items-center gap-2">
+        <span class="font-mono text-[10px] text-ink-muted">{{ name }}</span>
+        <input type="text" name="label" value="{{ t.label }}" placeholder="label" class="input-dark text-xs flex-1">
+      </div>
+      <input type="text" name="description" value="{{ t.description }}" placeholder="description" class="input-dark text-[11px]">
+      <input type="text" name="subject" value="{{ t.subject }}" placeholder="subject" class="input-dark text-xs font-mono">
+      <textarea name="body" rows="8" class="input-dark text-[11px] font-mono">{{ t.body }}</textarea>
+      <div class="flex items-center justify-end">
+        <button type="submit" class="btn-primary text-xs py-1.5 px-3">Save</button>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+</div>
