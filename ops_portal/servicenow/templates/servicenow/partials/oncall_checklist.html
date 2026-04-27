@@ -1,0 +1,44 @@
+<form hx-post="/servicenow/oncall/review/{{ review.change_number }}/checklist/"
+      hx-target="#oncall-checklist-area"
+      hx-swap="innerHTML"
+      class="space-y-2">
+  {% csrf_token %}
+  {% if just_saved %}
+  <div class="rounded px-2 py-1 bg-ok/10 border border-ok/20 text-[10px] text-ok">Checklist saved</div>
+  {% endif %}
+
+  <div class="flex items-center gap-2 text-[11px] text-ink-secondary mb-1">
+    <div class="flex-1 h-1.5 rounded-full bg-surface-5 overflow-hidden">
+      <div class="h-full bg-ok transition-all" style="width: {{ progress.pct }}%"></div>
+    </div>
+    <span class="tabular-nums whitespace-nowrap">{{ progress.checked }} / {{ progress.total }}</span>
+  </div>
+
+  <ul class="space-y-1.5">
+    {% for item in items %}
+    <li class="rounded-lg border border-edge bg-surface-3/30 p-2">
+      <label class="flex items-start gap-2 cursor-pointer">
+        <input type="checkbox"
+               name="chk_checked[]"
+               value="{{ item.key }}"
+               {% if item.checked %}checked{% endif %}
+               class="mt-0.5 rounded border-edge bg-surface-3">
+        <input type="hidden" name="chk_key[]" value="{{ item.key }}">
+        <input type="hidden" name="chk_label[]" value="{{ item.label }}">
+        <div class="flex-1 min-w-0">
+          <span class="text-[11px] {% if item.checked %}text-ink-primary{% else %}text-ink-secondary{% endif %}">{{ item.label }}</span>
+          <input type="text"
+                 name="chk_note[]"
+                 value="{{ item.note }}"
+                 placeholder="optional note"
+                 class="input-dark text-[10px] mt-1 py-0.5">
+        </div>
+      </label>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <div class="flex justify-end">
+    <button type="submit" class="btn-primary text-[11px] py-1 px-3">Save checklist</button>
+  </div>
+</form>

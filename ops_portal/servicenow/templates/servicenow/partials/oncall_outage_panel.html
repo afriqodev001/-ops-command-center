@@ -1,0 +1,29 @@
+<form hx-post="/servicenow/oncall/review/{{ review.change_number }}/outage/"
+      hx-target="#oncall-outage-area"
+      hx-swap="innerHTML"
+      class="space-y-2">
+  {% csrf_token %}
+  {% if just_saved %}
+  <div class="rounded px-2 py-1 bg-ok/10 border border-ok/20 text-[10px] text-ok">Outage info saved</div>
+  {% endif %}
+
+  <label class="flex items-center gap-2 cursor-pointer">
+    <input type="checkbox" name="outage_declared" value="true"
+           {% if review.outage_declared %}checked{% endif %}
+           class="rounded border-edge bg-surface-3">
+    <span class="text-xs {% if review.outage_declared %}text-danger font-semibold{% else %}text-ink-secondary{% endif %}">
+      Outage declared on this change
+    </span>
+  </label>
+
+  <div>
+    <label class="label">Outage record # <span class="text-ink-muted">(if any)</span></label>
+    <input type="text" name="outage_record_number" value="{{ review.outage_record_number }}"
+           placeholder="e.g. OTG0012345"
+           class="input-dark text-xs font-mono">
+  </div>
+
+  <div class="flex justify-end">
+    <button type="submit" class="btn-primary text-[11px] py-1 px-3">Save</button>
+  </div>
+</form>

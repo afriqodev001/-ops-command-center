@@ -26,6 +26,15 @@ AI_VERDICT_CHOICES = (
     ('maybe', 'Possible outage'),
 )
 
+ACTUAL_OUTCOME_CHOICES = (
+    ('', 'Not yet (in-flight or upcoming)'),
+    ('success', 'Successful'),
+    ('partial', 'Successful with issues'),
+    ('failed', 'Failed'),
+    ('rolled_back', 'Rolled back'),
+    ('aborted', 'Aborted / cancelled'),
+)
+
 
 class OncallChangeReview(models.Model):
     """
@@ -52,7 +61,7 @@ class OncallChangeReview(models.Model):
     window_end = models.DateTimeField()
     window_label = models.CharField(max_length=64, blank=True)
 
-    # AI review
+    # AI outage-impact review (track 1)
     ai_outage_likely = models.CharField(
         max_length=16,
         choices=AI_VERDICT_CHOICES,
@@ -61,6 +70,28 @@ class OncallChangeReview(models.Model):
     ai_summary = models.TextField(blank=True)
     ai_run_at = models.DateTimeField(null=True, blank=True)
     ai_payload_json = models.TextField(blank=True)
+
+    # AI content summary (track 2) — what is this change actually doing?
+    content_summary = models.TextField(blank=True)
+    content_summary_run_at = models.DateTimeField(null=True, blank=True)
+
+    # Outage declaration (per ServiceNow change record / outage records)
+    outage_declared = models.BooleanField(default=False)
+    outage_record_number = models.CharField(max_length=64, blank=True)
+    outage_started_at = models.DateTimeField(null=True, blank=True)
+    outage_ended_at = models.DateTimeField(null=True, blank=True)
+
+    # Engineer review checklist — flexible JSON store of {key, label, checked, note}
+    checklist_json = models.TextField(blank=True)
+
+    # Post-window status — captured for retrospective management reports
+    actual_outcome = models.CharField(
+        max_length=32,
+        choices=ACTUAL_OUTCOME_CHOICES,
+        blank=True,
+        default='',
+    )
+    issues_summary = models.TextField(blank=True)
 
     # Matrix snapshot — denormalised so it survives matrix edits later
     matched_app = models.CharField(max_length=256, blank=True)

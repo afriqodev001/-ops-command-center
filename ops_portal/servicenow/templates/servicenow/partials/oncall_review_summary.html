@@ -27,6 +27,18 @@ search rows). Pass `oncall_review` in context.
         {% if oncall_review.matched_banner %} · <span class="text-warn">banner required</span>{% endif %}
       </p>
       {% endif %}
+      {% if oncall_review.outage_declared %}
+      <p class="text-[10px] text-warn mt-1 font-semibold">⚠ Outage declared{% if oncall_review.outage_record_number %} · {{ oncall_review.outage_record_number }}{% endif %}</p>
+      {% endif %}
+      {% if oncall_review.actual_outcome %}
+      <p class="text-[10px] mt-1
+        {% if oncall_review.actual_outcome == 'success' %}text-ok
+        {% elif oncall_review.actual_outcome == 'partial' %}text-warn
+        {% elif oncall_review.actual_outcome == 'failed' or oncall_review.actual_outcome == 'rolled_back' %}text-danger
+        {% else %}text-ink-muted{% endif %}">
+        Outcome: <span class="font-semibold">{{ oncall_review.get_actual_outcome_display }}</span>
+      </p>
+      {% endif %}
       {% if oncall_review.comments %}
       <p class="text-[10px] text-ink-secondary mt-1 italic">"{{ oncall_review.comments|truncatechars:160 }}"</p>
       {% endif %}

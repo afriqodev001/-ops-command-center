@@ -1,0 +1,10 @@
+<div class="rounded-lg border border-edge bg-surface-3/40 p-3 animate-fade-in"
+     hx-get="/servicenow/oncall/review/{{ change_number|urlencode }}/poll-summary/{{ task_id }}/?change_number={{ change_number|urlencode }}"
+     hx-trigger="load delay:3s"
+     hx-target="#content-summary-area"
+     hx-swap="innerHTML">
+  <div class="flex items-center gap-3">
+    <div class="w-4 h-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin flex-shrink-0"></div>
+    <p class="text-xs font-semibold text-info">Summarising change content…</p>
+  </div>
+</div>

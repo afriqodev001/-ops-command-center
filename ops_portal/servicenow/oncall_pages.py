@@ -144,6 +144,9 @@ def oncall_review_detail(request, change_number: str):
         'review': review,
         'matched': matched,
         'ai_payload': ai_payload,
+        'content_summary_payload': orsvc.get_content_summary_payload(review),
+        'checklist_items': orsvc.load_checklist(review),
+        'checklist_progress': orsvc.checklist_progress(review),
         'templates': ntpl.list_templates(),
     })
 
@@ -590,6 +593,259 @@ def oncall_matrix_row_save(request):
         'applied_count': 1,
     })
 
+
+# ─── Content summary (track 2) ────────────────────────────
+
+@csrf_exempt
+@require_POST
+def oncall_run_content_summary(request, change_number: str):
+    pre = ai_preflight()
+    if not pre.get('ok'):
+        return render(request, 'servicenow/partials/oncall_error.html', {
+            'error': pre.get('error'),
+            'action_url': pre.get('action_url'),
+            'action_label': pre.get('action_label'),
+        })
+
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+
+    from .tasks import oncall_run_content_summary_task
+    task = oncall_run_content_summary_task.delay({'change_number': change_number})
+
+    return render(request, 'servicenow/partials/oncall_content_summary_polling.html', {
+        'task_id': task.id,
+        'change_number': change_number,
+    })
+
+
+def oncall_poll_content_summary(request, task_id: str):
+    ar = AsyncResult(task_id)
+    change_number = (request.GET.get('change_number') or '').strip()
+
+    if ar.state in ('PENDING', 'RECEIVED', 'STARTED'):
+        return render(request, 'servicenow/partials/oncall_content_summary_polling.html', {
+            'task_id': task_id,
+            'change_number': change_number,
+        })
+
+    if ar.state == 'FAILURE':
+        return render(request, 'servicenow/partials/oncall_error.html', {
+            'error': str(ar.result),
+        })
+
+    result = ar.result or {}
+    if isinstance(result, dict) and result.get('error'):
+        return render(request, 'servicenow/partials/oncall_error.html', {
+            'error': result.get('detail') or result.get('error'),
+        })
+
+    review = OncallChangeReview.objects.filter(change_number=change_number).first()
+    payload = orsvc.get_content_summary_payload(review) if review else {}
+
+    return render(request, 'servicenow/partials/oncall_content_summary.html', {
+        'review': review,
+        'payload': payload,
+    })
+
+
+# ─── Checklist + outage + outcome ──────────────────────────
+
+@csrf_exempt
+@require_POST
+def oncall_save_checklist(request, change_number: str):
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+
+    # Form sends parallel arrays: keys[], labels[], checked[] (only for ticked items), notes[]
+    keys = request.POST.getlist('chk_key[]')
+    labels = request.POST.getlist('chk_label[]')
+    notes = request.POST.getlist('chk_note[]')
+    checked_keys = set(request.POST.getlist('chk_checked[]'))
+
+    items = []
+    for i, k in enumerate(keys):
+        k = (k or '').strip()
+        if not k:
+            continue
+        items.append({
+            'key': k,
+            'label': labels[i].strip() if i < len(labels) else k,
+            'checked': k in checked_keys,
+            'note': notes[i].strip() if i < len(notes) else '',
+        })
+
+    orsvc.save_checklist(review, items)
+
+    return render(request, 'servicenow/partials/oncall_checklist.html', {
+        'review': review,
+        'items': orsvc.load_checklist(review),
+        'progress': orsvc.checklist_progress(review),
+        'just_saved': True,
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_save_outage(request, change_number: str):
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+    review.outage_declared = bool(request.POST.get('outage_declared'))
+    review.outage_record_number = request.POST.get('outage_record_number', '').strip()
+    review.save(update_fields=['outage_declared', 'outage_record_number', 'updated_at'])
+
+    return render(request, 'servicenow/partials/oncall_outage_panel.html', {
+        'review': review,
+        'just_saved': True,
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_save_outcome(request, change_number: str):
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+    review.actual_outcome = request.POST.get('actual_outcome', '').strip()
+    review.issues_summary = request.POST.get('issues_summary', '').strip()
+    review.save(update_fields=['actual_outcome', 'issues_summary', 'updated_at'])
+
+    return render(request, 'servicenow/partials/oncall_outcome_panel.html', {
+        'review': review,
+        'just_saved': True,
+    })
+
+
+# ─── Management report ────────────────────────────────────
+
+REPORT_PRESETS = {
+    'today':       {'label': 'Today', 'retrospective': False, 'days_offset': 0, 'span_days': 1},
+    'tonight':     {'label': 'Tonight (next 12h)', 'retrospective': False, 'hours_offset': 0, 'span_hours': 12},
+    'last_night':  {'label': 'Last night', 'retrospective': True, 'days_offset': -1, 'span_days': 1},
+    'last_week':   {'label': 'Last 7 days', 'retrospective': True, 'days_offset': -7, 'span_days': 7},
+    'next_week':   {'label': 'Next 7 days', 'retrospective': False, 'days_offset': 0, 'span_days': 7},
+}
+
+
+def _resolve_report_window(preset: str, custom_start: str = '', custom_end: str = ''):
+    """Return (start, end, label, is_retrospective)."""
+    from datetime import datetime, timezone, timedelta
+    now = dj_tz.now()
+
+    if preset == 'custom' and custom_start and custom_end:
+        try:
+            s = datetime.fromisoformat(custom_start)
+            e = datetime.fromisoformat(custom_end)
+            if not s.tzinfo: s = s.replace(tzinfo=timezone.utc)
+            if not e.tzinfo: e = e.replace(tzinfo=timezone.utc)
+            return s, e, f'{custom_start} → {custom_end}', e < now
+        except Exception:
+            pass
+
+    cfg = REPORT_PRESETS.get(preset) or REPORT_PRESETS['today']
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if 'hours_offset' in cfg:
+        start = now + timedelta(hours=cfg['hours_offset'])
+        end = start + timedelta(hours=cfg.get('span_hours', 12))
+    else:
+        start = today + timedelta(days=cfg['days_offset'])
+        end = start + timedelta(days=cfg.get('span_days', 1))
+    return start, end, cfg['label'], bool(cfg.get('retrospective'))
+
+
+def oncall_report_page(request):
+    return render(request, 'servicenow/oncall_report.html', {
+        'presets': [
+            {'value': k, 'label': v['label'], 'retrospective': v.get('retrospective', False)}
+            for k, v in REPORT_PRESETS.items()
+        ],
+        'default_preset': 'tonight',
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_report_run(request):
+    pre = ai_preflight()
+    if not pre.get('ok'):
+        return render(request, 'servicenow/partials/oncall_error.html', {
+            'error': pre.get('error'),
+            'action_url': pre.get('action_url'),
+            'action_label': pre.get('action_label'),
+        })
+
+    preset = request.POST.get('preset', 'tonight').strip()
+    custom_start = request.POST.get('custom_start', '').strip()
+    custom_end = request.POST.get('custom_end', '').strip()
+
+    start, end, label, is_retro = _resolve_report_window(preset, custom_start, custom_end)
+
+    from .tasks import oncall_management_report_task
+    task = oncall_management_report_task.delay({
+        'window_start': start.isoformat(),
+        'window_end': end.isoformat(),
+        'label': label,
+        'retrospective': is_retro,
+    })
+
+    return render(request, 'servicenow/partials/oncall_report_polling.html', {
+        'task_id': task.id,
+        'label': label,
+    })
+
+
+def oncall_report_poll(request, task_id: str):
+    ar = AsyncResult(task_id)
+
+    if ar.state in ('PENDING', 'RECEIVED', 'STARTED'):
+        return render(request, 'servicenow/partials/oncall_report_polling.html', {
+            'task_id': task_id,
+            'label': request.GET.get('label', 'window'),
+        })
+
+    if ar.state == 'FAILURE':
+        return render(request, 'servicenow/partials/oncall_error.html', {
+            'error': str(ar.result),
+        })
+
+    result = ar.result or {}
+    if isinstance(result, dict) and result.get('error'):
+        return render(request, 'servicenow/partials/oncall_error.html', {
+            'error': result.get('detail') or result.get('error'),
+        })
+
+    return render(request, 'servicenow/partials/oncall_report_results.html', {
+        'report': result,
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_report_email(request):
+    """Render the report into an Outlook draft email."""
+    recipients = request.POST.get('recipients', '').strip()
+    subject = request.POST.get('subject', '').strip()
+    body = request.POST.get('body', '').strip()
+
+    if not body:
+        return render(request, 'servicenow/partials/oncall_action_result.html', {
+            'message': 'No report body — generate a report first.',
+            'severity': 'danger',
+        })
+
+    result = outlook.open_draft(
+        recipients=recipients,
+        subject=subject or 'Change window summary',
+        body=body,
+    )
+
+    if result.get('ok'):
+        return render(request, 'servicenow/partials/oncall_action_result.html', {
+            'message': 'Outlook draft opened. Review recipients + body, then send.',
+            'severity': 'ok',
+        })
+    return render(request, 'servicenow/partials/oncall_action_result.html', {
+        'message': result.get('error', 'Outlook draft failed'),
+        'severity': 'danger',
+    })
+
+
+# ─── Matrix row delete (existing) ─────────────────────────
 
 @csrf_exempt
 @require_POST

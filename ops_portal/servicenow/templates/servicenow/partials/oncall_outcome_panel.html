@@ -1,0 +1,31 @@
+<form hx-post="/servicenow/oncall/review/{{ review.change_number }}/outcome/"
+      hx-target="#oncall-outcome-area"
+      hx-swap="innerHTML"
+      class="space-y-2">
+  {% csrf_token %}
+  {% if just_saved %}
+  <div class="rounded px-2 py-1 bg-ok/10 border border-ok/20 text-[10px] text-ok">Outcome saved</div>
+  {% endif %}
+
+  <div>
+    <label class="label">Actual outcome <span class="text-ink-muted">(after the change runs)</span></label>
+    <select name="actual_outcome" class="input-dark text-xs">
+      <option value=""           {% if not review.actual_outcome %}selected{% endif %}>Not yet (in-flight or upcoming)</option>
+      <option value="success"     {% if review.actual_outcome == 'success' %}selected{% endif %}>Successful</option>
+      <option value="partial"     {% if review.actual_outcome == 'partial' %}selected{% endif %}>Successful with issues</option>
+      <option value="failed"      {% if review.actual_outcome == 'failed' %}selected{% endif %}>Failed</option>
+      <option value="rolled_back" {% if review.actual_outcome == 'rolled_back' %}selected{% endif %}>Rolled back</option>
+      <option value="aborted"     {% if review.actual_outcome == 'aborted' %}selected{% endif %}>Aborted / cancelled</option>
+    </select>
+  </div>
+
+  <div>
+    <label class="label">Issues / notes <span class="text-ink-muted">(used in management report)</span></label>
+    <textarea name="issues_summary" rows="3" class="input-dark text-xs"
+              placeholder="What happened, what went wrong, what mitigation was taken…">{{ review.issues_summary }}</textarea>
+  </div>
+
+  <div class="flex justify-end">
+    <button type="submit" class="btn-primary text-[11px] py-1 px-3">Save</button>
+  </div>
+</form>

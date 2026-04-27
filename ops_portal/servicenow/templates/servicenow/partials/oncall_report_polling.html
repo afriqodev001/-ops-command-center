@@ -1,0 +1,13 @@
+<div class="glass-card p-4 animate-fade-in"
+     hx-get="/servicenow/oncall/report/poll/{{ task_id }}/?label={{ label|urlencode }}"
+     hx-trigger="load delay:3s"
+     hx-target="#oncall-report-area"
+     hx-swap="innerHTML">
+  <div class="flex items-center gap-3">
+    <div class="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin flex-shrink-0"></div>
+    <div class="flex-1 min-w-0">
+      <p class="text-xs font-semibold text-info">Generating management report…</p>
+      <p class="text-[10px] text-ink-muted">Window: {{ label }}</p>
+    </div>
+  </div>
+</div>

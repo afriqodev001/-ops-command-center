@@ -1,0 +1,176 @@
+<div class="space-y-4 animate-fade-in" x-data="{
+  recipients: '',
+  subject: '{{ report.headline|escapejs|default:"Change window summary" }}',
+  body: ''
+}" x-init="
+  body = document.getElementById('oncall-report-body-source').innerText;
+">
+
+  <!-- Header / stats -->
+  <div class="glass-card p-4">
+    <div class="flex items-start justify-between gap-3 flex-wrap">
+      <div>
+        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">{{ report.label }} · {% if report.is_retrospective %}retrospective{% else %}upcoming{% endif %}</p>
+        <h3 class="text-base font-semibold text-ink-primary mt-1">{{ report.headline|default:"Change window summary" }}</h3>
+        <p class="text-[10px] text-ink-muted font-mono mt-0.5">{{ report.window_start }} → {{ report.window_end }}</p>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="rounded-lg border border-edge bg-surface-3/40 px-3 py-2 min-w-[64px]">
+          <p class="text-lg font-semibold text-ink-primary tabular-nums">{{ report.stats.total }}</p>
+          <p class="text-[9px] text-ink-muted uppercase">Changes</p>
+        </div>
+        <div class="rounded-lg border border-warn/25 bg-warn/5 px-3 py-2 min-w-[64px]">
+          <p class="text-lg font-semibold text-warn tabular-nums">{{ report.stats.outages_declared }}</p>
+          <p class="text-[9px] text-warn/80 uppercase">Outages</p>
+        </div>
+        <div class="rounded-lg border border-danger/25 bg-danger/5 px-3 py-2 min-w-[64px]">
+          <p class="text-lg font-semibold text-danger tabular-nums">{{ report.stats.with_issues }}</p>
+          <p class="text-[9px] text-danger/80 uppercase">With issues</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if report.ai_error %}
+  <div class="glass-card p-3">
+    <div class="rounded-lg px-3 py-2 bg-danger/10 border border-danger/20 text-[11px] text-danger">
+      AI: {{ report.ai_error }}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Narrative -->
+  {% if report.narrative_markdown %}
+  <div class="glass-card p-4">
+    <h4 class="text-xs font-semibold text-ink-primary uppercase tracking-wider mb-2">Narrative</h4>
+    <pre class="text-[12px] text-ink-secondary whitespace-pre-wrap leading-relaxed">{{ report.narrative_markdown }}</pre>
+  </div>
+  {% endif %}
+
+  <!-- Top risks + outages + recommendations -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="glass-card p-3">
+      <h4 class="text-[11px] font-semibold text-ink-primary uppercase tracking-wider mb-2">Top risks</h4>
+      {% if report.top_risks %}
+      <ul class="text-[11px] text-ink-secondary list-disc pl-4 space-y-1 leading-relaxed">
+        {% for r in report.top_risks %}<li>{{ r }}</li>{% endfor %}
+      </ul>
+      {% else %}<p class="text-[10px] text-ink-muted">None identified.</p>{% endif %}
+    </div>
+    <div class="glass-card p-3">
+      <h4 class="text-[11px] font-semibold text-warn uppercase tracking-wider mb-2">Changes with outage</h4>
+      {% if report.changes_with_outage %}
+      <ul class="text-[11px] text-ink-secondary list-disc pl-4 space-y-1 leading-relaxed">
+        {% for r in report.changes_with_outage %}<li>{{ r }}</li>{% endfor %}
+      </ul>
+      {% else %}<p class="text-[10px] text-ink-muted">None.</p>{% endif %}
+    </div>
+    <div class="glass-card p-3">
+      <h4 class="text-[11px] font-semibold text-ink-primary uppercase tracking-wider mb-2">Recommendations</h4>
+      {% if report.recommendations %}
+      <ul class="text-[11px] text-ink-secondary list-disc pl-4 space-y-1 leading-relaxed">
+        {% for r in report.recommendations %}<li>{{ r }}</li>{% endfor %}
+      </ul>
+      {% else %}<p class="text-[10px] text-ink-muted">—</p>{% endif %}
+    </div>
+  </div>
+
+  <!-- Per-change table -->
+  <div class="glass-card p-3">
+    <h4 class="text-[11px] font-semibold text-ink-primary uppercase tracking-wider mb-2">Changes ({{ report.changes|length }})</h4>
+    {% if report.changes %}
+    <div class="overflow-auto max-h-[60vh] rounded-lg border border-edge">
+      <table class="w-full text-[11px] border-collapse">
+        <thead class="bg-surface-3 sticky top-0 z-10">
+          <tr>
+            <th class="th">Change</th>
+            <th class="th">Description</th>
+            <th class="th">Risk</th>
+            <th class="th">Scheduled</th>
+            <th class="th">AI verdict</th>
+            {% if report.is_retrospective %}<th class="th">Outcome</th><th class="th">Issues</th>{% endif %}
+            <th class="th">Outage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in report.changes %}
+          <tr class="border-t border-edge/40">
+            <td class="td font-mono text-ink-primary">
+              <a href="/servicenow/oncall/review/{{ c.change_number }}/" class="hover:text-brand-light">{{ c.change_number }}</a>
+            </td>
+            <td class="td text-ink-secondary truncate max-w-[280px]" title="{{ c.short_description }}">
+              {{ c.short_description|default:"—" }}
+              {% if c.content_one_liner %}<br><span class="text-[10px] text-ink-muted italic">{{ c.content_one_liner }}</span>{% endif %}
+            </td>
+            <td class="td">{{ c.risk|default:"—" }}</td>
+            <td class="td font-mono text-[10px] text-ink-muted">{{ c.scheduled_start|default:"—" }}</td>
+            <td class="td">{% include "servicenow/partials/oncall_verdict_pill.html" with verdict=c.ai_outage_likely %}</td>
+            {% if report.is_retrospective %}
+            <td class="td">
+              {% if c.actual_outcome == 'success' %}<span class="text-ok text-[10px] font-semibold">✓ Success</span>
+              {% elif c.actual_outcome == 'partial' %}<span class="text-warn text-[10px] font-semibold">~ Partial</span>
+              {% elif c.actual_outcome == 'failed' %}<span class="text-danger text-[10px] font-semibold">✗ Failed</span>
+              {% elif c.actual_outcome == 'rolled_back' %}<span class="text-danger text-[10px] font-semibold">↶ Rolled back</span>
+              {% elif c.actual_outcome == 'aborted' %}<span class="text-ink-muted text-[10px]">Aborted</span>
+              {% else %}<span class="text-ink-muted text-[10px]">—</span>{% endif %}
+            </td>
+            <td class="td text-[10px] text-ink-secondary truncate max-w-[180px]" title="{{ c.issues_summary }}">{{ c.issues_summary|default:"—"|truncatechars:60 }}</td>
+            {% endif %}
+            <td class="td">
+              {% if c.outage_declared %}
+              <span class="text-[10px] text-warn font-semibold">⚠ {{ c.outage_record|default:"declared" }}</span>
+              {% else %}
+              <span class="text-[10px] text-ink-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-xs text-ink-muted py-4 text-center">No changes in this window. Pull and review changes first.</p>
+    {% endif %}
+  </div>
+
+  <!-- Hidden source for the email body — Alpine reads its innerText -->
+  <pre id="oncall-report-body-source" class="hidden">{{ report.headline }}
+
+{{ report.narrative_markdown }}
+
+{% if report.top_risks %}TOP RISKS:
+{% for r in report.top_risks %} • {{ r }}
+{% endfor %}{% endif %}
+{% if report.changes_with_outage %}OUTAGES:
+{% for r in report.changes_with_outage %} • {{ r }}
+{% endfor %}{% endif %}
+{% if report.recommendations %}RECOMMENDATIONS:
+{% for r in report.recommendations %} • {{ r }}
+{% endfor %}{% endif %}
+CHANGES ({{ report.changes|length }}):
+{% for c in report.changes %} - {{ c.change_number }}: {{ c.short_description }}{% if c.scheduled_start %} ({{ c.scheduled_start }}){% endif %}{% if c.actual_outcome %} — {{ c.get_actual_outcome_display|default:c.actual_outcome }}{% endif %}{% if c.outage_declared %} — outage: {{ c.outage_record|default:"declared" }}{% endif %}{% if c.issues_summary %} — issue: {{ c.issues_summary|truncatechars:80 }}{% endif %}
+{% endfor %}</pre>
+
+  <!-- Email composer -->
+  <div class="glass-card p-4">
+    <h4 class="text-xs font-semibold text-ink-primary uppercase tracking-wider mb-2">📧 Email this report</h4>
+    <p class="text-[10px] text-ink-muted mb-3">Opens an Outlook draft with the body pre-filled. Edit and send manually.</p>
+
+    <form hx-post="/servicenow/oncall/report/email/"
+          hx-target="#oncall-report-email-result"
+          hx-swap="innerHTML"
+          class="space-y-2">
+      {% csrf_token %}
+      <input type="text" name="recipients" x-model="recipients"
+             placeholder="recipient@x.com; another@x.com"
+             class="input-dark text-xs font-mono">
+      <input type="text" name="subject" x-model="subject"
+             class="input-dark text-xs">
+      <textarea name="body" x-model="body" rows="10" class="input-dark text-[11px] font-mono"></textarea>
+      <div class="flex justify-end">
+        <button type="submit" class="btn-primary text-xs py-1.5 px-3">Open Outlook draft</button>
+      </div>
+    </form>
+    <div id="oncall-report-email-result" class="mt-2"></div>
+  </div>
+</div>

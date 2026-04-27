@@ -84,6 +84,72 @@
   <!-- RIGHT: AI review + actions -->
   <div class="lg:col-span-8 space-y-4">
 
+    <!-- Content summary (track 2: what does this change actually do?) -->
+    <div class="glass-card p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <h4 class="text-sm font-semibold text-ink-primary">What this change does</h4>
+        {% if review.content_summary_run_at %}<span class="text-[10px] text-ink-muted ml-auto">summarised {{ review.content_summary_run_at|timesince }} ago</span>{% endif %}
+      </div>
+      <div id="content-summary-area">
+        {% include "servicenow/partials/oncall_content_summary.html" with review=review payload=content_summary_payload %}
+      </div>
+      <div class="mt-3">
+        <form hx-post="/servicenow/oncall/review/{{ review.change_number }}/run-summary/"
+              hx-target="#content-summary-area"
+              hx-swap="innerHTML"
+              class="inline">
+          {% csrf_token %}
+          <button type="submit" class="btn-ghost text-[11px] py-1 px-2 border border-edge hover:border-brand/40">
+            {% if review.content_summary %}Re-summarise{% else %}Summarise with AI{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Checklist (track 2: did all the boxes get ticked?) -->
+    <div class="glass-card p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7l2 2 4-4"/>
+        </svg>
+        <h4 class="text-sm font-semibold text-ink-primary">Review checklist</h4>
+        <span class="text-[10px] text-ink-muted ml-auto">{{ checklist_progress.checked }} / {{ checklist_progress.total }} done</span>
+      </div>
+      <div id="oncall-checklist-area">
+        {% include "servicenow/partials/oncall_checklist.html" with review=review items=checklist_items progress=checklist_progress %}
+      </div>
+    </div>
+
+    <!-- Outage declaration + outcome (track 2: status tracking) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="glass-card p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-4 h-4 text-warn" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+          </svg>
+          <h4 class="text-sm font-semibold text-ink-primary">Outage declaration</h4>
+        </div>
+        <div id="oncall-outage-area">
+          {% include "servicenow/partials/oncall_outage_panel.html" with review=review %}
+        </div>
+      </div>
+
+      <div class="glass-card p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-4 h-4 text-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          <h4 class="text-sm font-semibold text-ink-primary">Actual outcome</h4>
+        </div>
+        <div id="oncall-outcome-area">
+          {% include "servicenow/partials/oncall_outcome_panel.html" with review=review %}
+        </div>
+      </div>
+    </div>
+
     <!-- AI review block -->
     <div class="glass-card p-4">
       <div class="flex items-center gap-2 mb-3">

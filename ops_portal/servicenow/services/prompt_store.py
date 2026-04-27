@@ -208,6 +208,68 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
         ),
     },
 
+    'oncall_change_summary': {
+        'label': 'Oncall Change Content Summary',
+        'description': 'AI summary of what a ServiceNow change actually does — distinct from the outage-impact verdict.',
+        'prompt': (
+            "You are summarising a ServiceNow change record for an oncall engineer who needs "
+            "to quickly understand WHAT this change does, so they can answer 'what was that "
+            "change about?' weeks later, and so management reports can describe it in plain "
+            "English.\n\n"
+            "You will be given the full change record (number, short_description, "
+            "description, justification, implementation_plan, backout_plan, test_plan, "
+            "CTASKs, risk, type, scheduled times).\n\n"
+            "Respond ONLY with a JSON object using these exact keys:\n"
+            "{\n"
+            "  \"one_liner\": \"<single sentence describing the work in plain English, no jargon>\",\n"
+            "  \"what_changes\": [\"<bullet point — concrete thing being modified>\", ...],\n"
+            "  \"why\": \"<brief business / technical justification>\",\n"
+            "  \"systems_affected\": [\"<service/system/component>\", ...],\n"
+            "  \"rollback_strategy\": \"<one-sentence summary of the backout plan, or 'not documented'>\",\n"
+            "  \"verification_strategy\": \"<one-sentence summary of the test plan, or 'not documented'>\",\n"
+            "  \"summary_markdown\": \"<full markdown body — what the engineer reads — 1-2 short paragraphs with bullets>\"\n"
+            "}\n\n"
+            "Rules:\n"
+            "- Stay grounded in the actual change record; do not infer details that aren't there.\n"
+            "- 'one_liner' must be readable to a non-engineer. Avoid acronyms unless they're in the change.\n"
+            "- 'what_changes' bullets are the concrete actions — not goals or intent.\n"
+            "- If the change is poorly documented, say so explicitly in 'summary_markdown' (use ⚠️) instead of guessing."
+        ),
+    },
+
+    'oncall_management_report': {
+        'label': 'Oncall Management Report',
+        'description': 'AI narrative for the management-facing summary email of changes in a window (upcoming or retrospective).',
+        'prompt': (
+            "You are drafting a management-facing change-window summary email. The reader is "
+            "an executive or senior leader who wants a quick narrative + a clear list of "
+            "what's happening (or what happened).\n\n"
+            "You will be given:\n"
+            "  - The window (today, last night, last week, custom)\n"
+            "  - Whether the window is UPCOMING or RETROSPECTIVE (past)\n"
+            "  - A list of changes with their summary, risk, scheduled time, and (for past "
+            "windows) actual_outcome / issues / outage info.\n\n"
+            "Respond ONLY with a JSON object using these exact keys:\n"
+            "{\n"
+            "  \"headline\": \"<one-line subject for the email>\",\n"
+            "  \"narrative_markdown\": \"<2-4 short paragraphs of plain-English narrative, "
+            "using ✅ ⚠️ 📋 emojis for visual scan>\",\n"
+            "  \"top_risks\": [\"<bullet — change number + why it's a concern>\", ...],\n"
+            "  \"changes_with_outage\": [\"<bullet — change number + outage record + brief impact>\", ...],\n"
+            "  \"recommendations\": [\"<bullet — actions for leadership awareness, optional>\"]\n"
+            "}\n\n"
+            "Rules:\n"
+            "- For RETROSPECTIVE windows: open with the headline result (e.g. 'All N changes "
+            "completed successfully' or 'N changes, 1 rolled back due to ...'). List failures "
+            "and outages prominently.\n"
+            "- For UPCOMING windows: open with the headline forecast ('N changes scheduled, X "
+            "high-risk, Y likely to cause outages'). Highlight anything leadership should know "
+            "about in advance.\n"
+            "- Tone: professional, concise, executive-friendly. No engineer jargon.\n"
+            "- Keep narrative_markdown under 250 words."
+        ),
+    },
+
     'oncall_matrix_format': {
         'label': 'Oncall Matrix CSV Formatter',
         'description': 'Cleans up a messy suppression-matrix CSV and outputs canonical JSON.',

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block page_title %}Change Window Report{% endblock %}
+{% block page_subtitle %}Management-facing summary — narrative + per-change status{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+  <!-- Window picker -->
+  <div class="glass-card p-4">
+    <div class="flex items-center gap-2 mb-3">
+      <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 014-4h6m0 0l-3-3m3 3l-3 3M3 7v10a2 2 0 002 2h2"/>
+      </svg>
+      <div>
+        <h3 class="text-sm font-semibold text-ink-primary">Generate report</h3>
+        <p class="text-[10px] text-ink-muted">Pulls from existing Oncall reviews — make sure changes have been pulled and reviewed first.</p>
+      </div>
+    </div>
+
+    <form hx-post="/servicenow/oncall/report/run/"
+          hx-target="#oncall-report-area"
+          hx-swap="innerHTML"
+          x-data="{ preset: '{{ default_preset }}' }"
+          class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+      {% csrf_token %}
+      <div>
+        <label class="label">Window</label>
+        <select name="preset" x-model="preset" class="input-dark text-xs">
+          {% for p in presets %}
+          <option value="{{ p.value }}">{{ p.label }}{% if p.retrospective %} · retrospective{% endif %}</option>
+          {% endfor %}
+          <option value="custom">Custom range…</option>
+        </select>
+      </div>
+
+      <div x-show="preset === 'custom'" x-cloak>
+        <label class="label">From (ISO)</label>
+        <input type="datetime-local" name="custom_start" class="input-dark text-xs">
+      </div>
+      <div x-show="preset === 'custom'" x-cloak>
+        <label class="label">To (ISO)</label>
+        <input type="datetime-local" name="custom_end" class="input-dark text-xs">
+      </div>
+
+      <div class="md:col-span-3 flex items-center gap-2">
+        <button type="submit" class="btn-primary text-xs px-4 py-2">
+          <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+          Generate with AI
+        </button>
+        <p class="text-[10px] text-ink-muted">Tachyon must be connected.</p>
+      </div>
+    </form>
+  </div>
+
+  <!-- Report area -->
+  <div id="oncall-report-area"></div>
+</div>
+{% endblock %}

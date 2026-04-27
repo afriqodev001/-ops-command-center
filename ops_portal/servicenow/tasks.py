@@ -1169,3 +1169,189 @@ def oncall_run_ai_batch_task(self, body: dict):
             out["ok"].append(number)
 
     return out
+
+
+# ============================================================
+# Oncall change-review — AI content summary (track 2)
+# ============================================================
+
+@shared_task(bind=True)
+def oncall_run_content_summary_task(self, body: dict):
+    """
+    Run the AI content summary for one change. Persists summary text +
+    structured payload to OncallChangeReview.
+    """
+    from servicenow.models import OncallChangeReview
+    from servicenow.services import oncall_review as orsvc
+
+    body = body or {}
+    number = (body.get("change_number") or "").strip()
+    if not number:
+        return {"error": "missing_parameter", "detail": "change_number is required"}
+
+    review = (
+        OncallChangeReview.objects
+        .filter(change_number=number)
+        .order_by("-window_end", "-updated_at")
+        .first()
+    )
+    if not review:
+        return {"error": "not_found", "detail": f"No oncall review row for {number}"}
+
+    # Fetch full change context for the prompt.
+    ctx_body = {
+        "change_number": number,
+        "user_key": _user_key(body),
+        "display_value": "all",
+    }
+    ctx_result = change_context_task.apply(args=(ctx_body,)).result or {}
+    if isinstance(ctx_result, dict) and ctx_result.get("error"):
+        return {
+            "error": "change_fetch_failed",
+            "detail": ctx_result.get("detail") or ctx_result.get("error"),
+        }
+
+    change_record = (
+        (ctx_result.get("change") or {}).get("result")
+        if isinstance(ctx_result, dict) else {}
+    ) or {}
+
+    try:
+        parsed = orsvc.run_content_summary_for(review, change_record)
+    except Exception as e:
+        return {"error": "ai_failed", "detail": str(e)}
+
+    if parsed.get("_ai_error"):
+        return {"error": "ai_error", "detail": parsed["_ai_error"]}
+
+    return {"ok": True, "change_number": number}
+
+
+# ============================================================
+# Oncall management report — windowed AI narrative
+# ============================================================
+
+@shared_task(bind=True)
+def oncall_management_report_task(self, body: dict):
+    """
+    Build a management-facing report for a window. Pulls from existing
+    OncallChangeReview rows; does not re-fetch ServiceNow. Returns
+    {stats, narrative, headline, top_risks, changes_with_outage,
+     recommendations, changes: [...]}.
+    """
+    from servicenow.models import OncallChangeReview
+    from servicenow.services.ai_assist import _call_llm, _extract_json_dict
+    from servicenow.services.prompt_store import get_prompt
+    from servicenow.services import oncall_review as orsvc
+    from datetime import datetime, timezone
+
+    body = body or {}
+    start_iso = body.get("window_start") or ""
+    end_iso = body.get("window_end") or ""
+    label = (body.get("label") or "window").strip()
+    is_retrospective = bool(body.get("retrospective"))
+
+    def _to_dt(s):
+        if not s:
+            return None
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except Exception:
+            return None
+
+    win_start = _to_dt(start_iso)
+    win_end = _to_dt(end_iso)
+    if not win_start or not win_end:
+        return {"error": "missing_window", "detail": "window_start and window_end are required"}
+
+    qs = OncallChangeReview.objects.filter(
+        scheduled_start__gte=win_start,
+        scheduled_start__lt=win_end,
+    ).order_by("scheduled_start")
+
+    rows = list(qs)
+
+    # Aggregate stats
+    stats = {
+        "total": len(rows),
+        "by_outcome": {},
+        "by_outage_verdict": {},
+        "outages_declared": 0,
+        "with_issues": 0,
+    }
+    for r in rows:
+        oc = r.actual_outcome or "pending"
+        stats["by_outcome"][oc] = stats["by_outcome"].get(oc, 0) + 1
+        v = r.ai_outage_likely or "unknown"
+        stats["by_outage_verdict"][v] = stats["by_outage_verdict"].get(v, 0) + 1
+        if r.outage_declared:
+            stats["outages_declared"] += 1
+        if (r.issues_summary or "").strip():
+            stats["with_issues"] += 1
+
+    # Build the AI prompt input
+    changes_payload = []
+    for r in rows:
+        item = {
+            "change_number": r.change_number,
+            "short_description": r.short_description,
+            "risk": r.risk,
+            "assignment_group": r.assignment_group,
+            "scheduled_start": r.scheduled_start.isoformat() if r.scheduled_start else None,
+            "scheduled_end": r.scheduled_end.isoformat() if r.scheduled_end else None,
+            "ai_outage_likely": r.ai_outage_likely,
+            "ai_summary_short": (r.ai_summary or "")[:400],
+            "content_one_liner": (r.content_summary or "")[:300],
+            "outage_declared": r.outage_declared,
+            "outage_record": r.outage_record_number,
+        }
+        if is_retrospective:
+            item["actual_outcome"] = r.actual_outcome or ""
+            item["issues_summary"] = (r.issues_summary or "")[:400]
+        changes_payload.append(item)
+
+    user_prompt = json.dumps({
+        "window_label": label,
+        "window_start": start_iso,
+        "window_end": end_iso,
+        "is_retrospective": is_retrospective,
+        "stats": stats,
+        "changes": changes_payload,
+    }, indent=2, default=str)
+
+    system = get_prompt("oncall_management_report")
+    raw = _call_llm(system, user_prompt) or ""
+    parsed = _extract_json_dict(raw) or {}
+
+    return {
+        "ok": True,
+        "label": label,
+        "window_start": start_iso,
+        "window_end": end_iso,
+        "is_retrospective": is_retrospective,
+        "stats": stats,
+        "headline": parsed.get("headline") or f"Change window: {label}",
+        "narrative_markdown": parsed.get("narrative_markdown") or "",
+        "top_risks": parsed.get("top_risks") or [],
+        "changes_with_outage": parsed.get("changes_with_outage") or [],
+        "recommendations": parsed.get("recommendations") or [],
+        "ai_error": parsed.get("_ai_error"),
+        # Plain list for the table on the report page
+        "changes": [
+            {
+                "change_number": r.change_number,
+                "short_description": r.short_description,
+                "risk": r.risk,
+                "assignment_group": r.assignment_group,
+                "scheduled_start": r.scheduled_start.isoformat() if r.scheduled_start else None,
+                "scheduled_end": r.scheduled_end.isoformat() if r.scheduled_end else None,
+                "ai_outage_likely": r.ai_outage_likely,
+                "actual_outcome": r.actual_outcome or "",
+                "outage_declared": r.outage_declared,
+                "outage_record": r.outage_record_number,
+                "issues_summary": (r.issues_summary or "")[:300],
+                "content_one_liner": (r.content_summary or "")[:200],
+            }
+            for r in rows
+        ],
+    }

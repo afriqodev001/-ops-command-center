@@ -1,0 +1,54 @@
+<div class="rounded-lg border border-edge bg-surface-3/40 p-3 animate-fade-in space-y-2">
+  {% if review.content_summary %}
+  {% if payload.one_liner %}
+  <p class="text-sm text-ink-primary leading-relaxed">{{ payload.one_liner }}</p>
+  {% endif %}
+
+  <pre class="text-[12px] text-ink-secondary whitespace-pre-wrap leading-relaxed">{{ review.content_summary }}</pre>
+
+  {% if payload.what_changes or payload.systems_affected %}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+    {% if payload.what_changes %}
+    <div>
+      <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider mb-1">What changes</p>
+      <ul class="text-[11px] text-ink-secondary list-disc pl-5 leading-relaxed">
+        {% for c in payload.what_changes %}<li>{{ c }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% if payload.systems_affected %}
+    <div>
+      <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider mb-1">Systems affected</p>
+      <ul class="text-[11px] text-ink-secondary list-disc pl-5 leading-relaxed">
+        {% for s in payload.systems_affected %}<li>{{ s }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if payload.rollback_strategy or payload.verification_strategy %}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+    {% if payload.rollback_strategy %}
+    <div>
+      <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Rollback</p>
+      <p class="text-[11px] text-ink-secondary">{{ payload.rollback_strategy }}</p>
+    </div>
+    {% endif %}
+    {% if payload.verification_strategy %}
+    <div>
+      <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">Verification</p>
+      <p class="text-[11px] text-ink-secondary">{{ payload.verification_strategy }}</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if review.content_summary_run_at %}
+  <p class="text-[10px] text-ink-muted">Generated {{ review.content_summary_run_at|timesince }} ago</p>
+  {% endif %}
+
+  {% else %}
+  <p class="text-[11px] text-ink-muted">No content summary yet.</p>
+  {% endif %}
+</div>

@@ -27,6 +27,88 @@ from .ai_assist import _call_llm, _extract_json_dict
 from .prompt_store import get_prompt
 
 
+# ─── Engineer review checklist (default items) ────────────
+
+DEFAULT_CHECKLIST = [
+    {'key': 'plans_documented',     'label': 'Implementation, backout, and test plans are present',           'checked': False, 'note': ''},
+    {'key': 'ctasks_complete',      'label': 'CTASKs in expected state for current pipeline phase',          'checked': False, 'note': ''},
+    {'key': 'approvals_received',   'label': 'Required approvals are in',                                     'checked': False, 'note': ''},
+    {'key': 'matrix_reviewed',      'label': 'Suppression matrix entry reviewed (or "no entry" noted)',      'checked': False, 'note': ''},
+    {'key': 'comms_handled',        'label': 'Downstream comms drafted/sent if matrix says yes',             'checked': False, 'note': ''},
+    {'key': 'suppressions_in_place','label': 'Alert suppressions configured if matrix says yes',             'checked': False, 'note': ''},
+    {'key': 'banner_handled',       'label': 'Portal banner posted if matrix says yes',                       'checked': False, 'note': ''},
+    {'key': 'outage_decision',      'label': 'Outage declaration decision recorded (declared or not)',       'checked': False, 'note': ''},
+    {'key': 'team_briefed',         'label': 'Oncall team aware of timing and rollback owner',               'checked': False, 'note': ''},
+]
+
+
+def load_checklist(review: 'OncallChangeReview') -> list:
+    """Return the saved checklist (with defaults filled in for missing keys)."""
+    saved = []
+    if review.checklist_json:
+        try:
+            data = json.loads(review.checklist_json)
+            if isinstance(data, list):
+                saved = data
+        except Exception:
+            saved = []
+    saved_by_key = {item.get('key'): item for item in saved if isinstance(item, dict) and item.get('key')}
+
+    out = []
+    for default in DEFAULT_CHECKLIST:
+        existing = saved_by_key.get(default['key'])
+        if existing:
+            out.append({
+                'key': default['key'],
+                'label': default['label'],
+                'checked': bool(existing.get('checked')),
+                'note': str(existing.get('note') or '').strip(),
+            })
+        else:
+            out.append(dict(default))
+
+    # Preserve any custom keys the engineer added beyond defaults
+    default_keys = {d['key'] for d in DEFAULT_CHECKLIST}
+    for item in saved:
+        if isinstance(item, dict) and item.get('key') and item['key'] not in default_keys:
+            out.append({
+                'key': item['key'],
+                'label': str(item.get('label') or item['key']),
+                'checked': bool(item.get('checked')),
+                'note': str(item.get('note') or '').strip(),
+            })
+    return out
+
+
+def save_checklist(review: 'OncallChangeReview', items: list) -> list:
+    """Persist a list of {key, label, checked, note} items to the review row."""
+    cleaned = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        key = (item.get('key') or '').strip()
+        if not key:
+            continue
+        cleaned.append({
+            'key': key,
+            'label': str(item.get('label') or key).strip(),
+            'checked': bool(item.get('checked')),
+            'note': str(item.get('note') or '').strip(),
+        })
+    review.checklist_json = json.dumps(cleaned)
+    review.save(update_fields=['checklist_json', 'updated_at'])
+    return cleaned
+
+
+def checklist_progress(review: 'OncallChangeReview') -> dict:
+    """Return {checked, total, pct} for a review's checklist."""
+    items = load_checklist(review)
+    total = len(items)
+    checked = sum(1 for i in items if i.get('checked'))
+    pct = int((checked / total) * 100) if total else 0
+    return {'checked': checked, 'total': total, 'pct': pct}
+
+
 # ─── Reads (used by cross-surface partials) ───────────────
 
 def get_for_change(change_number: str) -> Optional[OncallChangeReview]:
@@ -247,6 +329,85 @@ def run_ai_review_for(review: OncallChangeReview, change_record: Dict[str, Any])
         'ai_run_at', 'stage', 'updated_at',
     ])
     return parsed
+
+
+# ─── Content summary (track 2 — describe the change) ─────
+
+def build_content_summary_prompt(review: OncallChangeReview, change_record: dict) -> str:
+    """Compose the user-prompt for an AI 'what does this change actually do?' summary."""
+    record = change_record or {}
+
+    payload = {
+        'number': review.change_number,
+        'short_description': review.short_description,
+        'risk': review.risk,
+        'type': _val(record.get('type')),
+        'assignment_group': review.assignment_group,
+        'cmdb_ci': review.cmdb_ci,
+        'scheduled_start': str(review.scheduled_start) if review.scheduled_start else None,
+        'scheduled_end': str(review.scheduled_end) if review.scheduled_end else None,
+        'description': _val(record.get('description')),
+        'justification': _val(record.get('justification')),
+        'implementation_plan': _val(record.get('implementation_plan')),
+        'backout_plan': _val(record.get('backout_plan')),
+        'test_plan': _val(record.get('test_plan')),
+    }
+
+    return 'CHANGE RECORD:\n' + json.dumps(payload, indent=2, default=str)
+
+
+def run_content_summary_for(review: OncallChangeReview, change_record: dict) -> dict:
+    """Synchronously run AI content summary and persist to the row."""
+    system = get_prompt('oncall_change_summary')
+    user_prompt = build_content_summary_prompt(review, change_record)
+
+    raw = _call_llm(system, user_prompt) or ''
+    parsed = _extract_json_dict(raw) or {}
+
+    if parsed.get('_ai_error'):
+        review.content_summary = parsed['_ai_error']
+        review.content_summary_run_at = dj_tz.now()
+        review.save(update_fields=['content_summary', 'content_summary_run_at', 'updated_at'])
+        return parsed
+
+    summary = (
+        parsed.get('summary_markdown')
+        or parsed.get('one_liner')
+        or raw or ''
+    ).strip()
+
+    review.content_summary = summary
+    review.content_summary_run_at = dj_tz.now()
+
+    # Stash structured payload alongside the AI verdict payload (extend ai_payload_json
+    # so we don't add yet another field). Keep the outage-review payload too.
+    try:
+        existing = json.loads(review.ai_payload_json or '{}') or {}
+        if not isinstance(existing, dict):
+            existing = {}
+    except Exception:
+        existing = {}
+    existing['_content_summary'] = parsed
+    review.ai_payload_json = json.dumps(existing, default=str)
+
+    review.save(update_fields=[
+        'content_summary', 'content_summary_run_at', 'ai_payload_json', 'updated_at',
+    ])
+    return parsed
+
+
+def get_content_summary_payload(review: OncallChangeReview) -> dict:
+    """Return the structured AI payload for the content summary, if any."""
+    if not review.ai_payload_json:
+        return {}
+    try:
+        data = json.loads(review.ai_payload_json) or {}
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    inner = data.get('_content_summary') or {}
+    return inner if isinstance(inner, dict) else {}
 
 
 # ─── Stage advancement ────────────────────────────────────
