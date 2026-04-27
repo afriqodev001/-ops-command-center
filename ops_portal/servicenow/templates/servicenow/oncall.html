@@ -4,6 +4,7 @@
 {% block page_subtitle %}Pull upcoming changes · AI outage triage · downstream comms{% endblock %}
 
 {% block content %}
+{% include "servicenow/partials/oncall_subnav.html" %}
 <div class="space-y-4" x-data="oncallDashboard()">
 
   <!-- Time-window picker -->

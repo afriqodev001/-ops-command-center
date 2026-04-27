@@ -123,39 +123,13 @@
         </a>
 
         <a href="/servicenow/oncall/"
-           class="{% if request.path == '/servicenow/oncall/' or '/servicenow/oncall/review' in request.path or '/servicenow/oncall/pull' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
+           class="{% if '/servicenow/oncall' in request.path %}nav-item-active{% else %}nav-item{% endif %}"
+           title="Oncall change-review workflow — reviews, suppression matrix, history, window reports">
           <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
           </svg>
-          Oncall Review
-        </a>
-
-        <a href="/servicenow/oncall/matrix/"
-           class="{% if '/servicenow/oncall/matrix' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-          </svg>
-          Suppression Matrix
-        </a>
-
-        <a href="/servicenow/oncall/history/"
-           class="{% if '/servicenow/oncall/history' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          Review History
-        </a>
-
-        <a href="/servicenow/oncall/report/"
-           class="{% if '/servicenow/oncall/report' in request.path %}nav-item-active{% else %}nav-item{% endif %}">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M9 17v-2a4 4 0 014-4h6m0 0l-3-3m3 3l-3 3M3 7v10a2 2 0 002 2h2"/>
-          </svg>
-          Window Report
+          Oncall
         </a>
 
         <a href="/servicenow/presets/"

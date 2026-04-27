@@ -4,6 +4,7 @@
 {% block page_subtitle %}{{ review.short_description|truncatechars:100 }}{% endblock %}
 
 {% block content %}
+{% include "servicenow/partials/oncall_subnav.html" %}
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
   <!-- LEFT: change context + matrix match -->
