@@ -10,9 +10,17 @@
   <div class="glass-card p-4">
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div>
-        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">{{ report.label }} · {% if report.is_retrospective %}retrospective{% else %}upcoming{% endif %}</p>
-        <h3 class="text-base font-semibold text-ink-primary mt-1">{{ report.headline|default:"Change window summary" }}</h3>
+        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">
+          {{ report.label }}
+          · {% if report.is_retrospective %}retrospective{% else %}upcoming{% endif %}
+          {% if report.scope_kind == 'by_changes' %}· hand-picked{% endif %}
+        </p>
+        <h3 class="text-base font-semibold text-ink-primary mt-1">{{ report.headline|default:"Change summary" }}</h3>
+        {% if report.scope_kind != 'by_changes' %}
         <p class="text-[10px] text-ink-muted font-mono mt-0.5">{{ report.window_start }} → {{ report.window_end }}</p>
+        {% else %}
+        <p class="text-[10px] text-ink-muted font-mono mt-0.5">{{ report.requested_change_numbers|join:", " }}</p>
+        {% endif %}
       </div>
       <div class="grid grid-cols-3 gap-2 text-center">
         <div class="rounded-lg border border-edge bg-surface-3/40 px-3 py-2 min-w-[64px]">
@@ -35,6 +43,15 @@
   <div class="glass-card p-3">
     <div class="rounded-lg px-3 py-2 bg-danger/10 border border-danger/20 text-[11px] text-danger">
       AI: {{ report.ai_error }}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if report.not_found %}
+  <div class="glass-card p-3">
+    <div class="rounded-lg px-3 py-2 bg-warn/10 border border-warn/20 text-[11px] text-warn">
+      ⚠ No oncall review row for: <span class="font-mono">{{ report.not_found|join:", " }}</span>.
+      Pull these changes via the Reviews page first if you want them in the report.
     </div>
   </div>
   {% endif %}

@@ -239,16 +239,21 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
 
     'oncall_management_report': {
         'label': 'Oncall Management Report',
-        'description': 'AI narrative for the management-facing summary email of changes in a window (upcoming or retrospective).',
+        'description': 'AI narrative for the management-facing summary email of changes (window or curated list, upcoming or retrospective).',
         'prompt': (
-            "You are drafting a management-facing change-window summary email. The reader is "
+            "You are drafting a management-facing change summary email. The reader is "
             "an executive or senior leader who wants a quick narrative + a clear list of "
             "what's happening (or what happened).\n\n"
             "You will be given:\n"
-            "  - The window (today, last night, last week, custom)\n"
-            "  - Whether the window is UPCOMING or RETROSPECTIVE (past)\n"
-            "  - A list of changes with their summary, risk, scheduled time, and (for past "
-            "windows) actual_outcome / issues / outage info.\n\n"
+            "  - scope_kind: 'window' (a time-window like 'tonight' or 'last week') OR\n"
+            "    'by_changes' (a curated list the engineer hand-picked).\n"
+            "  - scope_label: human-friendly label for the scope.\n"
+            "  - is_retrospective: whether the changes are in the past.\n"
+            "  - A list of changes with summary, risk, scheduled time, and (for past\n"
+            "    scopes) actual_outcome / issues / outage info.\n"
+            "  - change_numbers_not_found: list of CHG numbers the engineer asked about\n"
+            "    but which have no oncall-review row yet (only meaningful when\n"
+            "    scope_kind = 'by_changes').\n\n"
             "Respond ONLY with a JSON object using these exact keys:\n"
             "{\n"
             "  \"headline\": \"<one-line subject for the email>\",\n"
@@ -259,12 +264,15 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
             "  \"recommendations\": [\"<bullet — actions for leadership awareness, optional>\"]\n"
             "}\n\n"
             "Rules:\n"
-            "- For RETROSPECTIVE windows: open with the headline result (e.g. 'All N changes "
+            "- For RETROSPECTIVE scopes: open with the headline result (e.g. 'All N changes "
             "completed successfully' or 'N changes, 1 rolled back due to ...'). List failures "
             "and outages prominently.\n"
-            "- For UPCOMING windows: open with the headline forecast ('N changes scheduled, X "
+            "- For UPCOMING scopes: open with the headline forecast ('N changes scheduled, X "
             "high-risk, Y likely to cause outages'). Highlight anything leadership should know "
             "about in advance.\n"
+            "- For scope_kind='by_changes': the changes were hand-picked, so don't generalise "
+            "across a window. Address them as a discrete set ('these N changes'). If "
+            "change_numbers_not_found is non-empty, mention it briefly as a data gap.\n"
             "- Tone: professional, concise, executive-friendly. No engineer jargon.\n"
             "- Keep narrative_markdown under 250 words."
         ),

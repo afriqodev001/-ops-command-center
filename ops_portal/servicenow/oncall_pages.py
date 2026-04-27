@@ -772,10 +772,55 @@ def oncall_report_run(request):
     preset = request.POST.get('preset', 'tonight').strip()
     custom_start = request.POST.get('custom_start', '').strip()
     custom_end = request.POST.get('custom_end', '').strip()
-
-    start, end, label, is_retro = _resolve_report_window(preset, custom_start, custom_end)
+    change_numbers_raw = request.POST.get('change_numbers', '').strip()
 
     from .tasks import oncall_management_report_task
+
+    # Mode: by-change-numbers — explicit curated list
+    if preset == 'by_changes' or change_numbers_raw:
+        # Accept newlines, commas, or whitespace as separators
+        import re
+        numbers = [n for n in re.split(r'[\s,;]+', change_numbers_raw) if n]
+        # Normalise to upper-case (CHG numbers are case-insensitive)
+        numbers = [n.strip().upper() for n in numbers]
+        # Dedupe while preserving order
+        seen = set()
+        deduped = []
+        for n in numbers:
+            if n not in seen:
+                seen.add(n)
+                deduped.append(n)
+
+        if not deduped:
+            return render(request, 'servicenow/partials/oncall_error.html', {
+                'error': 'Paste at least one change number (one per line, or comma-separated).',
+            })
+
+        label = (
+            deduped[0] if len(deduped) == 1
+            else f'{len(deduped)} hand-picked changes'
+        )
+
+        # Decide retrospective flag from the rows themselves: if every
+        # found row has a non-empty actual_outcome, treat as retrospective.
+        from .models import OncallChangeReview
+        existing = OncallChangeReview.objects.filter(change_number__in=deduped)
+        outcomes = [r.actual_outcome for r in existing]
+        is_retro = bool(outcomes) and all(o for o in outcomes)
+
+        task = oncall_management_report_task.delay({
+            'change_numbers': deduped,
+            'label': label,
+            'retrospective': is_retro,
+        })
+        return render(request, 'servicenow/partials/oncall_report_polling.html', {
+            'task_id': task.id,
+            'label': label,
+        })
+
+    # Mode: time-window
+    start, end, label, is_retro = _resolve_report_window(preset, custom_start, custom_end)
+
     task = oncall_management_report_task.delay({
         'window_start': start.isoformat(),
         'window_end': end.isoformat(),

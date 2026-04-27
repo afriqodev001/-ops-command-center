@@ -23,28 +23,50 @@
           hx-target="#oncall-report-area"
           hx-swap="innerHTML"
           x-data="{ preset: '{{ default_preset }}' }"
-          class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          class="space-y-3">
       {% csrf_token %}
-      <div>
-        <label class="label">Window</label>
-        <select name="preset" x-model="preset" class="input-dark text-xs">
-          {% for p in presets %}
-          <option value="{{ p.value }}">{{ p.label }}{% if p.retrospective %} · retrospective{% endif %}</option>
-          {% endfor %}
-          <option value="custom">Custom range…</option>
-        </select>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <div>
+          <label class="label">Scope</label>
+          <select name="preset" x-model="preset" class="input-dark text-xs">
+            <optgroup label="Time window">
+              {% for p in presets %}
+              <option value="{{ p.value }}">{{ p.label }}{% if p.retrospective %} · retrospective{% endif %}</option>
+              {% endfor %}
+              <option value="custom">Custom range…</option>
+            </optgroup>
+            <optgroup label="By change numbers">
+              <option value="by_changes">Specific change(s)…</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div x-show="preset === 'custom'" x-cloak>
+          <label class="label">From</label>
+          <input type="datetime-local" name="custom_start" class="input-dark text-xs">
+        </div>
+        <div x-show="preset === 'custom'" x-cloak>
+          <label class="label">To</label>
+          <input type="datetime-local" name="custom_end" class="input-dark text-xs">
+        </div>
       </div>
 
-      <div x-show="preset === 'custom'" x-cloak>
-        <label class="label">From (ISO)</label>
-        <input type="datetime-local" name="custom_start" class="input-dark text-xs">
-      </div>
-      <div x-show="preset === 'custom'" x-cloak>
-        <label class="label">To (ISO)</label>
-        <input type="datetime-local" name="custom_end" class="input-dark text-xs">
+      <!-- By-change-numbers input — appears when scope = by_changes -->
+      <div x-show="preset === 'by_changes'" x-cloak>
+        <label class="label">Change numbers</label>
+        <textarea name="change_numbers"
+                  rows="3"
+                  class="input-dark text-xs font-mono"
+                  placeholder="One per line, or comma-separated.&#10;e.g.&#10;CHG0034567&#10;CHG0034568, CHG0034570"></textarea>
+        <p class="text-[10px] text-ink-muted mt-1">
+          Reports on these specific changes only. The "retrospective" flag is auto-detected
+          from each row's recorded outcome — set outcomes on the review pages first if you
+          want post-window status to appear.
+        </p>
       </div>
 
-      <div class="md:col-span-3 flex items-center gap-2">
+      <div class="flex items-center gap-2">
         <button type="submit" class="btn-primary text-xs px-4 py-2">
           <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>

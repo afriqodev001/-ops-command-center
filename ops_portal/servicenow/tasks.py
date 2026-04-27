@@ -1250,6 +1250,7 @@ def oncall_management_report_task(self, body: dict):
     end_iso = body.get("window_end") or ""
     label = (body.get("label") or "window").strip()
     is_retrospective = bool(body.get("retrospective"))
+    change_numbers = body.get("change_numbers") or []
 
     def _to_dt(s):
         if not s:
@@ -1259,17 +1260,34 @@ def oncall_management_report_task(self, body: dict):
         except Exception:
             return None
 
-    win_start = _to_dt(start_iso)
-    win_end = _to_dt(end_iso)
-    if not win_start or not win_end:
-        return {"error": "missing_window", "detail": "window_start and window_end are required"}
+    # Two modes:
+    #   1. By change numbers — explicit list, ignores the window
+    #   2. By window — scheduled_start in [start, end)
+    if isinstance(change_numbers, list) and change_numbers:
+        qs = OncallChangeReview.objects.filter(
+            change_number__in=change_numbers
+        ).order_by("scheduled_start", "change_number")
+        win_start = None
+        win_end = None
+    else:
+        win_start = _to_dt(start_iso)
+        win_end = _to_dt(end_iso)
+        if not win_start or not win_end:
+            return {"error": "missing_window",
+                    "detail": "window_start and window_end (or change_numbers) is required"}
 
-    qs = OncallChangeReview.objects.filter(
-        scheduled_start__gte=win_start,
-        scheduled_start__lt=win_end,
-    ).order_by("scheduled_start")
+        qs = OncallChangeReview.objects.filter(
+            scheduled_start__gte=win_start,
+            scheduled_start__lt=win_end,
+        ).order_by("scheduled_start")
 
     rows = list(qs)
+
+    # If user asked for specific changes, warn about ones not in the DB
+    not_found = []
+    if isinstance(change_numbers, list) and change_numbers:
+        present = {r.change_number for r in rows}
+        not_found = [n for n in change_numbers if n not in present]
 
     # Aggregate stats
     stats = {
@@ -1311,12 +1329,14 @@ def oncall_management_report_task(self, body: dict):
         changes_payload.append(item)
 
     user_prompt = json.dumps({
-        "window_label": label,
+        "scope_label": label,
+        "scope_kind": "by_changes" if (change_numbers and not win_start) else "window",
         "window_start": start_iso,
         "window_end": end_iso,
         "is_retrospective": is_retrospective,
         "stats": stats,
         "changes": changes_payload,
+        "change_numbers_not_found": not_found,
     }, indent=2, default=str)
 
     system = get_prompt("oncall_management_report")
@@ -1329,8 +1349,11 @@ def oncall_management_report_task(self, body: dict):
         "window_start": start_iso,
         "window_end": end_iso,
         "is_retrospective": is_retrospective,
+        "scope_kind": "by_changes" if (change_numbers and not win_start) else "window",
+        "requested_change_numbers": change_numbers if isinstance(change_numbers, list) else [],
+        "not_found": not_found,
         "stats": stats,
-        "headline": parsed.get("headline") or f"Change window: {label}",
+        "headline": parsed.get("headline") or f"Report: {label}",
         "narrative_markdown": parsed.get("narrative_markdown") or "",
         "top_risks": parsed.get("top_risks") or [],
         "changes_with_outage": parsed.get("changes_with_outage") or [],
