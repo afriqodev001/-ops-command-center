@@ -43,12 +43,16 @@
         </div>
 
         <div x-show="preset === 'custom'" x-cloak>
-          <label class="label">From</label>
-          <input type="datetime-local" name="custom_start" class="input-dark text-xs">
+          <label class="label">From <span class="text-ink-muted">(local time)</span></label>
+          <input type="datetime-local" name="custom_start"
+                 class="input-dark text-sm"
+                 style="color-scheme: dark; min-width: 220px;">
         </div>
         <div x-show="preset === 'custom'" x-cloak>
-          <label class="label">To</label>
-          <input type="datetime-local" name="custom_end" class="input-dark text-xs">
+          <label class="label">To <span class="text-ink-muted">(local time)</span></label>
+          <input type="datetime-local" name="custom_end"
+                 class="input-dark text-sm"
+                 style="color-scheme: dark; min-width: 220px;">
         </div>
       </div>
 

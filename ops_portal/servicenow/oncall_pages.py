@@ -715,11 +715,34 @@ def oncall_save_outcome(request, change_number: str):
 
 REPORT_PRESETS = {
     'today':       {'label': 'Today', 'retrospective': False, 'days_offset': 0, 'span_days': 1},
-    'tonight':     {'label': 'Tonight (next 12h)', 'retrospective': False, 'hours_offset': 0, 'span_hours': 12},
-    'last_night':  {'label': 'Last night', 'retrospective': True, 'days_offset': -1, 'span_days': 1},
+    'tonight':     {'label': 'Tonight (8PM → 8AM ET)', 'retrospective': False, 'shift': 'tonight'},
+    'last_night':  {'label': 'Last night (8PM → 8AM ET)', 'retrospective': True, 'shift': 'last_night'},
     'last_week':   {'label': 'Last 7 days', 'retrospective': True, 'days_offset': -7, 'span_days': 7},
     'next_week':   {'label': 'Next 7 days', 'retrospective': False, 'days_offset': 0, 'span_days': 7},
 }
+
+
+def _et_overnight_window(anchor_date_today_et: bool):
+    """Return (start, end) for an ET-anchored 8PM→8AM overnight shift.
+
+    anchor_date_today_et=True  → tonight (today's 8PM → tomorrow's 8AM)
+    anchor_date_today_et=False → last night (yesterday's 8PM → today's 8AM)
+    """
+    from datetime import datetime, timedelta, time
+    try:
+        from zoneinfo import ZoneInfo
+        ET = ZoneInfo('America/New_York')
+    except Exception:
+        # Fallback: treat as UTC if zoneinfo / tzdata isn't available
+        from datetime import timezone
+        ET = timezone.utc
+
+    now_et = dj_tz.now().astimezone(ET)
+    today_et = now_et.date()
+    anchor = today_et if anchor_date_today_et else (today_et - timedelta(days=1))
+    start = datetime.combine(anchor, time(20, 0), tzinfo=ET)
+    end = datetime.combine(anchor + timedelta(days=1), time(8, 0), tzinfo=ET)
+    return start, end
 
 
 def _resolve_report_window(preset: str, custom_start: str = '', custom_end: str = ''):
@@ -731,6 +754,9 @@ def _resolve_report_window(preset: str, custom_start: str = '', custom_end: str 
         try:
             s = datetime.fromisoformat(custom_start)
             e = datetime.fromisoformat(custom_end)
+            # `datetime-local` posts naive ISO strings (no tz). Treat as the
+            # browser's local time → UTC by attaching the local offset; if
+            # we're running on a naive deploy just attach UTC.
             if not s.tzinfo: s = s.replace(tzinfo=timezone.utc)
             if not e.tzinfo: e = e.replace(tzinfo=timezone.utc)
             return s, e, f'{custom_start} → {custom_end}', e < now
@@ -738,13 +764,19 @@ def _resolve_report_window(preset: str, custom_start: str = '', custom_end: str 
             pass
 
     cfg = REPORT_PRESETS.get(preset) or REPORT_PRESETS['today']
+
+    # ET-anchored overnight shifts (Tonight / Last night)
+    if cfg.get('shift') == 'tonight':
+        start, end = _et_overnight_window(anchor_date_today_et=True)
+        return start, end, cfg['label'], False
+    if cfg.get('shift') == 'last_night':
+        start, end = _et_overnight_window(anchor_date_today_et=False)
+        return start, end, cfg['label'], True
+
+    # Day-aligned windows (Today / Last 7 / Next 7)
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    if 'hours_offset' in cfg:
-        start = now + timedelta(hours=cfg['hours_offset'])
-        end = start + timedelta(hours=cfg.get('span_hours', 12))
-    else:
-        start = today + timedelta(days=cfg['days_offset'])
-        end = start + timedelta(days=cfg.get('span_days', 1))
+    start = today + timedelta(days=cfg['days_offset'])
+    end = start + timedelta(days=cfg.get('span_days', 1))
     return start, end, cfg['label'], bool(cfg.get('retrospective'))
 
 
