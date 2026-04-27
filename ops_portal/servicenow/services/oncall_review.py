@@ -410,6 +410,147 @@ def get_content_summary_payload(review: OncallChangeReview) -> dict:
     return inner if isinstance(inner, dict) else {}
 
 
+# ─── CR Approval Review (track 3) ─────────────────────────
+#
+# Day-to-day "is this CR ready to approve?" workflow with continuity
+# across days — engineer asks the requestor to fix something on Monday,
+# requestor responds Wednesday; the engineer needs to remember what was
+# asked. The feedback log is the persistent conversation thread.
+
+VALID_FEEDBACK_TYPES = ('note', 'concern', 'request_change', 'resolved_by', 'ai_briefing')
+
+
+def load_approval_feedback(review: OncallChangeReview) -> list:
+    """Return the feedback log as a list of dicts, oldest-first."""
+    if not review.approval_feedback_json:
+        return []
+    try:
+        data = json.loads(review.approval_feedback_json)
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+    out = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        out.append({
+            'at': str(item.get('at') or ''),
+            'by': str(item.get('by') or ''),
+            'type': item.get('type') if item.get('type') in VALID_FEEDBACK_TYPES else 'note',
+            'message': str(item.get('message') or '').strip(),
+            'resolved': bool(item.get('resolved')),
+        })
+    return out
+
+
+def _save_approval_feedback(review: OncallChangeReview, items: list) -> None:
+    review.approval_feedback_json = json.dumps(items)
+    review.save(update_fields=['approval_feedback_json', 'updated_at'])
+
+
+def add_approval_feedback(
+    review: OncallChangeReview,
+    *,
+    message: str,
+    type: str = 'note',
+    by: str = '',
+) -> dict:
+    """Append a new entry to the feedback log. Returns the entry."""
+    if type not in VALID_FEEDBACK_TYPES:
+        type = 'note'
+    items = load_approval_feedback(review)
+    entry = {
+        'at': dj_tz.now().isoformat(),
+        'by': by or '',
+        'type': type,
+        'message': str(message or '').strip(),
+        'resolved': False,
+    }
+    items.append(entry)
+    _save_approval_feedback(review, items)
+
+    # If the engineer just flagged something for the requestor, bump status.
+    if type in ('request_change', 'concern') and review.cr_approval_status not in (
+        'approved', 'rejected', 'awaiting_requestor'
+    ):
+        review.cr_approval_status = 'awaiting_requestor'
+        review.save(update_fields=['cr_approval_status', 'updated_at'])
+
+    return entry
+
+
+def resolve_approval_feedback(review: OncallChangeReview, idx: int, resolved: bool = True) -> bool:
+    items = load_approval_feedback(review)
+    if 0 <= idx < len(items):
+        items[idx]['resolved'] = bool(resolved)
+        _save_approval_feedback(review, items)
+        return True
+    return False
+
+
+def delete_approval_feedback(review: OncallChangeReview, idx: int) -> bool:
+    items = load_approval_feedback(review)
+    if 0 <= idx < len(items):
+        items.pop(idx)
+        _save_approval_feedback(review, items)
+        return True
+    return False
+
+
+def approval_outstanding_count(review: OncallChangeReview) -> int:
+    """How many request_change / concern entries are still unresolved."""
+    items = load_approval_feedback(review)
+    return sum(
+        1 for i in items
+        if i.get('type') in ('request_change', 'concern') and not i.get('resolved')
+    )
+
+
+def run_cr_briefing_for(review: OncallChangeReview, change_record: dict) -> dict:
+    """Run the existing change-briefing AI and persist its output as a
+    feedback log entry typed `ai_briefing`. Reuses the briefing_review
+    prompt that the bulk-review page already uses, so the engineer's
+    AI experience is the same regardless of which page they invoke it from.
+    """
+    system = get_prompt('briefing_review')
+
+    # Compose a focused user prompt with the bits the briefing prompt expects.
+    record = change_record or {}
+    user_prompt = json.dumps({
+        'change_number': review.change_number,
+        'short_description': review.short_description,
+        'risk': review.risk,
+        'assignment_group': review.assignment_group,
+        'cmdb_ci': review.cmdb_ci,
+        'scheduled_start': str(review.scheduled_start) if review.scheduled_start else None,
+        'scheduled_end': str(review.scheduled_end) if review.scheduled_end else None,
+        'description': _val(record.get('description')),
+        'justification': _val(record.get('justification')),
+        'implementation_plan': _val(record.get('implementation_plan')),
+        'backout_plan': _val(record.get('backout_plan')),
+        'test_plan': _val(record.get('test_plan')),
+        'type': _val(record.get('type')),
+    }, indent=2, default=str)
+
+    raw = _call_llm(system, user_prompt) or ''
+
+    # The briefing prompt returns markdown, not JSON. Capture verbatim.
+    add_approval_feedback(
+        review,
+        message=raw.strip(),
+        type='ai_briefing',
+        by='AI',
+    )
+
+    # Status moves to in_review the first time we run a briefing
+    if review.cr_approval_status == 'not_started':
+        review.cr_approval_status = 'in_review'
+        review.save(update_fields=['cr_approval_status', 'updated_at'])
+
+    return {'ok': True, 'output': raw}
+
+
 # ─── Stage advancement ────────────────────────────────────
 
 def advance_stage(review: OncallChangeReview, target: str, *, by: str = '') -> OncallChangeReview:

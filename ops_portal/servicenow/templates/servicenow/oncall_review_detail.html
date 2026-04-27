@@ -151,6 +151,20 @@
       </div>
     </div>
 
+    <!-- CR Approval Review (track 3: day-to-day approval workflow) -->
+    <div class="glass-card p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-4 h-4 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+        </svg>
+        <h4 class="text-sm font-semibold text-ink-primary">CR Approval Review</h4>
+        <span class="text-[10px] text-ink-muted">day-to-day requestor feedback loop</span>
+      </div>
+      <div id="oncall-cr-review-area">
+        {% include "servicenow/partials/oncall_cr_review_panel.html" with review=review feedback_items=feedback_items outstanding_count=outstanding_count %}
+      </div>
+    </div>
+
     <!-- AI review block -->
     <div class="glass-card p-4">
       <div class="flex items-center gap-2 mb-3">

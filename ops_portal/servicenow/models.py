@@ -35,6 +35,25 @@ ACTUAL_OUTCOME_CHOICES = (
     ('aborted', 'Aborted / cancelled'),
 )
 
+# Engineer's CR-approval review state — independent of outage triage
+CR_APPROVAL_STATUS_CHOICES = (
+    ('not_started',       'Not started'),
+    ('in_review',         'In review'),
+    ('awaiting_requestor','Awaiting requestor'),
+    ('ready_to_approve',  'Ready to approve'),
+    ('approved',          'Approved'),
+    ('rejected',          'Rejected'),
+)
+
+# Feedback-log entry types (stored inside approval_feedback_json)
+APPROVAL_FEEDBACK_TYPES = (
+    'note',           # plain note from the engineer
+    'concern',        # flagged but not blocking yet
+    'request_change', # asked the requestor to update something
+    'resolved_by',    # engineer notes the requestor's response
+    'ai_briefing',    # captured AI briefing output
+)
+
 
 class OncallChangeReview(models.Model):
     """
@@ -92,6 +111,21 @@ class OncallChangeReview(models.Model):
         default='',
     )
     issues_summary = models.TextField(blank=True)
+
+    # CR Approval Review — the day-to-day "is this CR ready to approve?"
+    # workflow with continuity across days. Distinct from outage triage.
+    cr_approval_status = models.CharField(
+        max_length=32,
+        choices=CR_APPROVAL_STATUS_CHOICES,
+        default='not_started',
+        db_index=True,
+    )
+    cr_review_ctask_number = models.CharField(max_length=64, blank=True)
+    cr_review_ctask_closed_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.CharField(max_length=128, blank=True)
+    # Chronological feedback log: list of {at, by, type, message, resolved}
+    approval_feedback_json = models.TextField(blank=True)
 
     # Matrix snapshot — denormalised so it survives matrix edits later
     matched_app = models.CharField(max_length=256, blank=True)

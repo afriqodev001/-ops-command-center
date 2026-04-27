@@ -147,6 +147,8 @@ def oncall_review_detail(request, change_number: str):
         'content_summary_payload': orsvc.get_content_summary_payload(review),
         'checklist_items': orsvc.load_checklist(review),
         'checklist_progress': orsvc.checklist_progress(review),
+        'feedback_items': orsvc.load_approval_feedback(review),
+        'outstanding_count': orsvc.approval_outstanding_count(review),
         'templates': ntpl.list_templates(),
     })
 
@@ -708,6 +710,162 @@ def oncall_save_outcome(request, change_number: str):
     return render(request, 'servicenow/partials/oncall_outcome_panel.html', {
         'review': review,
         'just_saved': True,
+    })
+
+
+# ─── CR Approval Review (track 3) ─────────────────────────
+
+@csrf_exempt
+@require_POST
+def oncall_save_approval_status(request, change_number: str):
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+
+    status = (request.POST.get('cr_approval_status') or '').strip()
+    valid_statuses = [s[0] for s in __import__('servicenow.models', fromlist=['CR_APPROVAL_STATUS_CHOICES']).CR_APPROVAL_STATUS_CHOICES]
+    if status in valid_statuses:
+        review.cr_approval_status = status
+    review.cr_review_ctask_number = (request.POST.get('cr_review_ctask_number') or '').strip()
+
+    closed_at_raw = (request.POST.get('cr_review_ctask_closed_at') or '').strip()
+    if closed_at_raw:
+        from datetime import datetime, timezone
+        try:
+            d = datetime.fromisoformat(closed_at_raw)
+            if not d.tzinfo:
+                d = d.replace(tzinfo=timezone.utc)
+            review.cr_review_ctask_closed_at = d
+        except Exception:
+            pass
+    elif closed_at_raw == '':
+        # Allow clearing the field
+        review.cr_review_ctask_closed_at = None
+
+    if status == 'approved' and not review.approved_at:
+        review.approved_at = dj_tz.now()
+        review.approved_by = _user_name(request)
+    elif status != 'approved':
+        # Allow un-approving by switching status away
+        pass
+
+    review.save()
+
+    return render(request, 'servicenow/partials/oncall_cr_review_panel.html', {
+        'review': review,
+        'feedback_items': orsvc.load_approval_feedback(review),
+        'outstanding_count': orsvc.approval_outstanding_count(review),
+        'just_saved': True,
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_add_approval_feedback(request, change_number: str):
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+    message = (request.POST.get('message') or '').strip()
+    type_ = (request.POST.get('type') or 'note').strip()
+
+    if not message:
+        return render(request, 'servicenow/partials/oncall_cr_review_panel.html', {
+            'review': review,
+            'feedback_items': orsvc.load_approval_feedback(review),
+            'outstanding_count': orsvc.approval_outstanding_count(review),
+            'error': 'Message is required.',
+        })
+
+    orsvc.add_approval_feedback(review, message=message, type=type_, by=_user_name(request))
+    review.refresh_from_db()
+
+    return render(request, 'servicenow/partials/oncall_cr_review_panel.html', {
+        'review': review,
+        'feedback_items': orsvc.load_approval_feedback(review),
+        'outstanding_count': orsvc.approval_outstanding_count(review),
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_resolve_approval_feedback(request, change_number: str):
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+    try:
+        idx = int(request.POST.get('idx') or '-1')
+    except ValueError:
+        idx = -1
+    resolved = bool(request.POST.get('resolved', 'true') in ('true', 'on', '1'))
+    orsvc.resolve_approval_feedback(review, idx, resolved=resolved)
+
+    return render(request, 'servicenow/partials/oncall_cr_review_panel.html', {
+        'review': review,
+        'feedback_items': orsvc.load_approval_feedback(review),
+        'outstanding_count': orsvc.approval_outstanding_count(review),
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_delete_approval_feedback(request, change_number: str):
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+    try:
+        idx = int(request.POST.get('idx') or '-1')
+    except ValueError:
+        idx = -1
+    orsvc.delete_approval_feedback(review, idx)
+
+    return render(request, 'servicenow/partials/oncall_cr_review_panel.html', {
+        'review': review,
+        'feedback_items': orsvc.load_approval_feedback(review),
+        'outstanding_count': orsvc.approval_outstanding_count(review),
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_run_cr_briefing(request, change_number: str):
+    pre = ai_preflight()
+    if not pre.get('ok'):
+        return render(request, 'servicenow/partials/oncall_error.html', {
+            'error': pre.get('error'),
+            'action_url': pre.get('action_url'),
+            'action_label': pre.get('action_label'),
+        })
+
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+
+    from .tasks import oncall_run_cr_briefing_task
+    task = oncall_run_cr_briefing_task.delay({'change_number': change_number})
+
+    return render(request, 'servicenow/partials/oncall_cr_briefing_polling.html', {
+        'task_id': task.id,
+        'change_number': change_number,
+    })
+
+
+def oncall_poll_cr_briefing(request, task_id: str):
+    ar = AsyncResult(task_id)
+    change_number = (request.GET.get('change_number') or '').strip()
+
+    if ar.state in ('PENDING', 'RECEIVED', 'STARTED'):
+        return render(request, 'servicenow/partials/oncall_cr_briefing_polling.html', {
+            'task_id': task_id,
+            'change_number': change_number,
+        })
+
+    if ar.state == 'FAILURE':
+        return render(request, 'servicenow/partials/oncall_error.html', {
+            'error': str(ar.result),
+        })
+
+    result = ar.result or {}
+    if isinstance(result, dict) and result.get('error'):
+        return render(request, 'servicenow/partials/oncall_error.html', {
+            'error': result.get('detail') or result.get('error'),
+        })
+
+    review = OncallChangeReview.objects.filter(change_number=change_number).first()
+    return render(request, 'servicenow/partials/oncall_cr_review_panel.html', {
+        'review': review,
+        'feedback_items': orsvc.load_approval_feedback(review) if review else [],
+        'outstanding_count': orsvc.approval_outstanding_count(review) if review else 0,
+        'just_briefed': True,
     })
 
 

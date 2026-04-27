@@ -30,6 +30,15 @@ search rows). Pass `oncall_review` in context.
       {% if oncall_review.outage_declared %}
       <p class="text-[10px] text-warn mt-1 font-semibold">⚠ Outage declared{% if oncall_review.outage_record_number %} · {{ oncall_review.outage_record_number }}{% endif %}</p>
       {% endif %}
+      {% if oncall_review.cr_approval_status and oncall_review.cr_approval_status != 'not_started' %}
+      <p class="text-[10px] mt-1
+        {% if oncall_review.cr_approval_status == 'approved' %}text-ok
+        {% elif oncall_review.cr_approval_status == 'rejected' %}text-danger
+        {% elif oncall_review.cr_approval_status == 'awaiting_requestor' %}text-warn
+        {% else %}text-info{% endif %}">
+        CR review: <span class="font-semibold">{{ oncall_review.get_cr_approval_status_display }}</span>{% if oncall_review.cr_review_ctask_number %} · <span class="font-mono">{{ oncall_review.cr_review_ctask_number }}</span>{% endif %}
+      </p>
+      {% endif %}
       {% if oncall_review.actual_outcome %}
       <p class="text-[10px] mt-1
         {% if oncall_review.actual_outcome == 'success' %}text-ok

@@ -1176,6 +1176,57 @@ def oncall_run_ai_batch_task(self, body: dict):
 # ============================================================
 
 @shared_task(bind=True)
+def oncall_run_cr_briefing_task(self, body: dict):
+    """
+    Run the change-briefing AI for a single change and persist the
+    output as a feedback-log entry on the OncallChangeReview row.
+    Reuses the existing 'briefing_review' prompt for parity with the
+    bulk-review page.
+    """
+    from servicenow.models import OncallChangeReview
+    from servicenow.services import oncall_review as orsvc
+
+    body = body or {}
+    number = (body.get("change_number") or "").strip()
+    if not number:
+        return {"error": "missing_parameter", "detail": "change_number is required"}
+
+    review = (
+        OncallChangeReview.objects
+        .filter(change_number=number)
+        .order_by("-window_end", "-updated_at")
+        .first()
+    )
+    if not review:
+        return {"error": "not_found", "detail": f"No oncall review row for {number}"}
+
+    # Fetch the full change context so the AI sees plans + CTASKs
+    ctx_body = {
+        "change_number": number,
+        "user_key": _user_key(body),
+        "display_value": "all",
+    }
+    ctx_result = change_context_task.apply(args=(ctx_body,)).result or {}
+    if isinstance(ctx_result, dict) and ctx_result.get("error"):
+        return {
+            "error": "change_fetch_failed",
+            "detail": ctx_result.get("detail") or ctx_result.get("error"),
+        }
+
+    change_record = (
+        (ctx_result.get("change") or {}).get("result")
+        if isinstance(ctx_result, dict) else {}
+    ) or {}
+
+    try:
+        result = orsvc.run_cr_briefing_for(review, change_record)
+    except Exception as e:
+        return {"error": "ai_failed", "detail": str(e)}
+
+    return {"ok": True, "change_number": number, "output_chars": len(result.get("output") or "")}
+
+
+@shared_task(bind=True)
 def oncall_run_content_summary_task(self, body: dict):
     """
     Run the AI content summary for one change. Persists summary text +
