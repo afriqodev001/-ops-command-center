@@ -35,26 +35,45 @@
     <div class="glass-card p-4">
       <h4 class="text-xs font-semibold text-ink-primary uppercase tracking-wider mb-2">Suppression matrix match</h4>
       {% if matched %}
-      <dl class="text-[11px] space-y-1.5">
+      <dl class="text-[11px] space-y-2">
         <div><dt class="text-ink-muted">Application</dt><dd class="text-ink-primary">{{ matched.application|default:"—" }}</dd></div>
-        <div><dt class="text-ink-muted">Outage likely</dt><dd class="text-ink-primary">{{ matched.outage_likely|default:"—" }}</dd></div>
+        <div><dt class="text-ink-muted">CI</dt><dd class="font-mono text-ink-primary">{{ matched.ci|default:"—" }}</dd></div>
         <div>
-          <dt class="text-ink-muted">Impact</dt>
-          <dd class="text-ink-secondary leading-relaxed">{{ matched.impact_description|default:"—" }}</dd>
+          <dt class="text-ink-muted mb-1">Outage Impact</dt>
+          <dd class="space-y-1.5">
+            {% for entry in matched.outage_impact %}
+            <div class="rounded border border-edge bg-surface-2/40 px-2 py-1.5">
+              {% if entry.app %}<p class="font-semibold text-ink-primary">{{ entry.app }}</p>{% endif %}
+              <p class="text-ink-secondary leading-relaxed">{{ entry.description|default:"—" }}</p>
+              {% if entry.additional_emails %}
+              <p class="text-[10px] text-warn mt-0.5">+ extra emails: <span class="font-mono">{{ entry.additional_emails|join:"; " }}</span></p>
+              {% endif %}
+            </div>
+            {% empty %}
+            <span class="text-ink-muted">—</span>
+            {% endfor %}
+          </dd>
         </div>
         <div>
-          <dt class="text-ink-muted">Notify</dt>
+          <dt class="text-ink-muted">Notify partners</dt>
+          <dd>{% if matched.notify_partners %}<span class="text-ok font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</dd>
+        </div>
+        <div>
+          <dt class="text-ink-muted">Notification emails (base)</dt>
           <dd class="text-ink-secondary font-mono text-[10px]">{{ matched.notification_emails|join:"; "|default:"—" }}</dd>
         </div>
         <div>
-          <dt class="text-ink-muted">Alert suppressions</dt>
-          <dd class="text-ink-secondary font-mono text-[10px]">{{ matched.alert_suppression_ids|join:", "|default:"—" }}</dd>
+          <dt class="text-ink-muted">Suppression</dt>
+          <dd>{% if matched.suppression %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</dd>
+        </div>
+        <div>
+          <dt class="text-ink-muted">Suppression records</dt>
+          <dd class="text-ink-secondary font-mono text-[10px]">{{ matched.suppression_records|join:", "|default:"—" }}</dd>
         </div>
         <div>
           <dt class="text-ink-muted">Banner</dt>
-          <dd class="text-ink-primary">{% if matched.banner_required %}<span class="text-warn font-semibold">Required</span> · "{{ matched.banner_message }}"{% else %}<span class="text-ink-muted">Not required</span>{% endif %}</dd>
+          <dd>{% if matched.banner %}<span class="text-warn font-semibold">Required</span>{% if matched.banner_message %} · "{{ matched.banner_message }}"{% endif %}{% else %}<span class="text-ink-muted">Not required</span>{% endif %}</dd>
         </div>
-        <div><dt class="text-ink-muted">Owner team</dt><dd class="text-ink-primary">{{ matched.owner_team|default:"—" }}</dd></div>
       </dl>
       {% else %}
       <p class="text-[11px] text-warn">⚠ No matrix entry for this CI / application. <a href="/servicenow/oncall/matrix/" class="text-brand-light hover:text-brand">Open matrix →</a></p>

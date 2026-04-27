@@ -134,7 +134,12 @@ def apply_matrix_match(
     row: Optional[Dict[str, Any]] = None,
     save: bool = True,
 ) -> Optional[Dict[str, Any]]:
-    """Look up suppression matrix entry, store snapshot on review."""
+    """Look up suppression matrix entry, store snapshot on review.
+
+    Denormalises the structured matrix row onto OncallChangeReview so the
+    review record stays meaningful even if the matrix changes later.
+    matched_emails reflects the full union (base + per-app additional).
+    """
     lookup_input = row or {
         'cmdb_ci': review.cmdb_ci,
         'short_description': review.short_description,
@@ -142,10 +147,10 @@ def apply_matrix_match(
     match = matrix.lookup(lookup_input)
     if match:
         review.matched_app = (match.get('application') or '')[:256]
-        review.matched_impact = match.get('impact_description') or ''
-        review.matched_emails = '; '.join(match.get('notification_emails') or [])
-        review.matched_suppr_ids = '; '.join(match.get('alert_suppression_ids') or [])
-        review.matched_banner = bool(match.get('banner_required'))
+        review.matched_impact = matrix.impact_text_for(match)
+        review.matched_emails = '; '.join(matrix.all_recipients_for(match))
+        review.matched_suppr_ids = '; '.join(match.get('suppression_records') or [])
+        review.matched_banner = bool(match.get('banner'))
         review.matched_banner_msg = match.get('banner_message') or ''
     else:
         review.matched_app = ''

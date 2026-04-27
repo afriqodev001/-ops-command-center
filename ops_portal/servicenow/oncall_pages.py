@@ -351,11 +351,16 @@ def oncall_draft_email(request, change_number: str):
         'short_description': review.short_description,
     }) or {}
 
-    recipients_list = matched.get('notification_emails') or [
-        e.strip() for e in (review.matched_emails or '').split(';') if e.strip()
-    ]
-    impact = matched.get('impact_description') or review.matched_impact or ''
-    application = matched.get('application') or review.matched_app or ''
+    if matched:
+        recipients_list = matrix.all_recipients_for(matched)
+        impact = matrix.impact_text_for(matched)
+        application = matched.get('application') or ''
+    else:
+        recipients_list = [
+            e.strip() for e in (review.matched_emails or '').split(';') if e.strip()
+        ]
+        impact = review.matched_impact or ''
+        application = review.matched_app or ''
 
     rendered = ntpl.render_template(template_name, {
         'change_number': review.change_number,

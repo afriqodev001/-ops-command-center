@@ -56,11 +56,47 @@
 
     <details class="mt-3">
       <summary class="text-[11px] text-brand-light hover:text-brand cursor-pointer">Format help</summary>
-      <div class="mt-2 space-y-2 text-[11px] text-ink-secondary">
-        <p>Either format is accepted. Canonical columns / keys:</p>
-        <pre class="font-mono text-[10px] bg-surface-2 border border-edge rounded p-2 leading-relaxed">{{ columns|join:", " }}</pre>
-        <p>CSV: comma or tab delimited; semicolons separate emails / suppression IDs; <code class="font-mono">Yes</code>/<code class="font-mono">No</code> for booleans; column names are case-insensitive (<code class="font-mono">space → underscore</code>).</p>
-        <p>JSON: <code class="font-mono">{"rows": [{"ci_name": "…", "notification_emails": ["a", "b"], "banner_required": true, …}]}</code> (or a bare list of row objects). Arrays and booleans are preserved as-is.</p>
+      <div class="mt-2 space-y-3 text-[11px] text-ink-secondary">
+
+        <div>
+          <p class="font-semibold text-ink-primary mb-1">CSV columns (in any order, case-insensitive)</p>
+          <pre class="font-mono text-[10px] bg-surface-2 border border-edge rounded p-2 leading-relaxed">{{ columns|join:", " }}</pre>
+          <ul class="list-disc pl-5 mt-1 space-y-0.5">
+            <li><code class="font-mono">Notification Emails</code> and <code class="font-mono">Suppression Records</code> — semicolon-separated lists.</li>
+            <li><code class="font-mono">Notification to Partners for Outage</code>, <code class="font-mono">Suppression</code>, <code class="font-mono">Banner</code> — Yes/No.</li>
+            <li><code class="font-mono">Outage Impact</code> — single text cell. CSV cannot encode per-app additional emails — use JSON for that.</li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="font-semibold text-ink-primary mb-1">JSON shape (for full per-app fidelity)</p>
+          <pre class="font-mono text-[10px] bg-surface-2 border border-edge rounded p-2 leading-relaxed whitespace-pre-wrap">{
+  "rows": [
+    {
+      "application": "Auth Service",
+      "ci": "AUTH-SVC-PROD",
+      "outage_impact": [
+        {
+          "app": "Customer Portal",
+          "description": "Logins blocked during deploy",
+          "additional_emails": ["portal-team@x.com"]
+        },
+        {
+          "app": "Mobile App",
+          "description": "App start fails for unauthenticated users"
+        }
+      ],
+      "notify_partners": true,
+      "notification_emails": ["app-owners@x.com"],
+      "suppression": true,
+      "suppression_records": ["ALRT-1234", "ALRT-5678"],
+      "banner": true,
+      "banner_message": "Auth deploy in progress — login may be intermittent"
+    }
+  ]
+}</pre>
+          <p>When the email is drafted, recipients = <code class="font-mono">Notification Emails</code> ∪ all <code class="font-mono">additional_emails</code> from impact entries. The body lists every per-app impact line.</p>
+        </div>
       </div>
     </details>
   </div>

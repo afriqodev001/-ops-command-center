@@ -14,25 +14,39 @@
     <table class="w-full text-[11px] border-collapse">
       <thead class="bg-surface-3 sticky top-0 z-10">
         <tr>
-          <th class="th">CI</th>
           <th class="th">Application</th>
-          <th class="th">Outage</th>
-          <th class="th">Impact</th>
-          <th class="th">Emails</th>
-          <th class="th">Suppr. IDs</th>
+          <th class="th">CI</th>
+          <th class="th">Outage Impact</th>
+          <th class="th">Notify Partners</th>
+          <th class="th">Notification Emails</th>
+          <th class="th">Suppression</th>
+          <th class="th">Suppression Records</th>
           <th class="th">Banner</th>
         </tr>
       </thead>
       <tbody>
         {% for r in preview_rows %}
         <tr class="border-t border-edge/40">
-          <td class="td font-mono text-ink-primary">{{ r.ci_name|default:"—" }}</td>
           <td class="td text-ink-secondary">{{ r.application|default:"—" }}</td>
-          <td class="td">{{ r.outage_likely|default:"—" }}</td>
-          <td class="td text-ink-secondary truncate max-w-[200px]" title="{{ r.impact_description }}">{{ r.impact_description|default:"—"|truncatechars:60 }}</td>
+          <td class="td font-mono text-ink-primary">{{ r.ci|default:"—" }}</td>
+          <td class="td text-ink-secondary">
+            {% if r.outage_impact %}
+              {% for entry in r.outage_impact %}
+                <div class="leading-tight {% if not forloop.last %}mb-1{% endif %}">
+                  {% if entry.app %}<span class="text-ink-primary font-semibold">{{ entry.app }}:</span> {% endif %}
+                  <span class="text-ink-secondary">{{ entry.description|truncatechars:80 }}</span>
+                  {% if entry.additional_emails %}
+                  <span class="text-[9px] text-warn">+{{ entry.additional_emails|length }} email{{ entry.additional_emails|length|pluralize }}</span>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            {% else %}—{% endif %}
+          </td>
+          <td class="td">{% if r.notify_partners %}<span class="text-ok font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
           <td class="td text-[10px] text-ink-muted">{{ r.notification_emails|join:", "|default:"—"|truncatechars:60 }}</td>
-          <td class="td text-[10px] text-ink-muted">{{ r.alert_suppression_ids|join:", "|default:"—"|truncatechars:60 }}</td>
-          <td class="td">{% if r.banner_required %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
+          <td class="td">{% if r.suppression %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
+          <td class="td text-[10px] text-ink-muted">{{ r.suppression_records|join:", "|default:"—"|truncatechars:60 }}</td>
+          <td class="td">{% if r.banner %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
