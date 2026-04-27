@@ -142,4 +142,35 @@
     {% include "servicenow/partials/oncall_matrix_table.html" with rows=rows meta=meta columns=columns %}
   </div>
 </div>
+
+<!-- ─── Row editor modal ──────────────────────────────────── -->
+<div id="matrix-row-modal"
+     class="hidden fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 bg-black/70 backdrop-blur-sm animate-fade-in overflow-y-auto"
+     onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="glass-card max-w-2xl w-full p-5 max-h-[90vh] overflow-y-auto shadow-2xl border-edge-strong">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold text-ink-primary">Matrix Row</h3>
+      <button type="button"
+              onclick="document.getElementById('matrix-row-modal').classList.add('hidden')"
+              class="text-ink-muted hover:text-ink-primary p-1 -m-1 rounded hover:bg-white/5"
+              aria-label="Close">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="matrix-row-editor-area">
+      <p class="text-[11px] text-ink-muted">Loading…</p>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var modal = document.getElementById('matrix-row-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+});
+</script>
 {% endblock %}

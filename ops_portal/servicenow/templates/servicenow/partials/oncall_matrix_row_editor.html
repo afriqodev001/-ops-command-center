@@ -1,0 +1,153 @@
+{% comment %}
+Editor for a single matrix row. Pass `row` (or None) and `is_new`.
+
+The 'Outage Impact' control is a multi-entry list — one entry per
+{app, description, additional_emails}. Add/remove entries via Alpine.
+{% endcomment %}
+<form hx-post="/servicenow/oncall/matrix/row/save/"
+      hx-target="#matrix-table-area"
+      hx-swap="innerHTML"
+      x-data="matrixRowEditor()"
+      x-init='init({{ row_json|default:"null"|safe }})'
+      class="space-y-3">
+  {% csrf_token %}
+  <input type="hidden" name="_original_ci" value="{{ row.ci|default:'' }}">
+
+  {% if error %}
+  <div class="rounded-lg px-3 py-2 bg-danger/10 border border-danger/20 text-[11px] text-danger">{{ error }}</div>
+  {% endif %}
+
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="label">Application <span class="text-danger">*</span></label>
+      <input type="text" name="application" value="{{ row.application|default:'' }}"
+             class="input-dark text-xs" required placeholder="e.g. Auth Service">
+    </div>
+    <div>
+      <label class="label">CI <span class="text-danger">*</span></label>
+      <input type="text" name="ci" value="{{ row.ci|default:'' }}"
+             class="input-dark text-xs font-mono" required placeholder="e.g. AUTH-SVC-PROD">
+    </div>
+  </div>
+
+  <!-- Outage Impact (multi-entry) -->
+  <div>
+    <div class="flex items-center justify-between mb-1">
+      <label class="label !mb-0">Outage Impact</label>
+      <button type="button" @click="addEntry()"
+              class="text-[10px] text-brand-light hover:text-brand">+ Add per-app entry</button>
+    </div>
+    <p class="text-[10px] text-ink-muted mb-2">A single generic statement is fine — leave the App field blank. Add multiple entries when each downstream app has its own impact.</p>
+
+    <template x-for="(entry, idx) in entries" :key="idx">
+      <div class="rounded-lg border border-edge bg-surface-3/30 p-2 mb-2 space-y-2">
+        <div class="flex items-center gap-2">
+          <input type="text" :name="'impact_app[]'" x-model="entry.app"
+                 placeholder="App (leave blank for generic)"
+                 class="input-dark text-xs flex-1">
+          <button type="button" @click="removeEntry(idx)"
+                  x-show="entries.length > 1"
+                  class="text-[10px] text-danger hover:text-danger/80 px-2 py-1 rounded hover:bg-danger/10">Remove</button>
+        </div>
+        <textarea :name="'impact_description[]'" x-model="entry.description" rows="2"
+                  placeholder="Describe the impact"
+                  class="input-dark text-xs"></textarea>
+        <input type="text" :name="'impact_additional_emails[]'" x-model="entry.additional_emails"
+               placeholder="Extra emails for THIS app (semicolon-separated, optional)"
+               class="input-dark text-[11px] font-mono">
+      </div>
+    </template>
+  </div>
+
+  <div>
+    <label class="label">Notification to Partners for Outage <span class="text-ink-muted">(free text guidance)</span></label>
+    <textarea name="notify_partners" rows="2" class="input-dark text-xs"
+              placeholder="e.g. PMT is Active/Active and we should not send communication. Yes for BCP event.">{{ row.notify_partners|default:'' }}</textarea>
+  </div>
+
+  <div>
+    <label class="label">Notification Emails <span class="text-ink-muted">(base list, semicolon-separated)</span></label>
+    <input type="text" name="notification_emails"
+           value="{{ row.notification_emails|join:'; '|default:'' }}"
+           class="input-dark text-xs font-mono"
+           placeholder="app-owners@x.com; noc@x.com">
+  </div>
+
+  <div>
+    <label class="label">Suppression <span class="text-ink-muted">(free text guidance)</span></label>
+    <textarea name="suppression" rows="2" class="input-dark text-xs"
+              placeholder="e.g. No — Active/Active masks alerts. Yes if BCP event.">{{ row.suppression|default:'' }}</textarea>
+  </div>
+
+  <div>
+    <label class="label">Suppression Records <span class="text-ink-muted">(semicolon-separated)</span></label>
+    <input type="text" name="suppression_records"
+           value="{{ row.suppression_records|join:'; '|default:'' }}"
+           class="input-dark text-xs font-mono"
+           placeholder="ALRT-1234; ALRT-5678">
+  </div>
+
+  <div class="grid grid-cols-2 gap-3">
+    <label class="flex items-center gap-2 cursor-pointer pt-5">
+      <input type="checkbox" name="banner" value="true"
+             {% if row.banner %}checked{% endif %}
+             class="rounded border-edge bg-surface-3">
+      <span class="text-xs text-ink-secondary">Banner required</span>
+    </label>
+    <div>
+      <label class="label">Banner Message <span class="text-ink-muted">(optional)</span></label>
+      <input type="text" name="banner_message" value="{{ row.banner_message|default:'' }}"
+             class="input-dark text-xs"
+             placeholder="Auth deploy in progress — login may be intermittent">
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between gap-2 pt-3 border-t border-edge">
+    {% if not is_new %}
+    <button type="button"
+            hx-post="/servicenow/oncall/matrix/row/delete/"
+            hx-vals='{"ci": "{{ row.ci|escapejs }}"}'
+            hx-target="#matrix-table-area"
+            hx-swap="innerHTML"
+            hx-confirm="Delete this row from the matrix?"
+            onclick="document.getElementById('matrix-row-modal').classList.add('hidden')"
+            class="text-[11px] text-danger hover:text-danger/80 px-2 py-1 rounded hover:bg-danger/10">Delete row</button>
+    {% else %}
+    <span></span>
+    {% endif %}
+    <div class="flex items-center gap-2">
+      <button type="button"
+              onclick="document.getElementById('matrix-row-modal').classList.add('hidden')"
+              class="btn-ghost text-xs py-1.5 px-3">Cancel</button>
+      <button type="submit"
+              onclick="setTimeout(() => document.getElementById('matrix-row-modal').classList.add('hidden'), 50)"
+              class="btn-primary text-xs py-1.5 px-3">{% if is_new %}Add row{% else %}Save{% endif %}</button>
+    </div>
+  </div>
+</form>
+
+<script>
+(function() {
+  if (window._matrixRowEditorRegistered) return;
+  window._matrixRowEditorRegistered = true;
+  function _def() {
+    Alpine.data('matrixRowEditor', (initial) => ({
+      entries: [],
+      init(row) {
+        if (row && Array.isArray(row.outage_impact) && row.outage_impact.length) {
+          this.entries = row.outage_impact.map(e => ({
+            app: e.app || '',
+            description: e.description || '',
+            additional_emails: Array.isArray(e.additional_emails) ? e.additional_emails.join('; ') : (e.additional_emails || ''),
+          }));
+        } else {
+          this.entries = [{app: '', description: '', additional_emails: ''}];
+        }
+      },
+      addEntry() { this.entries.push({app: '', description: '', additional_emails: ''}); },
+      removeEntry(idx) { this.entries.splice(idx, 1); },
+    }));
+  }
+  if (window.Alpine) _def(); else document.addEventListener('alpine:init', _def);
+})();
+</script>

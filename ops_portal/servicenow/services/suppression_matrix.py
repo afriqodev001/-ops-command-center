@@ -142,6 +142,65 @@ def clear_matrix() -> None:
         _STORE_FILE.unlink()
 
 
+# ─── Single-row CRUD (UI form-driven editor) ──────────────
+
+def get_row(ci: str) -> Optional[Dict[str, Any]]:
+    """Return the row whose `ci` matches (case-insensitive), or None."""
+    if not ci:
+        return None
+    needle = str(ci).strip().lower()
+    for row in load_matrix():
+        if (row.get('ci') or '').strip().lower() == needle:
+            return row
+    return None
+
+
+def upsert_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Insert (or update by `ci`) a single row. Returns the canonical row.
+
+    Lookup key is `ci` (case-insensitive). If the canonical key changes
+    on edit, pass the original CI separately via row['_original_ci'].
+    """
+    canonical = _normalise_row(row, source='form')
+    new_ci = (canonical.get('ci') or '').strip().lower()
+    if not new_ci:
+        raise ValueError('CI is required.')
+
+    original_ci = (row.get('_original_ci') or '').strip().lower() or new_ci
+
+    rows = load_matrix()
+    out: List[Dict[str, Any]] = []
+    replaced = False
+    for existing in rows:
+        existing_ci = (existing.get('ci') or '').strip().lower()
+        if existing_ci == original_ci or (existing_ci == new_ci and not replaced):
+            if not replaced:
+                out.append(canonical)
+                replaced = True
+            # drop the old row(s) keyed on either original_ci or new_ci
+        else:
+            out.append(existing)
+    if not replaced:
+        out.append(canonical)
+
+    save_matrix(out)
+    return canonical
+
+
+def delete_row(ci: str) -> bool:
+    """Delete row by CI (case-insensitive). Returns True if a row was removed."""
+    if not ci:
+        return False
+    needle = str(ci).strip().lower()
+    rows = load_matrix()
+    kept = [r for r in rows if (r.get('ci') or '').strip().lower() != needle]
+    if len(kept) == len(rows):
+        return False
+    save_matrix(kept)
+    return True
+
+
 # ─── Upload parsing ───────────────────────────────────────
 
 def parse_upload(file_obj, filename: str = '') -> List[Dict[str, Any]]:

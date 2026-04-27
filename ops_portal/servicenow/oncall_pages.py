@@ -525,6 +525,86 @@ def oncall_matrix_clear(request):
     })
 
 
+# ─── Single-row CRUD (form-driven editor) ─────────────────
+
+def oncall_matrix_row_editor(request):
+    """GET — return the editor partial. ?ci=... to edit, omit to create."""
+    ci = (request.GET.get('ci') or '').strip()
+    row = matrix.get_row(ci) if ci else None
+    return render(request, 'servicenow/partials/oncall_matrix_row_editor.html', {
+        'row': row,
+        'is_new': row is None,
+        'row_json': json.dumps(row, default=str) if row else 'null',
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_matrix_row_save(request):
+    """POST — upsert a single row from the form."""
+    # Multi-entry outage_impact comes in as parallel arrays:
+    apps = request.POST.getlist('impact_app[]')
+    descs = request.POST.getlist('impact_description[]')
+    extra_emails = request.POST.getlist('impact_additional_emails[]')
+    impact_entries = []
+    for i in range(max(len(apps), len(descs), len(extra_emails))):
+        app = (apps[i] if i < len(apps) else '').strip()
+        desc = (descs[i] if i < len(descs) else '').strip()
+        emails_raw = (extra_emails[i] if i < len(extra_emails) else '').strip()
+        emails = [e.strip() for e in emails_raw.replace(',', ';').split(';') if e.strip()]
+        if app or desc or emails:
+            impact_entries.append({
+                'app': app,
+                'description': desc,
+                'additional_emails': emails,
+            })
+
+    payload = {
+        'application': request.POST.get('application', ''),
+        'ci': request.POST.get('ci', ''),
+        'outage_impact': impact_entries,
+        'notify_partners': request.POST.get('notify_partners', ''),
+        'notification_emails': request.POST.get('notification_emails', ''),
+        'suppression': request.POST.get('suppression', ''),
+        'suppression_records': request.POST.get('suppression_records', ''),
+        'banner': bool(request.POST.get('banner')),
+        'banner_message': request.POST.get('banner_message', ''),
+        '_original_ci': request.POST.get('_original_ci', ''),
+    }
+
+    try:
+        matrix.upsert_row(payload)
+    except ValueError as e:
+        # Re-render the form with an error
+        return render(request, 'servicenow/partials/oncall_matrix_row_editor.html', {
+            'row': payload,
+            'is_new': not payload['_original_ci'],
+            'error': str(e),
+        })
+
+    return render(request, 'servicenow/partials/oncall_matrix_table.html', {
+        'rows': matrix.load_matrix(),
+        'meta': matrix.matrix_meta(),
+        'columns': matrix.canonical_columns(),
+        'just_applied': True,
+        'applied_count': 1,
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_matrix_row_delete(request):
+    """POST — delete one row by CI."""
+    ci = (request.POST.get('ci') or '').strip()
+    if ci:
+        matrix.delete_row(ci)
+    return render(request, 'servicenow/partials/oncall_matrix_table.html', {
+        'rows': matrix.load_matrix(),
+        'meta': matrix.matrix_meta(),
+        'columns': matrix.canonical_columns(),
+    })
+
+
 def oncall_matrix_export_json(request):
     body = matrix.export_json()
     resp = HttpResponse(body, content_type='application/json')
