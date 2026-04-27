@@ -7,6 +7,7 @@ urlpatterns = [
 
     # ─── Oncall change-review workflow ──────────
     path("oncall/",                               oncall_pages.oncall_dashboard,        name="oncall-dashboard"),
+    path("oncall/approvals/",                     oncall_pages.oncall_approvals_page,   name="oncall-approvals"),
     path("oncall/pull/",                          oncall_pages.oncall_pull_changes,     name="oncall-pull"),
     path("oncall/pull/poll/<str:task_id>/",       oncall_pages.oncall_pull_poll,        name="oncall-pull-poll"),
     path("oncall/review/<str:change_number>/",    oncall_pages.oncall_review_detail,    name="oncall-review-detail"),

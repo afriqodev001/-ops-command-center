@@ -98,10 +98,48 @@ def _user_name(request) -> str:
 # ─── Full page handlers ───────────────────────────────────
 
 def oncall_dashboard(request):
+    """Outage Triage queue — pulls + reviews scoped to outage_triage / both."""
+    from django.db.models import Q
     return render(request, 'servicenow/oncall.html', {
         'presets': _oncall_presets(),
         'default_preset': 'oncall_changes_this_week',
-        'recent_reviews': OncallChangeReview.objects.order_by('-updated_at')[:25],
+        'default_purpose': 'outage_triage',
+        'recent_reviews': OncallChangeReview.objects
+            .filter(Q(pull_purpose='outage_triage') | Q(pull_purpose='both'))
+            .order_by('-updated_at')[:25],
+        'matrix_meta': matrix.matrix_meta(),
+    })
+
+
+def oncall_approvals_page(request):
+    """CR Approval queue — pulls + reviews scoped to cr_approval / both."""
+    from django.db.models import Q
+
+    qs = (
+        OncallChangeReview.objects
+        .filter(Q(pull_purpose='cr_approval') | Q(pull_purpose='both'))
+        .order_by('cr_approval_status', '-updated_at')[:50]
+    )
+    reviews = list(qs)
+
+    # Attach outstanding count to each review object (template-friendly)
+    for r in reviews:
+        r.outstanding = orsvc.approval_outstanding_count(r)
+
+    summary = {
+        'total': len(reviews),
+        'awaiting': sum(1 for r in reviews if r.cr_approval_status == 'awaiting_requestor'),
+        'ready':    sum(1 for r in reviews if r.cr_approval_status == 'ready_to_approve'),
+        'approved': sum(1 for r in reviews if r.cr_approval_status == 'approved'),
+        'in_review':sum(1 for r in reviews if r.cr_approval_status == 'in_review'),
+    }
+
+    return render(request, 'servicenow/oncall_approvals.html', {
+        'presets': _oncall_presets(),
+        'default_preset': 'oncall_changes_next_week',
+        'default_purpose': 'cr_approval',
+        'reviews': reviews,
+        'summary': summary,
         'matrix_meta': matrix.matrix_meta(),
     })
 
