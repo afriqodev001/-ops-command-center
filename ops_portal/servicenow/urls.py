@@ -20,6 +20,7 @@ urlpatterns = [
     path("oncall/poll-ai/<str:task_id>/",         oncall_pages.oncall_poll_ai,          name="oncall-poll-ai"),
     path("oncall/matrix/",                        oncall_pages.oncall_matrix_page,      name="oncall-matrix"),
     path("oncall/matrix/upload/",                 oncall_pages.oncall_matrix_upload,    name="oncall-matrix-upload"),
+    path("oncall/matrix/ai-format/",              oncall_pages.oncall_matrix_ai_format, name="oncall-matrix-ai-format"),
     path("oncall/matrix/apply/",                  oncall_pages.oncall_matrix_apply,     name="oncall-matrix-apply"),
     path("oncall/matrix/clear/",                  oncall_pages.oncall_matrix_clear,     name="oncall-matrix-clear"),
     path("oncall/matrix/export/json/",            oncall_pages.oncall_matrix_export_json,name="oncall-matrix-export-json"),

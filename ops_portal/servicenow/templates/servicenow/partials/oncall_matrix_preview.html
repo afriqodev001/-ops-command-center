@@ -4,8 +4,14 @@
 </div>
 {% else %}
 <div class="glass-card p-3 animate-fade-in">
-  <div class="flex items-center justify-between mb-2">
-    <p class="text-xs font-semibold text-ink-primary">Preview — {{ count }} row{{ count|pluralize }}</p>
+  <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+    <div class="flex items-center gap-2">
+      <p class="text-xs font-semibold text-ink-primary">Preview — {{ count }} row{{ count|pluralize }}</p>
+      {% if source == 'ai' %}
+      <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-subtle text-brand-light border border-brand/20 font-semibold uppercase tracking-wider">AI formatted</span>
+      <p class="text-[10px] text-ink-muted">Verify the AI's output before applying.</p>
+      {% endif %}
+    </div>
     <p class="text-[10px] text-ink-muted">Apply will <span class="text-warn font-semibold">replace</span> the current matrix wholesale.</p>
   </div>
 
@@ -42,9 +48,9 @@
               {% endfor %}
             {% else %}—{% endif %}
           </td>
-          <td class="td">{% if r.notify_partners %}<span class="text-ok font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
+          <td class="td text-ink-secondary text-[10px] leading-relaxed max-w-[220px]" title="{{ r.notify_partners }}">{{ r.notify_partners|default:"—"|truncatechars:120 }}</td>
           <td class="td text-[10px] text-ink-muted">{{ r.notification_emails|join:", "|default:"—"|truncatechars:60 }}</td>
-          <td class="td">{% if r.suppression %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
+          <td class="td text-ink-secondary text-[10px] leading-relaxed max-w-[220px]" title="{{ r.suppression }}">{{ r.suppression|default:"—"|truncatechars:120 }}</td>
           <td class="td text-[10px] text-ink-muted">{{ r.suppression_records|join:", "|default:"—"|truncatechars:60 }}</td>
           <td class="td">{% if r.banner %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
         </tr>

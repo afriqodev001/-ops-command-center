@@ -417,6 +417,80 @@ def oncall_matrix_upload(request):
         'rows_json': json.dumps(rows, default=str),
         'columns': matrix.canonical_columns(),
         'count': len(rows),
+        'source': 'parser',
+    })
+
+
+@csrf_exempt
+@require_POST
+def oncall_matrix_ai_format(request):
+    """
+    Take an uploaded CSV / text file with potentially-messy headers and use
+    the LLM to extract canonical rows. Useful when the source spreadsheet
+    doesn't quite match the expected schema and the engineer doesn't want
+    to clean it up by hand.
+    """
+    pre = ai_preflight()
+    if not pre.get('ok'):
+        return render(request, 'servicenow/partials/oncall_matrix_preview.html', {
+            'error': pre.get('error') + ' (AI format requires Tachyon)',
+        })
+
+    upload = request.FILES.get('file')
+    if not upload:
+        return render(request, 'servicenow/partials/oncall_matrix_preview.html', {
+            'error': 'No file selected.',
+        })
+
+    raw = upload.read()
+    if isinstance(raw, bytes):
+        raw = raw.decode('utf-8-sig', errors='replace')
+
+    # Cap raw input to keep prompt size reasonable for inline LLM call
+    snippet = raw[:30000]
+    if len(raw) > 30000:
+        snippet += "\n\n[... truncated ...]"
+
+    from .services.ai_assist import _call_llm, _extract_json_dict
+    from .services.prompt_store import get_prompt
+
+    system = get_prompt('oncall_matrix_format')
+    user_prompt = (
+        "Here is the source data — extract canonical rows and return "
+        "{\"rows\": [...]}.\n\n"
+        f"FILENAME: {upload.name}\n\n"
+        f"CONTENT:\n{snippet}"
+    )
+
+    try:
+        raw_response = _call_llm(system, user_prompt) or ''
+    except Exception as e:
+        return render(request, 'servicenow/partials/oncall_matrix_preview.html', {
+            'error': f'AI call failed: {e}',
+        })
+
+    parsed = _extract_json_dict(raw_response) or {}
+    if parsed.get('_ai_error'):
+        return render(request, 'servicenow/partials/oncall_matrix_preview.html', {
+            'error': f"AI: {parsed['_ai_error']}",
+        })
+
+    rows = parsed.get('rows') or parsed.get('matrix') or []
+    if not isinstance(rows, list) or not rows:
+        return render(request, 'servicenow/partials/oncall_matrix_preview.html', {
+            'error': 'AI did not return any usable rows. Try the plain Preview button instead.',
+            'ai_raw': (raw_response or '')[:1000],
+        })
+
+    # Run the AI output through our own normaliser so it lands in canonical shape
+    normalised = [matrix._normalise_row(r, source='ai') for r in rows if isinstance(r, dict)]
+
+    return render(request, 'servicenow/partials/oncall_matrix_preview.html', {
+        'preview_rows': normalised,
+        'rows_json': json.dumps(normalised, default=str),
+        'columns': matrix.canonical_columns(),
+        'count': len(normalised),
+        'source': 'ai',
     })
 
 

@@ -55,16 +55,16 @@
           </dd>
         </div>
         <div>
-          <dt class="text-ink-muted">Notify partners</dt>
-          <dd>{% if matched.notify_partners %}<span class="text-ok font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</dd>
+          <dt class="text-ink-muted">Notify partners (guidance)</dt>
+          <dd class="text-ink-secondary leading-relaxed">{{ matched.notify_partners|default:"—"|linebreaksbr }}</dd>
         </div>
         <div>
           <dt class="text-ink-muted">Notification emails (base)</dt>
           <dd class="text-ink-secondary font-mono text-[10px]">{{ matched.notification_emails|join:"; "|default:"—" }}</dd>
         </div>
         <div>
-          <dt class="text-ink-muted">Suppression</dt>
-          <dd>{% if matched.suppression %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</dd>
+          <dt class="text-ink-muted">Suppression (guidance)</dt>
+          <dd class="text-ink-secondary leading-relaxed">{{ matched.suppression|default:"—"|linebreaksbr }}</dd>
         </div>
         <div>
           <dt class="text-ink-muted">Suppression records</dt>

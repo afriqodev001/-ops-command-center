@@ -27,13 +27,18 @@ _STORE_FILE = Path(__file__).parent.parent / 'oncall_suppression_matrix.json'
 
 # Canonical key set on a row.  CSV headers are mapped to these via HEADER_ALIASES
 # (case-insensitive, with space→underscore as the first-pass normalisation).
+#
+# Important: notify_partners and suppression are *free text*, not booleans —
+# they contain the reasoning + conditional rules ("PMT is Active/Active and
+# we should not send communication, Yes for BCP event"). The oncall engineer
+# (and the AI) reads them and judges. Don't coerce to bool.
 CANONICAL_COLUMNS = (
     'application',
     'ci',
     'outage_impact',           # list of {"app": str, "description": str, "additional_emails": [str]}
-    'notify_partners',         # bool
+    'notify_partners',         # free text (guidance, may include conditions)
     'notification_emails',     # list of str
-    'suppression',             # bool
+    'suppression',             # free text (guidance)
     'suppression_records',     # list of str
     'banner',                  # bool
     # JSON-only optional sibling — pre-fills the banner message field on Post Banner
@@ -82,7 +87,8 @@ HEADER_ALIASES: Dict[str, str] = {
 }
 
 ARRAY_FIELDS = ('notification_emails', 'suppression_records')
-BOOL_FIELDS = ('notify_partners', 'suppression', 'banner')
+BOOL_FIELDS = ('banner',)
+TEXT_GUIDANCE_FIELDS = ('notify_partners', 'suppression')
 
 # ─── IO ────────────────────────────────────────────────────
 
@@ -285,9 +291,10 @@ def _normalise_row(row: Dict[str, Any], *, source: str = 'json') -> Dict[str, An
     out['application'] = str(row.get('application') or '').strip()
     out['ci'] = str(row.get('ci') or '').strip()
     out['outage_impact'] = _normalise_outage_impact(row.get('outage_impact'))
-    out['notify_partners'] = _to_bool(row.get('notify_partners'))
+    # free-text guidance fields — preserve whatever the engineer wrote
+    out['notify_partners'] = str(row.get('notify_partners') or '').strip()
     out['notification_emails'] = _to_array(row.get('notification_emails'))
-    out['suppression'] = _to_bool(row.get('suppression'))
+    out['suppression'] = str(row.get('suppression') or '').strip()
     out['suppression_records'] = _to_array(row.get('suppression_records'))
     out['banner'] = _to_bool(row.get('banner'))
     out['banner_message'] = str(row.get('banner_message') or '').strip()
@@ -423,6 +430,7 @@ def export_csv() -> str:
             elif key in BOOL_FIELDS:
                 out[header] = 'Yes' if bool(v) else 'No'
             else:
+                # text fields (application, ci, notify_partners, suppression) — preserve verbatim
                 out[header] = '' if v is None else str(v)
         writer.writerow(out)
     return output.getvalue()

@@ -55,9 +55,9 @@
               {% endfor %}
             {% else %}—{% endif %}
           </td>
-          <td class="td">{% if r.notify_partners %}<span class="text-ok font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
+          <td class="td text-ink-secondary text-[10px] leading-relaxed max-w-[220px]" title="{{ r.notify_partners }}">{{ r.notify_partners|default:"—"|truncatechars:120 }}</td>
           <td class="td text-[10px] text-ink-muted">{{ r.notification_emails|join:", "|default:"—"|truncatechars:60 }}</td>
-          <td class="td">{% if r.suppression %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
+          <td class="td text-ink-secondary text-[10px] leading-relaxed max-w-[220px]" title="{{ r.suppression }}">{{ r.suppression|default:"—"|truncatechars:120 }}</td>
           <td class="td text-[10px] text-ink-muted">{{ r.suppression_records|join:", "|default:"—"|truncatechars:60 }}</td>
           <td class="td">{% if r.banner %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
         </tr>

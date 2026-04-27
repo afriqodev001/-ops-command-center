@@ -69,6 +69,11 @@ class OncallChangeReview(models.Model):
     matched_suppr_ids = models.TextField(blank=True)
     matched_banner = models.BooleanField(default=False)
     matched_banner_msg = models.TextField(blank=True)
+    # Free-text guidance fields snapshotted from the matrix — these explain
+    # the *conditions* under which to notify / suppress (e.g. "Active/Active,
+    # Yes for BCP event"), not a yes/no decision.
+    matched_notify_partners = models.TextField(blank=True)
+    matched_suppression = models.TextField(blank=True)
 
     # Engineer actions
     stage = models.CharField(

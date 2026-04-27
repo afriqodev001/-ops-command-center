@@ -39,8 +39,11 @@
 
   <!-- Upload form -->
   <div class="glass-card p-4">
-    <h4 class="text-xs font-semibold text-ink-primary uppercase tracking-wider mb-3">Upload</h4>
-    <form hx-post="/servicenow/oncall/matrix/upload/"
+    <div class="flex items-center justify-between mb-3">
+      <h4 class="text-xs font-semibold text-ink-primary uppercase tracking-wider">Upload</h4>
+      <p class="text-[10px] text-ink-muted">This rarely changes — once uploaded, the matrix is the source of truth for all reviews until you replace it.</p>
+    </div>
+    <form id="matrix-upload-form"
           hx-target="#matrix-preview-area"
           hx-swap="innerHTML"
           hx-encoding="multipart/form-data"
@@ -51,7 +54,24 @@
         <input type="file" name="file" accept=".csv,.json,.tsv,application/json,text/csv"
                class="input-dark text-xs" required>
       </div>
-      <button type="submit" class="btn-primary text-xs px-4 py-2">Preview</button>
+      <button type="submit"
+              hx-post="/servicenow/oncall/matrix/upload/"
+              class="btn-primary text-xs px-4 py-2"
+              title="Parse the file using the strict canonical schema">
+        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Preview
+      </button>
+      <button type="submit"
+              hx-post="/servicenow/oncall/matrix/ai-format/"
+              class="btn-ghost text-xs px-4 py-2 border border-brand/30 text-brand-light hover:bg-brand-subtle/30"
+              title="Let the AI clean up messy column names / mixed delimiters / formatting before previewing">
+        <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        AI Format
+      </button>
     </form>
 
     <details class="mt-3">
@@ -63,8 +83,9 @@
           <pre class="font-mono text-[10px] bg-surface-2 border border-edge rounded p-2 leading-relaxed">{{ columns|join:", " }}</pre>
           <ul class="list-disc pl-5 mt-1 space-y-0.5">
             <li><code class="font-mono">Notification Emails</code> and <code class="font-mono">Suppression Records</code> — semicolon-separated lists.</li>
-            <li><code class="font-mono">Notification to Partners for Outage</code>, <code class="font-mono">Suppression</code>, <code class="font-mono">Banner</code> — Yes/No.</li>
-            <li><code class="font-mono">Outage Impact</code> — single text cell. CSV cannot encode per-app additional emails — use JSON for that.</li>
+            <li><code class="font-mono">Banner</code> — Yes/No.</li>
+            <li><code class="font-mono">Notification to Partners for Outage</code> and <code class="font-mono">Suppression</code> — <strong>free text</strong> guidance, often with conditions. Examples: <em>"PMT is Active/Active, do not send communication. Yes for BCP event."</em> The AI review reads the full text and judges based on the change context.</li>
+            <li><code class="font-mono">Outage Impact</code> — single text cell. Can be a generic statement (e.g. "Logins blocked during deploy window") OR a per-app split. CSV cannot encode per-app additional emails — use JSON for that.</li>
           </ul>
         </div>
 
@@ -86,12 +107,24 @@
           "description": "App start fails for unauthenticated users"
         }
       ],
-      "notify_partners": true,
+      "notify_partners": "Yes — notify within 24h of deploy window",
       "notification_emails": ["app-owners@x.com"],
-      "suppression": true,
+      "suppression": "Suppress all Auth alerts during the window",
       "suppression_records": ["ALRT-1234", "ALRT-5678"],
       "banner": true,
       "banner_message": "Auth deploy in progress — login may be intermittent"
+    },
+    {
+      "application": "PMT",
+      "ci": "PMT-CORE",
+      "outage_impact": [
+        {"description": "Payment processing degraded during deploy."}
+      ],
+      "notify_partners": "PMT is Active/Active and we should not send communication. Yes for BCP event.",
+      "notification_emails": ["pmt-oncall@x.com"],
+      "suppression": "No — Active/Active masks alerts. Yes if BCP event.",
+      "suppression_records": [],
+      "banner": false
     }
   ]
 }</pre>

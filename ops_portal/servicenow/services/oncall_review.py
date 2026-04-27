@@ -152,6 +152,8 @@ def apply_matrix_match(
         review.matched_suppr_ids = '; '.join(match.get('suppression_records') or [])
         review.matched_banner = bool(match.get('banner'))
         review.matched_banner_msg = match.get('banner_message') or ''
+        review.matched_notify_partners = match.get('notify_partners') or ''
+        review.matched_suppression = match.get('suppression') or ''
     else:
         review.matched_app = ''
         review.matched_impact = ''
@@ -159,11 +161,14 @@ def apply_matrix_match(
         review.matched_suppr_ids = ''
         review.matched_banner = False
         review.matched_banner_msg = ''
+        review.matched_notify_partners = ''
+        review.matched_suppression = ''
 
     if save:
         review.save(update_fields=[
             'matched_app', 'matched_impact', 'matched_emails',
             'matched_suppr_ids', 'matched_banner', 'matched_banner_msg',
+            'matched_notify_partners', 'matched_suppression',
             'updated_at',
         ])
     return match
