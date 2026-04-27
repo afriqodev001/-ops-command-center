@@ -1,0 +1,141 @@
+{% comment %}
+CR Review CTASK editor — fills the description / assigned_to / closure
+fields directly in ServiceNow. Two submit paths:
+  - "Save in ServiceNow"           → close=false (description/assigned only)
+  - "Save + close CTASK"           → close=true  (also sets state + close_code/notes)
+
+Engineer can also leave fields here and close manually in ServiceNow.
+{% endcomment %}
+{% load tz %}
+<form hx-post="/servicenow/oncall/review/{{ review.change_number }}/cr-ctask/save/"
+      hx-target="#oncall-cr-ctask-result"
+      hx-swap="innerHTML"
+      x-data="{
+        ctask: '{{ review.cr_review_ctask_number|escapejs }}',
+        today: new Date().toISOString().slice(0,10),
+        d_impl: '{% now 'Y-m-d' %}',
+        d_val:  '{% now 'Y-m-d' %}',
+        d_test: '{% now 'Y-m-d' %}',
+        d_rec:  '{% now 'Y-m-d' %}',
+        useToday() {
+          this.d_impl = this.today;
+          this.d_val  = this.today;
+          this.d_test = this.today;
+          this.d_rec  = this.today;
+        }
+      }"
+      class="space-y-3">
+  {% csrf_token %}
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div>
+      <label class="label">CR Review CTASK # <span class="text-danger">*</span></label>
+      <input type="text" name="ctask_number" x-model="ctask"
+             placeholder="e.g. CTASK0012345" required
+             class="input-dark text-xs font-mono">
+    </div>
+    <div>
+      <label class="label">
+        Assigned to <span class="text-ink-muted">(sys_id or user_name)</span>
+      </label>
+      <div class="flex items-center gap-1">
+        <input type="text" name="assigned_to"
+               placeholder="user_name or 32-char sys_id"
+               class="input-dark text-xs font-mono flex-1">
+        <button type="button"
+                onclick="document.querySelector('input[name=assigned_to]').value = '{{ os_user.name|escapejs }}'"
+                class="btn-ghost text-[10px] py-1 px-2 border border-edge whitespace-nowrap"
+                title="Use my OS username">Use me</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plan dates → auto-build description -->
+  <fieldset class="rounded-lg border border-edge bg-surface-3 p-3">
+    <legend class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider px-1">
+      Plan review dates
+    </legend>
+    <div class="flex items-center justify-end mb-2">
+      <button type="button" @click="useToday()"
+              class="text-[10px] text-brand-light hover:text-brand">Set all to today</button>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <div>
+        <label class="label">Implementation</label>
+        <input type="date" name="plan_implementation" x-model="d_impl"
+               class="input-dark text-xs" style="color-scheme: dark;">
+      </div>
+      <div>
+        <label class="label">Validation</label>
+        <input type="date" name="plan_validation" x-model="d_val"
+               class="input-dark text-xs" style="color-scheme: dark;">
+      </div>
+      <div>
+        <label class="label">Testing</label>
+        <input type="date" name="plan_testing" x-model="d_test"
+               class="input-dark text-xs" style="color-scheme: dark;">
+      </div>
+      <div>
+        <label class="label">Recovery</label>
+        <input type="date" name="plan_recovery" x-model="d_rec"
+               class="input-dark text-xs" style="color-scheme: dark;">
+      </div>
+    </div>
+    <details class="mt-2">
+      <summary class="text-[10px] text-brand-light hover:text-brand cursor-pointer">Advanced — write description manually instead</summary>
+      <div class="mt-2">
+        <label class="label">Description (overrides plan-date fields)</label>
+        <textarea name="description" rows="6"
+                  placeholder="CR Review and Approval&#10;Implementation Plan - 2026-04-29&#10;Validation Plan - 2026-04-29&#10;Testing Plan - 2026-04-29&#10;Recovery Plan - 2026-04-29"
+                  class="input-dark text-[11px] font-mono"></textarea>
+        <p class="text-[10px] text-ink-muted mt-1">Leave blank to use the plan-date template above.</p>
+      </div>
+    </details>
+  </fieldset>
+
+  <!-- Closure block -->
+  <fieldset class="rounded-lg border border-edge bg-surface-3 p-3 space-y-2">
+    <legend class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider px-1">
+      Closure (used only if you click "Save + close")
+    </legend>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div>
+        <label class="label">Close code</label>
+        <select name="close_code" class="input-dark text-xs">
+          <option value="Successful">Successful</option>
+          <option value="Successful with issues">Successful with issues</option>
+          <option value="Unsuccessful">Unsuccessful</option>
+        </select>
+      </div>
+      <div class="md:col-span-2">
+        <label class="label">Close notes</label>
+        <input type="text" name="close_notes"
+               value="CR Review was completed successfully"
+               class="input-dark text-xs">
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- Optional work note -->
+  <div>
+    <label class="label">Work note <span class="text-ink-muted">(optional, posted to the CTASK)</span></label>
+    <input type="text" name="work_notes"
+           placeholder="e.g. plans verified against attachment v3"
+           class="input-dark text-xs">
+  </div>
+
+  <div class="flex items-center justify-end gap-2 pt-2 border-t border-edge">
+    <button type="submit" class="btn-ghost text-xs py-1.5 px-3 border border-edge hover:border-brand/40">
+      Save in ServiceNow
+    </button>
+    <button type="submit" name="close" value="true"
+            class="btn-primary text-xs py-1.5 px-3 bg-ok hover:bg-ok/90 border-ok">
+      <svg class="w-3.5 h-3.5 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+      Save + close CTASK
+    </button>
+  </div>
+
+  <div id="oncall-cr-ctask-result"></div>
+</form>

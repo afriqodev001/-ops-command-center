@@ -934,6 +934,95 @@ def oncall_delete_approval_feedback(request, change_number: str):
     })
 
 
+def _build_cr_ctask_description(plan_dates: dict) -> str:
+    """Format the standard CR Review CTASK description body.
+
+    plan_dates: dict like {'implementation': '2026-04-29', 'validation': '...', ...}
+    Missing keys render as the literal placeholder so engineers can fill in by hand.
+    """
+    def _d(key):
+        v = (plan_dates or {}).get(key) or ''
+        v = v.strip()
+        return v or '<date>'
+    return (
+        "CR Review and Approval\n"
+        f"Implementation Plan - {_d('implementation')}\n"
+        f"Validation Plan - {_d('validation')}\n"
+        f"Testing Plan - {_d('testing')}\n"
+        f"Recovery Plan - {_d('recovery')}"
+    )
+
+
+@csrf_exempt
+@require_POST
+def oncall_save_cr_ctask(request, change_number: str):
+    """Save (and optionally close) the CR Review CTASK on the linked record."""
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+
+    ctask_number = (request.POST.get('ctask_number') or review.cr_review_ctask_number or '').strip()
+    if not ctask_number:
+        return render(request, 'servicenow/partials/oncall_cr_ctask_result.html', {
+            'severity': 'danger',
+            'message': 'CR Review CTASK number is required. Set it on the review first.',
+        })
+
+    # Allow either a single description textarea OR per-plan date fields
+    description = (request.POST.get('description') or '').strip()
+    if not description:
+        description = _build_cr_ctask_description({
+            'implementation': request.POST.get('plan_implementation', ''),
+            'validation':     request.POST.get('plan_validation', ''),
+            'testing':        request.POST.get('plan_testing', ''),
+            'recovery':       request.POST.get('plan_recovery', ''),
+        })
+
+    assigned_to = (request.POST.get('assigned_to') or '').strip()
+    work_notes = (request.POST.get('work_notes') or '').strip()
+    do_close = bool(request.POST.get('close'))
+    close_code = (request.POST.get('close_code') or 'Successful').strip()
+    close_notes = (request.POST.get('close_notes') or 'CR Review was completed successfully').strip()
+
+    # Persist the CTASK number on the review row if it was just typed
+    if review.cr_review_ctask_number != ctask_number:
+        review.cr_review_ctask_number = ctask_number
+        review.save(update_fields=['cr_review_ctask_number', 'updated_at'])
+
+    from .tasks import oncall_update_cr_review_ctask_task
+    result = oncall_update_cr_review_ctask_task.apply(args=({
+        'ctask_number': ctask_number,
+        'description': description,
+        'assigned_to': assigned_to,
+        'work_notes': work_notes,
+        'close': do_close,
+        'close_code': close_code,
+        'close_notes': close_notes,
+    },)).result or {}
+
+    if not isinstance(result, dict) or result.get('error'):
+        detail = (result or {}).get('detail') or (result or {}).get('error') or 'Unknown ServiceNow error'
+        return render(request, 'servicenow/partials/oncall_cr_ctask_result.html', {
+            'severity': 'danger',
+            'message': f'ServiceNow update failed: {detail}',
+        })
+
+    # If closed, also stamp the review row
+    if do_close and not review.cr_review_ctask_closed_at:
+        review.cr_review_ctask_closed_at = dj_tz.now()
+        review.save(update_fields=['cr_review_ctask_closed_at', 'updated_at'])
+
+    msg = (
+        f'CTASK {ctask_number} saved + closed in ServiceNow.'
+        if do_close else
+        f'CTASK {ctask_number} saved in ServiceNow. Close it manually in ServiceNow when ready.'
+    )
+    return render(request, 'servicenow/partials/oncall_cr_ctask_result.html', {
+        'severity': 'ok',
+        'message': msg,
+        'ctask_number': ctask_number,
+        'closed': do_close,
+    })
+
+
 @csrf_exempt
 @require_POST
 def oncall_run_cr_briefing(request, change_number: str):

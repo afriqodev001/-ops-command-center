@@ -290,3 +290,55 @@ def list_tasks_for_change(
         limit=limit,
         display_value=True,
     )
+
+
+def patch_change_task(driver, *, sys_id: str, fields_to_patch: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    PATCH a change_task record by sys_id.
+
+    For closing the CR Review CTASK, set:
+      state='3' (Closed Complete) — or '4' for Closed Incomplete
+      close_code='Successful'
+      close_notes='...'
+
+    Other writable fields commonly set in oncall: description,
+    assigned_to, work_notes.
+    """
+    table = getattr(settings, "SERVICENOW_CTASK_TABLE", "change_task")
+    url = build_table_record_url(table, sys_id)
+
+    res = fetch_json_in_browser(driver, method="PATCH", url=url, body_obj=fields_to_patch)
+    if not res.get("ok"):
+        return {"error": "servicenow_patch_failed", "status": res.get("status"), "detail": res.get("data") or res.get("raw")}
+
+    return {"result": _unwrap_result(res), "raw": res}
+
+
+def find_user_sys_id(driver, *, user_name: str) -> Optional[str]:
+    """
+    Look up sys_user.sys_id by user_name (login). Returns None if not found.
+    Used to translate the engineer-friendly user_name into the sys_id reference
+    that ServiceNow's `assigned_to` column actually stores.
+    """
+    if not user_name:
+        return None
+
+    url = build_table_list_url(
+        table="sys_user",
+        query=f"user_name={user_name}",
+        fields="sys_id,user_name",
+        limit=1,
+        display_value=False,
+    )
+
+    res = fetch_json_in_browser(driver, method="GET", url=url)
+    if not res.get("ok"):
+        return None
+
+    items = (res.get("data") or {}).get("result") or []
+    if items and isinstance(items[0], dict):
+        sid = items[0].get("sys_id")
+        if isinstance(sid, dict):
+            sid = sid.get("value")
+        return sid or None
+    return None

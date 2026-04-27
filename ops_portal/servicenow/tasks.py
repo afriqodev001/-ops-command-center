@@ -22,6 +22,8 @@ from servicenow.services.servicenow_table import (
     bulk_get_records_by_field,
     resolve_sys_id_by_field,
     list_tasks_for_change,
+    patch_change_task,
+    find_user_sys_id,
 )
 
 # Preset / template support for Ops Command Center UI
@@ -1429,3 +1431,89 @@ def oncall_management_report_task(self, body: dict):
             for r in rows
         ],
     }
+
+
+# ============================================================
+# Oncall — CR Review CTASK: save + (optionally) close in ServiceNow
+# ============================================================
+
+@shared_task(bind=True)
+def oncall_update_cr_review_ctask_task(self, body: dict):
+    """
+    Update (and optionally close) the CR Review CTASK referenced by an
+    OncallChangeReview row.
+
+    Body:
+      {
+        "ctask_number":   "CTASK0012345",        # required
+        "description":    "<plan-dates block>",  # optional
+        "assigned_to":    "<sys_id or user_name>", # optional; auto-resolved
+        "work_notes":     "<engineer note>",     # optional
+        "close":          true|false,            # if true: state=3 + close_code/notes
+        "close_code":     "Successful",          # default if close
+        "close_notes":    "CR Review was completed successfully",
+        "user_key":       "localuser",
+      }
+
+    Returns: {"ok": true, "result": <patched record>}  on success
+             {"error": "...", "detail": "..."}        on failure
+    """
+    body = body or {}
+    ctask_number = (body.get("ctask_number") or "").strip()
+    if not ctask_number:
+        return {"error": "missing_parameter", "detail": "ctask_number is required"}
+
+    do_close = bool(body.get("close"))
+
+    # Build the patch body
+    patch: dict = {}
+    if body.get("description") is not None:
+        patch["description"] = str(body.get("description") or "")
+    if body.get("work_notes"):
+        patch["work_notes"] = str(body.get("work_notes"))
+
+    if do_close:
+        patch["state"] = "3"  # Closed Complete
+        patch["close_code"] = body.get("close_code") or "Successful"
+        patch["close_notes"] = body.get("close_notes") or "CR Review was completed successfully"
+
+    def op(driver):
+        # Resolve CTASK sys_id
+        resolved = resolve_sys_id_by_field(
+            driver,
+            table="change_task",
+            field="number",
+            value=ctask_number,
+        )
+        if resolved.get("error"):
+            return resolved
+        ctask_sys_id = resolved["result"]
+
+        # Resolve assigned_to: looks like sys_id (32 hex) → use as-is;
+        # otherwise treat as user_name and look it up.
+        raw_assigned = (body.get("assigned_to") or "").strip()
+        if raw_assigned:
+            looks_like_sysid = (
+                len(raw_assigned) == 32
+                and all(c in "0123456789abcdefABCDEF" for c in raw_assigned)
+            )
+            if looks_like_sysid:
+                patch["assigned_to"] = raw_assigned
+            else:
+                resolved_user = find_user_sys_id(driver, user_name=raw_assigned)
+                if not resolved_user:
+                    return {
+                        "error": "user_not_found",
+                        "detail": f"Could not resolve user_name '{raw_assigned}' to a sys_user record. Try the sys_id instead.",
+                    }
+                patch["assigned_to"] = resolved_user
+
+        if not patch:
+            return {"error": "nothing_to_patch", "detail": "No fields supplied to update."}
+
+        return patch_change_task(driver, sys_id=ctask_sys_id, fields_to_patch=patch)
+
+    out = with_servicenow_auth_retry(body=body, operation=op, retry_once=True)
+    if isinstance(out, dict) and out.get("error"):
+        return out
+    return {"ok": True, "ctask_number": ctask_number, "closed": do_close, "result": out.get("result") or out}

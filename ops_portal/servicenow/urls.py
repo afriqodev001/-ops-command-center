@@ -39,6 +39,8 @@ urlpatterns = [
          oncall_pages.oncall_run_cr_briefing,                                            name="oncall-run-cr-briefing"),
     path("oncall/review/<str:change_number>/cr-briefing/poll/<str:task_id>/",
          oncall_pages.oncall_poll_cr_briefing,                                           name="oncall-poll-cr-briefing"),
+    path("oncall/review/<str:change_number>/cr-ctask/save/",
+         oncall_pages.oncall_save_cr_ctask,                                              name="oncall-save-cr-ctask"),
     path("oncall/report/",                        oncall_pages.oncall_report_page,      name="oncall-report"),
     path("oncall/report/run/",                    oncall_pages.oncall_report_run,       name="oncall-report-run"),
     path("oncall/report/poll/<str:task_id>/",     oncall_pages.oncall_report_poll,      name="oncall-report-poll"),
