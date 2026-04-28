@@ -165,7 +165,7 @@
                       || '{{ r.assignment_group|lower|escapejs }}'.includes(filter.toLowerCase()))
                       && (!statusFilter || statusFilter === '{{ r.cr_approval_status }}')">
             <td class="td font-mono text-ink-primary">
-              <a href="/servicenow/oncall/review/{{ r.change_number }}/" class="hover:text-brand-light">{{ r.change_number }}</a>
+              <a href="/servicenow/oncall/cr/{{ r.change_number }}/" class="hover:text-brand-light">{{ r.change_number }}</a>
             </td>
             <td class="td">
               {% with s=r.cr_approval_status %}

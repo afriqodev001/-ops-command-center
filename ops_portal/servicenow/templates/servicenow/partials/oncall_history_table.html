@@ -19,7 +19,7 @@
         {% for r in reviews %}
         <tr class="table-row">
           <td class="td font-mono text-ink-primary">
-            <a href="/servicenow/oncall/review/{{ r.change_number }}/" class="hover:text-brand-light">{{ r.change_number }}</a>
+            <a href="{% if r.pull_purpose == 'cr_approval' %}/servicenow/oncall/cr/{{ r.change_number }}/{% else %}/servicenow/oncall/outage/{{ r.change_number }}/{% endif %}" class="hover:text-brand-light">{{ r.change_number }}</a>
           </td>
           <td class="td">{% include "servicenow/partials/oncall_purpose_pill.html" with purpose=r.pull_purpose %}</td>
           <td class="td text-ink-secondary truncate max-w-[280px]" title="{{ r.short_description }}">{{ r.short_description|default:"—" }}</td>

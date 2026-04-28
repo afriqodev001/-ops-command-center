@@ -11,6 +11,8 @@ urlpatterns = [
     path("oncall/pull/",                          oncall_pages.oncall_pull_changes,     name="oncall-pull"),
     path("oncall/pull/poll/<str:task_id>/",       oncall_pages.oncall_pull_poll,        name="oncall-pull-poll"),
     path("oncall/review/<str:change_number>/",    oncall_pages.oncall_review_detail,    name="oncall-review-detail"),
+    path("oncall/cr/<str:change_number>/",        oncall_pages.oncall_cr_detail,        name="oncall-cr-detail"),
+    path("oncall/outage/<str:change_number>/",    oncall_pages.oncall_outage_detail,    name="oncall-outage-detail"),
     path("oncall/review/<str:change_number>/run-ai/",
          oncall_pages.oncall_run_ai_for_change,                                          name="oncall-run-ai"),
     path("oncall/review/<str:change_number>/draft-email/",

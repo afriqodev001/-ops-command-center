@@ -1,0 +1,26 @@
+{% comment %}
+Compact change-context card — shows the key facts about the change so the
+engineer doesn't have to bounce to /servicenow/changes/<chg>/. Reused on
+both oncall_cr_detail.html and oncall_outage_detail.html.
+{% endcomment %}
+<div class="glass-card p-4">
+  <div class="flex items-center gap-2 mb-3 flex-wrap">
+    <span class="text-xs font-mono font-semibold text-ink-primary">{{ review.change_number }}</span>
+    {% include "servicenow/partials/oncall_purpose_pill.html" with purpose=review.pull_purpose %}
+    {% include "servicenow/partials/oncall_stage_badge.html" with stage=review.stage %}
+  </div>
+  <p class="text-xs text-ink-secondary leading-relaxed">{{ review.short_description }}</p>
+
+  <dl class="mt-4 grid grid-cols-2 gap-2 text-[11px]">
+    <div><dt class="text-ink-muted">Risk</dt><dd class="text-ink-primary">{{ review.risk|default:"—" }}</dd></div>
+    <div><dt class="text-ink-muted">Group</dt><dd class="text-ink-primary truncate" title="{{ review.assignment_group }}">{{ review.assignment_group|default:"—" }}</dd></div>
+    <div class="col-span-2"><dt class="text-ink-muted">CI</dt><dd class="font-mono text-ink-primary">{{ review.cmdb_ci|default:"—" }}</dd></div>
+    <div><dt class="text-ink-muted">Start</dt><dd class="font-mono text-ink-primary">{{ review.scheduled_start|date:"Y-m-d H:i"|default:"—" }}</dd></div>
+    <div><dt class="text-ink-muted">End</dt><dd class="font-mono text-ink-primary">{{ review.scheduled_end|date:"Y-m-d H:i"|default:"—" }}</dd></div>
+  </dl>
+
+  <div class="mt-3 flex items-center gap-2 flex-wrap">
+    <a href="/servicenow/changes/{{ review.change_number }}/" class="btn-ghost text-[10px] py-1 px-2">Open in changes →</a>
+    <a href="/servicenow/changes/{{ review.change_number }}/briefing/" class="btn-ghost text-[10px] py-1 px-2">RCR briefing →</a>
+  </div>
+</div>

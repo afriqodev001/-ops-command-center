@@ -86,7 +86,7 @@
             <td class="td"><input type="checkbox" :checked="selected['{{ r.change_number }}']"
                                   @click="selected['{{ r.change_number }}'] = $event.target.checked"></td>
             <td class="td font-mono text-ink-primary">
-              <a href="/servicenow/oncall/review/{{ r.change_number }}/" class="hover:text-brand-light">{{ r.change_number }}</a>
+              <a href="{% if r.pull_purpose == 'cr_approval' %}/servicenow/oncall/cr/{{ r.change_number }}/{% else %}/servicenow/oncall/outage/{{ r.change_number }}/{% endif %}" class="hover:text-brand-light">{{ r.change_number }}</a>
             </td>
             <td class="td">{% include "servicenow/partials/oncall_purpose_pill.html" with purpose=r.pull_purpose %}</td>
             <td class="td text-ink-secondary truncate max-w-[260px]" title="{{ r.short_description }}">{{ r.short_description|default:"—" }}</td>
@@ -96,7 +96,7 @@
             <td class="td">{% include "servicenow/partials/oncall_stage_badge.html" with stage=r.stage %}</td>
             <td class="td">{% include "servicenow/partials/oncall_verdict_pill.html" with verdict=r.ai_outage_likely %}</td>
             <td class="td text-right whitespace-nowrap">
-              <a href="/servicenow/oncall/review/{{ r.change_number }}/" class="text-[10px] text-brand-light hover:text-brand mr-2">Open →</a>
+              <a href="{% if r.pull_purpose == 'cr_approval' %}/servicenow/oncall/cr/{{ r.change_number }}/{% else %}/servicenow/oncall/outage/{{ r.change_number }}/{% endif %}" class="text-[10px] text-brand-light hover:text-brand mr-2">Open →</a>
               <form hx-post="/servicenow/oncall/review/{{ r.change_number }}/run-ai/"
                     hx-target="#oncall-ai-batch-area"
                     hx-swap="innerHTML"

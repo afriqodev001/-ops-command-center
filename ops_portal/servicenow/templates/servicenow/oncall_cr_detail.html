@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block page_title %}CR Approval · {{ review.change_number }}{% endblock %}
+{% block page_subtitle %}Sign-off review — feedback to requestor · CR Review CTASK · approve{% endblock %}
+
+{% block content %}
+{% include "servicenow/partials/oncall_subnav.html" %}
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+  <!-- LEFT: change context (no matrix — not relevant to CR approval) -->
+  <div class="lg:col-span-3 space-y-4 lg:sticky lg:top-4 lg:self-start">
+    {% include "servicenow/partials/oncall_change_context.html" with review=review %}
+
+    <!-- Workflow hint card -->
+    <div class="glass-card p-3 border-l-4 border-l-brand">
+      <div class="flex items-start gap-2">
+        <svg class="w-4 h-4 text-brand-light flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+          <p class="text-[11px] font-semibold text-ink-primary mb-1">CR approval workflow</p>
+          <p class="text-[10px] text-ink-muted leading-relaxed">
+            Review the change, give feedback to the requestor, fill the CR Review CTASK, and sign off.
+            Outage impact (suppressions, banners, partner emails) is handled separately on the Outage Triage page.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {% if show_outage_link %}
+    <a href="/servicenow/oncall/outage/{{ review.change_number }}/"
+       class="block glass-card p-3 hover:border-warn/40 transition-colors">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-warn flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+        </svg>
+        <div class="flex-1 min-w-0">
+          <p class="text-[11px] font-semibold text-ink-primary">Also pulled for outage triage</p>
+          <p class="text-[10px] text-ink-muted">Switch to the outage view →</p>
+        </div>
+      </div>
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- RIGHT: CR approval workflow only -->
+  <div class="lg:col-span-9 space-y-6">
+
+    <!-- ╔═══ STEP 1: UNDERSTAND THE CHANGE ════════════════════════════╗ -->
+    <section class="space-y-4">
+      <div class="flex items-center gap-2 px-1">
+        <span class="w-1 h-4 rounded-sm bg-info"></span>
+        <h3 class="text-xs font-bold text-ink-primary uppercase tracking-[0.15em]">Step 1 · Understand the change</h3>
+        <span class="text-[10px] text-ink-muted">summary · review checklist</span>
+      </div>
+
+      <div class="glass-card p-4" x-data="{ open: true }">
+        <button type="button" @click="open = !open"
+                class="w-full flex items-center gap-2 text-left">
+          <svg class="w-3 h-3 text-ink-muted transition-transform flex-shrink-0" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          <h4 class="text-sm font-semibold text-ink-primary">What this change does</h4>
+          {% if review.content_summary_run_at %}<span class="text-[10px] text-ink-muted ml-auto">summarised {{ review.content_summary_run_at|timesince }} ago</span>{% endif %}
+        </button>
+        <div x-show="open" x-cloak x-transition.opacity class="mt-4">
+          <div id="content-summary-area">
+            {% include "servicenow/partials/oncall_content_summary.html" with review=review payload=content_summary_payload %}
+          </div>
+          <div class="mt-3">
+            <form hx-post="/servicenow/oncall/review/{{ review.change_number }}/run-summary/"
+                  hx-target="#content-summary-area"
+                  hx-swap="innerHTML"
+                  class="inline">
+              {% csrf_token %}
+              <button type="submit" class="btn-ghost text-[11px] py-1 px-2 border border-edge hover:border-brand/40">
+                {% if review.content_summary %}Re-summarise{% else %}Summarise with AI{% endif %}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card p-4" x-data="{ open: false }">
+        <button type="button" @click="open = !open"
+                class="w-full flex items-center gap-2 text-left">
+          <svg class="w-3 h-3 text-ink-muted transition-transform flex-shrink-0" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          <h4 class="text-sm font-semibold text-ink-primary">Review checklist</h4>
+          <span class="ml-auto flex items-center gap-2">
+            <span class="w-24 h-1.5 rounded-full bg-surface-5 overflow-hidden">
+              <span class="block h-full bg-ok transition-all" style="width: {{ checklist_progress.pct }}%"></span>
+            </span>
+            <span class="text-[10px] text-ink-muted tabular-nums">{{ checklist_progress.checked }} / {{ checklist_progress.total }}</span>
+          </span>
+        </button>
+        <div x-show="open" x-cloak x-transition.opacity class="mt-4" id="oncall-checklist-area">
+          {% include "servicenow/partials/oncall_checklist.html" with review=review items=checklist_items progress=checklist_progress %}
+        </div>
+      </div>
+    </section>
+
+    <!-- ╔═══ STEP 2: APPROVAL WORKFLOW ════════════════════════════════╗ -->
+    <section class="space-y-4">
+      <div class="flex items-center gap-2 px-1">
+        <span class="w-1 h-4 rounded-sm bg-brand-light"></span>
+        <h3 class="text-xs font-bold text-ink-primary uppercase tracking-[0.15em]">Step 2 · Approval workflow</h3>
+        <span class="text-[10px] text-ink-muted">requestor feedback · CTASK · sign-off</span>
+        {% if outstanding_count %}
+        <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-warn/10 text-warn border border-warn/25 font-semibold">{{ outstanding_count }} outstanding</span>
+        {% endif %}
+      </div>
+
+      <!-- CR Approval Review (status, feedback log) -->
+      <div class="glass-card p-4" x-data="{ open: true }">
+        <button type="button" @click="open = !open"
+                class="w-full flex items-center gap-2 text-left">
+          <svg class="w-3 h-3 text-ink-muted transition-transform flex-shrink-0" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          <h4 class="text-sm font-semibold text-ink-primary">CR Approval Review</h4>
+          <span class="text-[10px] text-ink-muted">day-to-day requestor feedback loop</span>
+        </button>
+        <div x-show="open" x-cloak x-transition.opacity class="mt-4" id="oncall-cr-review-area">
+          {% include "servicenow/partials/oncall_cr_review_panel.html" with review=review feedback_items=feedback_items outstanding_count=outstanding_count %}
+        </div>
+      </div>
+
+      <!-- CR Review CTASK editor -->
+      <div class="glass-card p-4" x-data="{ open: {% if review.cr_review_ctask_number %}true{% else %}false{% endif %} }">
+        <button type="button" @click="open = !open"
+                class="w-full flex items-center gap-2 text-left">
+          <svg class="w-3 h-3 text-ink-muted transition-transform flex-shrink-0" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          <h4 class="text-sm font-semibold text-ink-primary">CR Review CTASK</h4>
+          <span class="text-[10px] text-ink-muted">fill description + closure fields in ServiceNow</span>
+          {% if review.cr_review_ctask_closed_at %}
+          <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-ok/10 text-ok border border-ok/25 font-semibold uppercase">✓ Closed</span>
+          {% elif review.cr_review_ctask_number %}
+          <span class="ml-auto text-[10px] text-ink-muted font-mono">{{ review.cr_review_ctask_number }}</span>
+          {% endif %}
+        </button>
+        <div x-show="open" x-cloak x-transition.opacity class="mt-4">
+          {% include "servicenow/partials/oncall_cr_ctask_panel.html" with review=review %}
+        </div>
+      </div>
+    </section>
+
+    <!-- ╔═══ STEP 3: NOTES ════════════════════════════════════════════╗ -->
+    <section class="space-y-4">
+      <div class="flex items-center gap-2 px-1">
+        <span class="w-1 h-4 rounded-sm bg-ok"></span>
+        <h3 class="text-xs font-bold text-ink-primary uppercase tracking-[0.15em]">Notes</h3>
+        <span class="text-[10px] text-ink-muted">free-form journal for this review</span>
+      </div>
+
+      <div class="glass-card p-4">
+        <form hx-post="/servicenow/oncall/review/{{ review.change_number }}/mark/"
+              hx-target="#oncall-action-result"
+              hx-swap="innerHTML">
+          {% csrf_token %}
+          <textarea name="comments" rows="3" class="input-dark text-[11px] mb-2"
+                    placeholder="Anything else worth recording about this review…">{{ review.comments }}</textarea>
+          <div class="flex justify-end">
+            <button type="submit" class="btn-primary text-[11px] py-1.5 px-3">Save notes</button>
+          </div>
+        </form>
+        <div id="oncall-action-result" class="mt-3"></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+{% endblock %}

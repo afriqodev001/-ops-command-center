@@ -27,7 +27,7 @@
     {% for r in reviews %}
     <div class="rounded-lg border border-edge bg-surface-3/40 p-3">
       <div class="flex items-start gap-2 mb-2">
-        <a href="/servicenow/oncall/review/{{ r.change_number }}/"
+        <a href="{% if r.pull_purpose == 'cr_approval' %}/servicenow/oncall/cr/{{ r.change_number }}/{% else %}/servicenow/oncall/outage/{{ r.change_number }}/{% endif %}"
            class="text-xs font-mono font-semibold text-ink-primary hover:text-brand-light">{{ r.change_number }}</a>
         {% include "servicenow/partials/oncall_verdict_pill.html" with verdict=r.ai_outage_likely %}
         {% include "servicenow/partials/oncall_stage_badge.html" with stage=r.stage %}
@@ -36,7 +36,7 @@
       {% if r.ai_summary %}
       <pre class="text-[11px] text-ink-secondary whitespace-pre-wrap leading-relaxed">{{ r.ai_summary|truncatechars:600 }}</pre>
       {% if r.ai_summary|length > 600 %}
-      <a href="/servicenow/oncall/review/{{ r.change_number }}/" class="text-[10px] text-brand-light hover:text-brand">Read full review →</a>
+      <a href="{% if r.pull_purpose == 'cr_approval' %}/servicenow/oncall/cr/{{ r.change_number }}/{% else %}/servicenow/oncall/outage/{{ r.change_number }}/{% endif %}" class="text-[10px] text-brand-light hover:text-brand">Read full review →</a>
       {% endif %}
       {% else %}
       <p class="text-[11px] text-ink-muted">(no AI summary returned)</p>

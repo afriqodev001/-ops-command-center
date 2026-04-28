@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from celery.result import AsyncResult
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone as dj_tz
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -167,27 +167,66 @@ def oncall_history_page(request):
 
 
 def oncall_review_detail(request, change_number: str):
+    """Legacy URL — redirects to the workflow-specific detail page based on pull_purpose.
+
+    Kept for back-compat with bookmarks and cross-surface links that don't know
+    which workflow they're coming from. New links should go directly to
+    /oncall/cr/<chg>/ or /oncall/outage/<chg>/.
+    """
     review = get_object_or_404(OncallChangeReview, change_number=change_number)
-    matched = matrix.lookup({
-        'cmdb_ci': review.cmdb_ci,
-        'short_description': review.short_description,
-    })
-    ai_payload = {}
-    if review.ai_payload_json:
-        try:
-            ai_payload = json.loads(review.ai_payload_json)
-        except Exception:
-            ai_payload = {}
-    return render(request, 'servicenow/oncall_review_detail.html', {
+    if review.pull_purpose == 'cr_approval':
+        return redirect('oncall-cr-detail', change_number=change_number)
+    return redirect('oncall-outage-detail', change_number=change_number)
+
+
+def _ai_payload(review) -> Dict[str, Any]:
+    if not review.ai_payload_json:
+        return {}
+    try:
+        return json.loads(review.ai_payload_json)
+    except Exception:
+        return {}
+
+
+def oncall_cr_detail(request, change_number: str):
+    """CR Approval review page — sign-off workflow only.
+
+    Excludes outage-triage panels (matrix match, AI outage verdict, outage
+    declaration, actual outcome, banner, partner email). Engineer focuses on
+    requestor feedback loop + CTASK + sign-off.
+    """
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+    return render(request, 'servicenow/oncall_cr_detail.html', {
         'review': review,
-        'matched': matched,
-        'ai_payload': ai_payload,
         'content_summary_payload': orsvc.get_content_summary_payload(review),
         'checklist_items': orsvc.load_checklist(review),
         'checklist_progress': orsvc.checklist_progress(review),
         'feedback_items': orsvc.load_approval_feedback(review),
         'outstanding_count': orsvc.approval_outstanding_count(review),
+        'show_outage_link': review.pull_purpose in ('both', 'outage_triage'),
+    })
+
+
+def oncall_outage_detail(request, change_number: str):
+    """Outage triage page — downstream-impact workflow only.
+
+    Excludes approval-workflow panels (CR Approval Review, CR Review CTASK).
+    Engineer focuses on impact assessment + suppressions + comms + banner.
+    """
+    review = get_object_or_404(OncallChangeReview, change_number=change_number)
+    matched = matrix.lookup({
+        'cmdb_ci': review.cmdb_ci,
+        'short_description': review.short_description,
+    })
+    return render(request, 'servicenow/oncall_outage_detail.html', {
+        'review': review,
+        'matched': matched,
+        'ai_payload': _ai_payload(review),
+        'content_summary_payload': orsvc.get_content_summary_payload(review),
+        'checklist_items': orsvc.load_checklist(review),
+        'checklist_progress': orsvc.checklist_progress(review),
         'templates': ntpl.list_templates(),
+        'show_cr_link': review.pull_purpose in ('both', 'cr_approval'),
     })
 
 

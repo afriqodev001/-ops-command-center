@@ -58,7 +58,7 @@ search rows). Pass `oncall_review` in context.
       </details>
       {% endif %}
     </div>
-    <a href="/servicenow/oncall/review/{{ oncall_review.change_number }}/"
+    <a href="{% if oncall_review.pull_purpose == 'cr_approval' %}/servicenow/oncall/cr/{{ oncall_review.change_number }}/{% else %}/servicenow/oncall/outage/{{ oncall_review.change_number }}/{% endif %}"
        class="text-[10px] text-brand-light hover:text-brand whitespace-nowrap flex-shrink-0">Open full review →</a>
   </div>
 </div>
