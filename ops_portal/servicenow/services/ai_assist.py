@@ -67,8 +67,33 @@ def tachyon_preset_enabled(preset_slug: Optional[str] = None) -> bool:
         return False
 
 
+def copilot_browser_alive(user_key: str = 'localuser') -> bool:
+    """Quick check: is the Copilot Edge instance running on its debug port?
+
+    Mirrors tachyon_browser_alive — short-circuits AI preflight when the
+    Copilot browser hasn't been connected from the sidebar.
+    """
+    try:
+        from core.browser.registry import load_session
+    except Exception:
+        return False
+    session = load_session('copilot', user_key)
+    if not session:
+        return False
+    port = session.get('debug_port')
+    if not port:
+        return False
+    try:
+        with urllib.request.urlopen(
+            f'http://127.0.0.1:{port}/json/version', timeout=1.5
+        ) as resp:
+            return getattr(resp, 'status', 200) == 200
+    except Exception:
+        return False
+
+
 def ai_preflight() -> Dict[str, Any]:
-    """Single-shot preflight for any view about to dispatch a Tachyon AI task.
+    """Single-shot preflight for any view about to dispatch an AI task.
 
     Returns:
       {'ok': True} when ready, or
@@ -76,30 +101,42 @@ def ai_preflight() -> Dict[str, Any]:
       that view code can render directly.
     """
     cfg = _get_ai_config()
-    if cfg.get('provider') != 'tachyon':
-        # Non-Tachyon providers don't need browser preflight.
+    provider = cfg.get('provider')
+
+    if provider == 'tachyon':
+        if not tachyon_browser_alive():
+            return {
+                'ok': False,
+                'error': "Tachyon isn't connected. Open Tachyon from the sidebar and complete login, then retry.",
+                'action_url': '/tachyon/',
+                'action_label': 'Open Tachyon',
+            }
+
+        preset_slug = cfg.get('tachyon_preset_slug', 'default')
+        if not tachyon_preset_enabled(preset_slug):
+            return {
+                'ok': False,
+                'error': (
+                    f"Tachyon preset '{preset_slug}' isn't configured or is disabled. "
+                    "Add or enable a preset in the Django admin, then retry."
+                ),
+                'action_url': '/admin/tachyon/tachyonpreset/',
+                'action_label': 'Manage presets',
+            }
+
         return {'ok': True}
 
-    if not tachyon_browser_alive():
-        return {
-            'ok': False,
-            'error': "Tachyon isn't connected. Open Tachyon from the sidebar and complete login, then retry.",
-            'action_url': '/tachyon/',
-            'action_label': 'Open Tachyon',
-        }
+    if provider == 'copilot':
+        if not copilot_browser_alive():
+            return {
+                'ok': False,
+                'error': "Copilot isn't connected. Click 'Connect Copilot' in the sidebar and ensure Teams is open with Copilot pinned in the left rail, then retry.",
+                'action_url': '/copilot/',
+                'action_label': 'Open Copilot',
+            }
+        return {'ok': True}
 
-    preset_slug = cfg.get('tachyon_preset_slug', 'default')
-    if not tachyon_preset_enabled(preset_slug):
-        return {
-            'ok': False,
-            'error': (
-                f"Tachyon preset '{preset_slug}' isn't configured or is disabled. "
-                "Add or enable a preset in the Django admin, then retry."
-            ),
-            'action_url': '/admin/tachyon/tachyonpreset/',
-            'action_label': 'Manage presets',
-        }
-
+    # Non-browser providers (claude, openai, none) don't need a connection probe.
     return {'ok': True}
 
 
@@ -250,7 +287,7 @@ def _build_change_from_description_prompt(
 
 # ─── Unified LLM call — routes to the configured provider ────
 
-AI_PROVIDERS = ('none', 'tachyon', 'claude', 'openai')
+AI_PROVIDERS = ('none', 'tachyon', 'copilot', 'claude', 'openai')
 
 
 def _get_ai_config() -> Dict:
@@ -278,6 +315,8 @@ def _call_llm(system: str, user: str) -> str:
 
     if provider == 'tachyon':
         return _call_tachyon(system, user, cfg)
+    elif provider == 'copilot':
+        return _call_copilot(system, user, cfg)
     elif provider == 'claude':
         return _call_claude(system, user, cfg)
     elif provider == 'openai':
@@ -349,6 +388,54 @@ def _call_tachyon(system: str, user: str, cfg: Dict) -> str:
         return str(result)
     except Exception as e:
         return json.dumps({'_ai_error': f'Tachyon call failed: {e}'})
+
+
+def _call_copilot(system: str, user: str, cfg: Dict) -> str:
+    """Call Microsoft Copilot (via Teams) using the existing Celery task.
+
+    Copilot Chat has no separate system-instruction parameter, so we inline-
+    prefix it on the user prompt. Conversations in Teams Copilot are stateful
+    by default; for now we accept that (each call extends the same thread).
+    """
+    # Layer 1: cheap port-alive probe (already done in ai_preflight, but the
+    # generic _call_llm path is also reachable from places that don't preflight).
+    if not copilot_browser_alive():
+        return json.dumps({
+            '_ai_error': 'Copilot session not found. Click "Connect Copilot" in the sidebar.',
+        })
+
+    # Layer 2: deep readiness probe (Teams loaded → Copilot in left rail → iframe ready).
+    try:
+        from copilot_chat.tasks import copilot_auth_check_task, copilot_run_prompt_task
+        check = copilot_auth_check_task.apply(args=({'user_key': 'localuser'},)).result or {}
+        if not check.get('authed'):
+            step = check.get('step') or 'unknown'
+            detail = check.get('detail') or check.get('error') or 'Copilot not ready.'
+            return json.dumps({
+                '_ai_error': f'Copilot not ready ({step}): {detail}',
+            })
+    except Exception as e:
+        return json.dumps({'_ai_error': f'Copilot readiness check failed: {e}'})
+
+    combined = f"[Instructions]\n{system}\n\n[Request]\n{user}" if system else user
+
+    try:
+        result = copilot_run_prompt_task.apply(args=({
+            'user_key': 'localuser',
+            'prompt': combined,
+        },)).result or {}
+
+        if isinstance(result, dict):
+            if result.get('error'):
+                return json.dumps({'_ai_error': f'Copilot error: {result.get("error")}'})
+            answer = result.get('answer')
+            if answer:
+                return str(answer)
+            status = result.get('status') or 'unknown'
+            return json.dumps({'_ai_error': f'Copilot returned no answer (status: {status}).'})
+        return json.dumps({'_ai_error': 'Copilot returned an unexpected response shape.'})
+    except Exception as e:
+        return json.dumps({'_ai_error': f'Copilot call failed: {e}'})
 
 
 def _call_claude(system: str, user: str, cfg: Dict) -> str:

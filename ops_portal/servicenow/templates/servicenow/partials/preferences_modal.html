@@ -106,6 +106,7 @@
           <select name="ai_provider" x-model="aiProvider" class="select-dark w-full text-xs">
             <option value="none">None (AI disabled)</option>
             <option value="tachyon" {% if prefs.ai_provider == 'tachyon' %}selected{% endif %}>Tachyon Playground</option>
+            <option value="copilot" {% if prefs.ai_provider == 'copilot' %}selected{% endif %}>Microsoft Copilot (Teams)</option>
             <option value="claude" {% if prefs.ai_provider == 'claude' %}selected{% endif %}>Claude (Anthropic API)</option>
             <option value="openai" {% if prefs.ai_provider == 'openai' %}selected{% endif %}>OpenAI</option>
           </select>
@@ -121,6 +122,13 @@
           <p class="text-[10px] text-ink-muted mt-1">Slug of the preset from <a href="/tachyon/playground/" class="text-brand-light hover:text-brand">Tachyon Playground</a></p>
         </div>
 
+        <!-- Copilot-specific: connection reminder -->
+        <div x-show="aiProvider === 'copilot'">
+          <p class="text-[10px] text-ink-muted">
+            Open <a href="/copilot/" class="text-brand-light hover:text-brand">Copilot</a> from the sidebar, click <strong>Connect Copilot</strong>, log into Teams in the launched browser, and pin Copilot in the left rail. The model used is whatever Teams Copilot is serving — model override below has no effect for this provider.
+          </p>
+        </div>
+
         <!-- Claude/OpenAI: API key reminder -->
         <div x-show="aiProvider === 'claude' || aiProvider === 'openai'">
           <p class="text-[10px] text-ink-muted">
@@ -132,8 +140,8 @@
           </p>
         </div>
 
-        <!-- Model override (all providers) -->
-        <div x-show="aiProvider !== 'none'">
+        <!-- Model override (all providers except copilot — Teams chooses the model) -->
+        <div x-show="aiProvider !== 'none' && aiProvider !== 'copilot'">
           <label class="label">Model override</label>
           <input type="text" name="ai_model"
                  value="{{ prefs.ai_model|default:'' }}"
