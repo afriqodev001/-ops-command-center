@@ -2408,8 +2408,9 @@ def preferences_save(request):
         except (ValueError, TypeError):
             pass
     if 'ai_provider' in request.POST:
+        from .services.ai_assist import AI_PROVIDERS
         provider = request.POST.get('ai_provider', 'none').strip()
-        if provider in ('none', 'tachyon', 'claude', 'openai'):
+        if provider in AI_PROVIDERS:
             updates['ai_provider'] = provider
     if 'ai_tachyon_preset_slug' in request.POST:
         updates['ai_tachyon_preset_slug'] = request.POST.get('ai_tachyon_preset_slug', '').strip()
