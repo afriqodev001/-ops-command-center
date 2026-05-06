@@ -42,6 +42,16 @@ ops_portal/staticfiles/
 # Local settings override (imported at bottom of settings.py if present)
 local_settings.py
 ops_portal/ops_portal/local_settings.py
+# Local-only URL includes (imported at bottom of urls.py if present)
+ops_portal/ops_portal/local_urls.py
+# Local-only sidebar nav include (rendered by base.html if present)
+ops_portal/templates/local_nav.html
+
+# ─── Local-only Django apps (not pushed) ────────────────────
+ops_portal/grok_ai/
+ops_portal/google_flow/
+# Uploads written by local-only views (e.g. grok_ai reference images)
+ops_portal/media/
 
 # ─── Project runtime state ──────────────────────────────────
 # ServiceNow browser profiles — contain auth cookies, never commit

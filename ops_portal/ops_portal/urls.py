@@ -27,3 +27,10 @@ urlpatterns = [
     path('sploc/', include('sploc.urls')),
     path('harness/', include('harness.urls')),
 ]
+
+# Local-only URL includes (gitignored). See ops_portal/local_urls.py.
+try:
+    from .local_urls import urlpatterns as _local_urlpatterns
+    urlpatterns += _local_urlpatterns
+except ImportError:
+    pass
