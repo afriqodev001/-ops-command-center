@@ -115,7 +115,7 @@
         </button>
         <div x-show="open" x-cloak x-transition.opacity class="mt-4">
           <div id="content-summary-area">
-            {% include "servicenow/partials/oncall_content_summary.html" with review=review payload=content_summary_payload %}
+            {% include "servicenow/partials/oncall_content_summary.html" with review=review payload=content_summary_payload debug=content_summary_debug %}
           </div>
           <div class="mt-3">
             <form hx-post="/servicenow/oncall/review/{{ review.change_number }}/run-summary/"

@@ -51,4 +51,32 @@
   {% else %}
   <p class="text-[11px] text-ink-muted">No content summary yet.</p>
   {% endif %}
+
+  {% if debug.prompt_user or debug.prompt_system or debug.raw_response %}
+  <details class="mt-2 group">
+    <summary class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider cursor-pointer select-none hover:text-ink-secondary">
+      Show prompt + raw response
+    </summary>
+    <div class="mt-2 space-y-3 pl-2 border-l border-edge">
+      {% if debug.prompt_system %}
+      <div>
+        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider mb-1">System prompt</p>
+        <pre class="text-[10px] text-ink-secondary whitespace-pre-wrap leading-snug bg-surface-2 rounded p-2 max-h-64 overflow-auto">{{ debug.prompt_system }}</pre>
+      </div>
+      {% endif %}
+      {% if debug.prompt_user %}
+      <div>
+        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider mb-1">User prompt</p>
+        <pre class="text-[10px] text-ink-secondary whitespace-pre-wrap leading-snug bg-surface-2 rounded p-2 max-h-64 overflow-auto">{{ debug.prompt_user }}</pre>
+      </div>
+      {% endif %}
+      {% if debug.raw_response %}
+      <div>
+        <p class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider mb-1">Raw Tachyon response</p>
+        <pre class="text-[10px] text-ink-secondary whitespace-pre-wrap leading-snug bg-surface-2 rounded p-2 max-h-64 overflow-auto">{{ debug.raw_response }}</pre>
+      </div>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
 </div>

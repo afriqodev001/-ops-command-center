@@ -199,6 +199,7 @@ def oncall_cr_detail(request, change_number: str):
     return render(request, 'servicenow/oncall_cr_detail.html', {
         'review': review,
         'content_summary_payload': orsvc.get_content_summary_payload(review),
+        'content_summary_debug': orsvc.get_content_summary_debug(review),
         'checklist_items': orsvc.load_checklist(review),
         'checklist_progress': orsvc.checklist_progress(review),
         'feedback_items': orsvc.load_approval_feedback(review),
@@ -223,6 +224,7 @@ def oncall_outage_detail(request, change_number: str):
         'matched': matched,
         'ai_payload': _ai_payload(review),
         'content_summary_payload': orsvc.get_content_summary_payload(review),
+        'content_summary_debug': orsvc.get_content_summary_debug(review),
         'checklist_items': orsvc.load_checklist(review),
         'checklist_progress': orsvc.checklist_progress(review),
         'templates': ntpl.list_templates(),
@@ -792,9 +794,8 @@ def oncall_run_content_summary(request, change_number: str):
     })
 
 
-def oncall_poll_content_summary(request, task_id: str):
+def oncall_poll_content_summary(request, change_number: str, task_id: str):
     ar = AsyncResult(task_id)
-    change_number = (request.GET.get('change_number') or '').strip()
 
     if ar.state in ('PENDING', 'RECEIVED', 'STARTED'):
         return render(request, 'servicenow/partials/oncall_content_summary_polling.html', {
@@ -815,10 +816,12 @@ def oncall_poll_content_summary(request, task_id: str):
 
     review = OncallChangeReview.objects.filter(change_number=change_number).first()
     payload = orsvc.get_content_summary_payload(review) if review else {}
+    debug = orsvc.get_content_summary_debug(review) if review else {}
 
     return render(request, 'servicenow/partials/oncall_content_summary.html', {
         'review': review,
         'payload': payload,
+        'debug': debug,
     })
 
 

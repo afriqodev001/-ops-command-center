@@ -405,6 +405,11 @@ def run_content_summary_for(review: OncallChangeReview, change_record: dict) -> 
     except Exception:
         existing = {}
     existing['_content_summary'] = parsed
+    existing['_content_summary_debug'] = {
+        'prompt_system': system,
+        'prompt_user': user_prompt,
+        'raw_response': raw,
+    }
     review.ai_payload_json = json.dumps(existing, default=str)
 
     review.save(update_fields=[
@@ -425,6 +430,28 @@ def get_content_summary_payload(review: OncallChangeReview) -> dict:
         return {}
     inner = data.get('_content_summary') or {}
     return inner if isinstance(inner, dict) else {}
+
+
+def get_content_summary_debug(review: OncallChangeReview) -> dict:
+    """Return the prompt + raw-response debug payload for the last summary run, if any."""
+    if not review.ai_payload_json:
+        return {}
+    try:
+        data = json.loads(review.ai_payload_json) or {}
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    inner = data.get('_content_summary_debug') or {}
+    return inner if isinstance(inner, dict) else {}
+
+
+def preview_content_summary_prompt(review: OncallChangeReview, change_record: dict) -> dict:
+    """Compute system + user prompts for a what-if preview without running the LLM."""
+    return {
+        'prompt_system': get_prompt('oncall_change_summary'),
+        'prompt_user': build_content_summary_prompt(review, change_record),
+    }
 
 
 # ─── CR Approval Review (track 3) ─────────────────────────
