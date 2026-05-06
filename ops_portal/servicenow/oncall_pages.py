@@ -337,9 +337,20 @@ def oncall_pull_poll(request, task_id: str):
             'error': result.get('detail') or result.get('error'),
         })
 
+    # presets_run_task returns {"result": [<rows>]}.
+    # changes_bulk_get_by_number_task returns
+    # {"result": {"found": [<rows>], "not_found": [<numbers>], "by_value": {...}}}.
     rows = []
-    if isinstance(result, dict) and isinstance(result.get('result'), list):
-        rows = result['result']
+    bulk_not_found = None
+    if isinstance(result, dict):
+        inner = result.get('result')
+        if isinstance(inner, list):
+            rows = inner
+        elif isinstance(inner, dict):
+            if isinstance(inner.get('found'), list):
+                rows = inner['found']
+            if isinstance(inner.get('not_found'), list):
+                bulk_not_found = [str(n).strip().upper() for n in inner['not_found'] if n]
     elif isinstance(result, list):
         rows = result
 
@@ -351,9 +362,14 @@ def oncall_pull_poll(request, task_id: str):
             if isinstance(n, dict):
                 n = n.get('display_value') or n.get('value') or ''
             return str(n or '').strip().upper()
-        requested = [n for n in change_numbers_raw.split(',') if n]
+        requested = [n.strip().upper() for n in change_numbers_raw.split(',') if n.strip()]
         present = {_num(r) for r in rows}
-        not_found = [n for n in requested if n.upper() not in present]
+        if bulk_not_found is not None:
+            # Service layer already computed not-found from the API response —
+            # trust that over the local row scan in case of display/value quirks.
+            not_found = [n for n in requested if n in set(bulk_not_found) and n not in present]
+        else:
+            not_found = [n for n in requested if n not in present]
 
     reviews = orsvc.upsert_pulled_changes(
         rows,
