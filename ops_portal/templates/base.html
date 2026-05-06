@@ -1,4 +1,5 @@
 {% load static %}
+{% load include_optional %}
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
@@ -167,7 +168,7 @@
           Playground
         </a>
 
-        {% include 'local_nav.html' ignore missing %}
+        {% include_optional 'local_nav.html' %}
 
         <!-- Copilot Chat -->
         <div class="mt-5 mx-2 pt-3 pb-2 border-t border-edge">
