@@ -1,10 +1,32 @@
 # harness/services/harness_calls.py
 import html
 import json
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List
 
 from harness.services.harness_fetch import browser_fetch
 from harness import urls_builders
+
+
+def _format_epoch_ms(ms) -> str:
+    """Render a Harness epoch-millisecond timestamp as 'YYYY-MM-DD HH:MM UTC'.
+
+    Returns "" for missing/zero/invalid values so templates can fall back
+    to their own placeholder.
+    """
+    try:
+        ms_int = int(ms)
+    except (TypeError, ValueError):
+        return ""
+    if ms_int <= 0:
+        return ""
+    try:
+        return (
+            datetime.fromtimestamp(ms_int / 1000, tz=timezone.utc)
+            .strftime("%Y-%m-%d %H:%M UTC")
+        )
+    except (OverflowError, OSError, ValueError):
+        return ""
 
 
 def get_environments(driver) -> Dict[str, Any]:
@@ -595,6 +617,7 @@ def _extract_meaningful_active_services(raw: Dict[str, Any]) -> Dict[str, Any]:
                         "infra_identifier": infra_id,
                         "infra_name": infra_name,
                         "last_deployed_at": last_deployed_at,
+                        "last_deployed_at_display": _format_epoch_ms(last_deployed_at),
                         "instance_count": pe.get("count", 0),
                         "pipeline_execution_id": pe.get("lastPipelineExecutionId"),
                         "pipeline_name": pe.get("lastPipelineExecutionName"),

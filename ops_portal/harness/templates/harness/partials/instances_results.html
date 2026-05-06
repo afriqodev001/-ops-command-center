@@ -50,7 +50,7 @@
                 <td class="py-1 pr-3 text-ink-secondary">{{ row.environment|default:"—" }}</td>
                 <td class="py-1 pr-3 text-ink-secondary font-mono">{{ row.infra_name|default:row.infra_identifier|default:"—" }}</td>
                 <td class="py-1 pr-3 text-ink-primary tabular-nums">{{ row.instance_count|default:0 }}</td>
-                <td class="py-1 pr-3 font-mono text-ink-muted">{{ row.last_deployed_at|default:"—" }}</td>
+                <td class="py-1 pr-3 font-mono text-ink-muted">{{ row.last_deployed_at_display|default:"—" }}</td>
                 <td class="py-1 pr-3 text-ink-secondary truncate max-w-xs" title="{{ row.pipeline_name }}">{{ row.pipeline_name|default:"—" }}</td>
               </tr>
               {% endfor %}
@@ -90,7 +90,7 @@
               <td class="td text-ink-secondary">{{ row.environment|default:"—" }}</td>
               <td class="td text-ink-secondary">{{ row.infra_name|default:row.infra_identifier|default:"—" }}</td>
               <td class="td tabular-nums text-right">{{ row.instance_count|default:0 }}</td>
-              <td class="td font-mono text-[10px] text-ink-muted">{{ row.last_deployed_at|default:"—" }}</td>
+              <td class="td font-mono text-[10px] text-ink-muted">{{ row.last_deployed_at_display|default:"—" }}</td>
             </tr>
             {% endfor %}
           </tbody>

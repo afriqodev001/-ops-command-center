@@ -19,7 +19,7 @@
           <td class="py-1.5 px-2 text-ink-secondary">{{ r.environment|default:"—" }}</td>
           <td class="py-1.5 px-2 text-ink-secondary font-mono">{{ r.infra_name|default:r.infra_identifier|default:"—" }}</td>
           <td class="py-1.5 px-2 text-right text-ink-primary tabular-nums">{{ r.instance_count|default:0 }}</td>
-          <td class="py-1.5 px-2 font-mono text-[10px] text-ink-muted">{{ r.last_deployed_at|default:"—" }}</td>
+          <td class="py-1.5 px-2 font-mono text-[10px] text-ink-muted">{{ r.last_deployed_at_display|default:"—" }}</td>
           <td class="py-1.5 px-2 text-ink-secondary truncate max-w-[160px]" title="{{ r.pipeline_name }}">{{ r.pipeline_name|default:"—" }}</td>
         </tr>
         {% endfor %}
