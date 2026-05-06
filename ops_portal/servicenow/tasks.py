@@ -1264,13 +1264,22 @@ def oncall_run_content_summary_task(self, body: dict):
             "detail": ctx_result.get("detail") or ctx_result.get("error"),
         }
 
-    change_record = (
-        (ctx_result.get("change") or {}).get("result")
-        if isinstance(ctx_result, dict) else {}
-    ) or {}
+    # Reshape into the unified change dict (with ctasks, work_notes, attachments)
+    # that the bulk-review briefing flow uses, then pull text from each
+    # attachment so the AI sees actual file contents — not just filenames.
+    from servicenow.pages import (
+        _shape_change_from_context,
+        _extract_briefing_attachments,
+    )
+    change_shaped = _shape_change_from_context(ctx_result) or {}
+    attachment_texts = _extract_briefing_attachments(change_shaped) if change_shaped else {}
 
     try:
-        parsed = orsvc.run_content_summary_for(review, change_record)
+        parsed = orsvc.run_content_summary_for(
+            review,
+            change_shaped,
+            attachment_texts=attachment_texts,
+        )
     except Exception as e:
         return {"error": "ai_failed", "detail": str(e)}
 

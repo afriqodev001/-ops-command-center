@@ -350,33 +350,30 @@ def run_ai_review_for(review: OncallChangeReview, change_record: Dict[str, Any])
 
 # ─── Content summary (track 2 — describe the change) ─────
 
-def build_content_summary_prompt(review: OncallChangeReview, change_record: dict) -> str:
-    """Compose the user-prompt for an AI 'what does this change actually do?' summary."""
-    record = change_record or {}
+def build_content_summary_prompt(
+    review: OncallChangeReview,
+    change_shaped: dict,
+    attachment_texts: dict | None = None,
+) -> str:
+    """Compose the user-prompt for an AI 'what does this change actually do?' summary.
 
-    payload = {
-        'number': review.change_number,
-        'short_description': review.short_description,
-        'risk': review.risk,
-        'type': _val(record.get('type')),
-        'assignment_group': review.assignment_group,
-        'cmdb_ci': review.cmdb_ci,
-        'scheduled_start': str(review.scheduled_start) if review.scheduled_start else None,
-        'scheduled_end': str(review.scheduled_end) if review.scheduled_end else None,
-        'description': _val(record.get('description')),
-        'justification': _val(record.get('justification')),
-        'implementation_plan': _val(record.get('implementation_plan')),
-        'backout_plan': _val(record.get('backout_plan')),
-        'test_plan': _val(record.get('test_plan')),
-    }
-
-    return 'CHANGE RECORD:\n' + json.dumps(payload, indent=2, default=str)
+    Reuses the same comprehensive change-record block the bulk-review briefing
+    flow builds (CTASKs, work notes, attachments with extracted text), so the
+    AI sees the full picture rather than a truncated subset of fields.
+    """
+    from servicenow.pages import format_change_record_block
+    body = format_change_record_block(change_shaped or {}, attachment_texts=attachment_texts or {})
+    return body if body else 'CHANGE RECORD:\n(no record context available)'
 
 
-def run_content_summary_for(review: OncallChangeReview, change_record: dict) -> dict:
+def run_content_summary_for(
+    review: OncallChangeReview,
+    change_shaped: dict,
+    attachment_texts: dict | None = None,
+) -> dict:
     """Synchronously run AI content summary and persist to the row."""
     system = get_prompt('oncall_change_summary')
-    user_prompt = build_content_summary_prompt(review, change_record)
+    user_prompt = build_content_summary_prompt(review, change_shaped, attachment_texts=attachment_texts)
 
     raw = _call_llm(system, user_prompt) or ''
     parsed = _extract_json_dict(raw) or {}
@@ -446,11 +443,15 @@ def get_content_summary_debug(review: OncallChangeReview) -> dict:
     return inner if isinstance(inner, dict) else {}
 
 
-def preview_content_summary_prompt(review: OncallChangeReview, change_record: dict) -> dict:
+def preview_content_summary_prompt(
+    review: OncallChangeReview,
+    change_shaped: dict,
+    attachment_texts: dict | None = None,
+) -> dict:
     """Compute system + user prompts for a what-if preview without running the LLM."""
     return {
         'prompt_system': get_prompt('oncall_change_summary'),
-        'prompt_user': build_content_summary_prompt(review, change_record),
+        'prompt_user': build_content_summary_prompt(review, change_shaped, attachment_texts=attachment_texts),
     }
 
 

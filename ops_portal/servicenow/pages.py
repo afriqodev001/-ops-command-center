@@ -1212,14 +1212,16 @@ def _extract_briefing_attachments(change):
         return {}
 
 
-def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
-                           attachment_texts=None):
-    """
-    Produce a structured, AI-readable briefing for a change record.
-    Includes a system instruction preamble so the prompt is ready to send.
+def format_change_record_block(change, attachment_texts=None) -> str:
+    """Render a structured plain-text block of a change record + ctasks +
+    work notes + attachments, suitable for inclusion in any LLM user prompt.
 
-    attachment_texts: optional dict of {filename: extracted_text} for text-based
-    attachments whose content was fetched and extracted.
+    Preamble-free (no 'briefing_preamble', no 'review now' closing line) so
+    it can be reused by both the bulk-review briefing flow and the oncall
+    AI content-summary flow. Each consumer wraps it with its own framing.
+
+    attachment_texts: optional {filename: extracted_text} for text-based
+    attachments whose content has been fetched and extracted.
     """
     attachment_texts = attachment_texts or {}
     W = 64
@@ -1233,9 +1235,12 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
             return None
         return f"{' ' * indent}{label}: {value}"
 
-    from .services.prompt_store import get_prompt as _gp
-    preamble = _gp('briefing_preamble')
-    lines = [preamble, ""]
+    ctasks = change.get('ctasks') or []
+    closed = sum(1 for t in ctasks if t.get('state') == 'Closed Complete')
+    total = len(ctasks)
+    pct = int((closed / total) * 100) if total else 0
+
+    lines = []
 
     # ── Change record ───────────────────────────────────────
     lines.append(section("CHANGE RECORD"))
@@ -1265,8 +1270,7 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
         ("BACKOUT PLAN",         change.get('backout_plan', '')),
         ("TEST PLAN",            change.get('test_plan', '')),
     ]
-    has_planning = any(v for _, v in planning_fields)
-    if has_planning:
+    if any(v for _, v in planning_fields):
         lines.append(section("PLANNING"))
         for label, value in planning_fields:
             if value:
@@ -1275,9 +1279,8 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
                     lines.append(f"  {line}")
 
     # ── CTASKs ──────────────────────────────────────────────
-    ctasks = change.get('ctasks', [])
     if ctasks:
-        lines.append(section(f"IMPLEMENTATION TASKS  ({ctask_closed}/{ctask_total} closed · {ctask_pct}% complete)"))
+        lines.append(section(f"IMPLEMENTATION TASKS  ({closed}/{total} closed · {pct}% complete)"))
         for t in ctasks:
             if t.get('state') == 'Closed Complete':
                 marker = '[DONE] '
@@ -1288,13 +1291,12 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
             assignee = f"  ← {t['assigned_to']}" if t.get('assigned_to') else ''
             lines.append(f"  {marker}{t.get('number', '')}  {t.get('description', '')}{assignee}")
             lines.append(f"          Status: {t.get('state', '')}")
-            # Include full CTASK description if it differs from the summary line
             task_desc = t.get('description', '')
             if task_desc and len(task_desc) > 60:
                 lines.append(f"          Detail: {task_desc}")
 
     # ── Work notes ──────────────────────────────────────────
-    work_notes = change.get('work_notes', [])
+    work_notes = change.get('work_notes') or []
     if work_notes:
         lines.append(section("WORK NOTES  (most recent first)"))
         for note in work_notes:
@@ -1303,17 +1305,15 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
             lines.append("")
 
     # ── Attachments ─────────────────────────────────────────
-    attachments = change.get('attachments', [])
+    attachments = change.get('attachments') or []
     if attachments:
         lines.append(section("ATTACHMENTS"))
         for att in attachments:
             name = att.get('name', '')
             lines.append(f"  • {name}  ({att.get('size', '')})  — {att.get('by', '')}  @ {att.get('at', '')}")
-            # Include extracted text content if available
             extracted = attachment_texts.get(name, '')
             if extracted:
                 lines.append(f"    ── Content of {name} ──")
-                # Cap at 2000 chars per attachment to keep prompt manageable
                 text = extracted[:2000]
                 if len(extracted) > 2000:
                     text += f"\n    ... (truncated, {len(extracted)} chars total)"
@@ -1321,10 +1321,24 @@ def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
                     lines.append(f"    {line}")
                 lines.append("")
 
-    lines.append(f"\n{'═' * W}")
-    lines.append("Provide your change review assessment now.")
-
     return "\n".join(lines)
+
+
+def _build_briefing_prompt(change, ctask_closed, ctask_total, ctask_pct,
+                           attachment_texts=None):
+    """
+    Produce a structured, AI-readable briefing for a change record.
+    Includes a system instruction preamble so the prompt is ready to send.
+
+    The ctask_closed/total/pct args are accepted for backwards compatibility
+    but the structured body (which now comes from format_change_record_block)
+    derives them from change['ctasks'].
+    """
+    from .services.prompt_store import get_prompt as _gp
+    preamble = _gp('briefing_preamble')
+    body = format_change_record_block(change, attachment_texts=attachment_texts)
+    W = 64
+    return f"{preamble}\n\n{body}\n\n{'═' * W}\nProvide your change review assessment now."
 
 
 def change_briefing(request, number):
