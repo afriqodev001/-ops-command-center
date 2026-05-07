@@ -223,6 +223,7 @@ def oncall_outage_detail(request, change_number: str):
         'review': review,
         'matched': matched,
         'ai_payload': _ai_payload(review),
+        'ai_review_debug': orsvc.get_ai_review_debug(review),
         'content_summary_payload': orsvc.get_content_summary_payload(review),
         'content_summary_debug': orsvc.get_content_summary_debug(review),
         'checklist_items': orsvc.load_checklist(review),

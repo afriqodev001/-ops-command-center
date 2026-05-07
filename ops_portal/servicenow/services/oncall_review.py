@@ -276,31 +276,24 @@ def apply_matrix_match(
 
 # ─── AI review ────────────────────────────────────────────
 
-def build_review_prompt(review: OncallChangeReview, change_record: Dict[str, Any]) -> str:
-    """Compose the user-prompt sent to the LLM."""
-    matched = matrix.lookup(change_record) or matrix.lookup({
+def build_review_prompt(review: OncallChangeReview, change_shaped: Dict[str, Any]) -> str:
+    """Compose the user-prompt for the outage-triage AI review.
+
+    Reuses the same comprehensive change-record block the bulk-review
+    briefing + content-summary flows produce (CHANGE RECORD, PLANNING with
+    code change / outage, IMPLEMENTATION TASKS with full descriptions,
+    WORK NOTES, ATTACHMENTS), then appends the suppression-matrix entry and
+    a structured "engineer-side context" block surfacing whether an outage
+    has already been declared and the associated outage record number.
+    """
+    from servicenow.pages import format_change_record_block
+    matched = matrix.lookup(change_shaped or {}) or matrix.lookup({
         'cmdb_ci': review.cmdb_ci,
         'short_description': review.short_description,
     })
 
     sections: List[str] = []
-
-    sections.append(f'CHANGE RECORD:')
-    sections.append(json.dumps({
-        'number': review.change_number,
-        'short_description': review.short_description,
-        'risk': review.risk,
-        'assignment_group': review.assignment_group,
-        'cmdb_ci': review.cmdb_ci,
-        'scheduled_start': str(review.scheduled_start) if review.scheduled_start else None,
-        'scheduled_end': str(review.scheduled_end) if review.scheduled_end else None,
-        'description': _val((change_record or {}).get('description')),
-        'justification': _val((change_record or {}).get('justification')),
-        'implementation_plan': _val((change_record or {}).get('implementation_plan')),
-        'backout_plan': _val((change_record or {}).get('backout_plan')),
-        'test_plan': _val((change_record or {}).get('test_plan')),
-        'type': _val((change_record or {}).get('type')),
-    }, default=str, indent=2))
+    sections.append(format_change_record_block(change_shaped or {}))
 
     sections.append('')
     sections.append('SUPPRESSION MATRIX ENTRY:')
@@ -309,25 +302,53 @@ def build_review_prompt(review: OncallChangeReview, change_record: Dict[str, Any
     else:
         sections.append('(none — no matrix entry matched this CI / application)')
 
+    # Engineer-recorded outage state from the review row. If an outage has
+    # already been declared, the AI should explicitly state the linked record
+    # in its narrative — not invent or repeat boilerplate.
+    sections.append('')
+    sections.append('OUTAGE RECORD (engineer-recorded):')
+    if review.outage_declared:
+        rec = (review.outage_record_number or '').strip() or '(no record number captured)'
+        sections.append(f'  Outage declared: YES  → record: {rec}')
+    else:
+        sections.append('  Outage declared: no')
+
     return '\n'.join(sections)
 
 
-def run_ai_review_for(review: OncallChangeReview, change_record: Dict[str, Any]) -> Dict[str, Any]:
+def run_ai_review_for(review: OncallChangeReview, change_shaped: Dict[str, Any]) -> Dict[str, Any]:
     """Run the AI review synchronously and persist the result to the row.
 
     Returns the parsed AI payload for the caller to use, or
     {'_ai_error': '...'} on failure.
     """
     system = get_prompt('oncall_outage_review')
-    user_prompt = build_review_prompt(review, change_record)
+    user_prompt = build_review_prompt(review, change_shaped)
 
     raw = _call_llm(system, user_prompt) or ''
     parsed = _extract_json_dict(raw) or {}
 
+    # Always stash the prompt/response pair so the UI can show what was sent
+    # and what came back — even on AI errors, that's the most useful context
+    # for diagnosing why a verdict is missing or wrong.
+    debug_payload = {
+        'prompt_system': system,
+        'prompt_user': user_prompt,
+        'raw_response': raw,
+    }
+
     if parsed.get('_ai_error'):
         review.ai_summary = parsed['_ai_error']
         review.ai_run_at = dj_tz.now()
-        review.save(update_fields=['ai_summary', 'ai_run_at', 'updated_at'])
+        try:
+            existing = json.loads(review.ai_payload_json or '{}') or {}
+            if not isinstance(existing, dict):
+                existing = {}
+        except Exception:
+            existing = {}
+        existing['_ai_review_debug'] = debug_payload
+        review.ai_payload_json = json.dumps(existing, default=str)
+        review.save(update_fields=['ai_summary', 'ai_payload_json', 'ai_run_at', 'updated_at'])
         return parsed
 
     verdict = (parsed.get('outage_likely') or 'unknown').lower()
@@ -336,7 +357,17 @@ def run_ai_review_for(review: OncallChangeReview, change_record: Dict[str, Any])
 
     review.ai_outage_likely = verdict
     review.ai_summary = (parsed.get('summary_markdown') or parsed.get('reasoning') or raw or '').strip()
-    review.ai_payload_json = json.dumps(parsed, default=str)
+    # Preserve any sibling structured payload (e.g. _content_summary,
+    # _content_summary_debug) so each track's data lives under its own key.
+    try:
+        existing = json.loads(review.ai_payload_json or '{}') or {}
+        if not isinstance(existing, dict):
+            existing = {}
+    except Exception:
+        existing = {}
+    existing.update(parsed)
+    existing['_ai_review_debug'] = debug_payload
+    review.ai_payload_json = json.dumps(existing, default=str)
     review.ai_run_at = dj_tz.now()
 
     if review.stage == 'pulled':
@@ -347,6 +378,20 @@ def run_ai_review_for(review: OncallChangeReview, change_record: Dict[str, Any])
         'ai_run_at', 'stage', 'updated_at',
     ])
     return parsed
+
+
+def get_ai_review_debug(review: OncallChangeReview) -> dict:
+    """Return prompt + raw-response captured during the last outage AI review."""
+    if not review.ai_payload_json:
+        return {}
+    try:
+        data = json.loads(review.ai_payload_json) or {}
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    inner = data.get('_ai_review_debug') or {}
+    return inner if isinstance(inner, dict) else {}
 
 
 # ─── Content summary (track 2 — describe the change) ─────

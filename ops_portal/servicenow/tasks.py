@@ -1140,10 +1140,28 @@ def oncall_run_ai_batch_task(self, body: dict):
             continue
 
         # Fetch the change record (with description / plans / type) for the prompt.
+        # Use the same comprehensive field set as the content-summary task so
+        # the AI sees full context, not the minimal default.
         ctx_body = {
             "change_number": number,
             "user_key": _user_key(body),
             "display_value": "all",
+            "change_fields": (
+                "sys_id,number,short_description,description,"
+                "type,risk,priority,impact,"
+                "state,phase,approval,"
+                "assignment_group,assigned_to,opened_by,requested_by,"
+                "cmdb_ci,"
+                "start_date,end_date,"
+                "justification,implementation_plan,backout_plan,test_plan,"
+                "outage,u_outage,"
+                "u_code_change,code_change,"
+                "work_notes,sys_created_on,sys_updated_on"
+            ),
+            "ctask_fields": (
+                "sys_id,number,short_description,description,"
+                "state,assignment_group,assigned_to,sys_updated_on"
+            ),
         }
         ctx_result = change_context_task.apply(args=(ctx_body,)).result or {}
         if isinstance(ctx_result, dict) and ctx_result.get("error"):
@@ -1153,13 +1171,14 @@ def oncall_run_ai_batch_task(self, body: dict):
             })
             continue
 
-        change_record = (
-            (ctx_result.get("change") or {}).get("result")
-            if isinstance(ctx_result, dict) else {}
-        ) or {}
+        # Shape into the unified change dict (with ctasks/work_notes/attachments)
+        # the bulk-review briefing flow uses; this is what build_review_prompt
+        # now consumes to render the comprehensive prompt.
+        from servicenow.pages import _shape_change_from_context
+        change_shaped = _shape_change_from_context(ctx_result) or {}
 
         try:
-            parsed = orsvc.run_ai_review_for(review, change_record)
+            parsed = orsvc.run_ai_review_for(review, change_shaped)
         except Exception as e:
             out["errors"].append({"change_number": number, "detail": f"AI review failed: {e}"})
             continue
@@ -1217,13 +1236,11 @@ def oncall_run_cr_briefing_task(self, body: dict):
             "detail": ctx_result.get("detail") or ctx_result.get("error"),
         }
 
-    change_record = (
-        (ctx_result.get("change") or {}).get("result")
-        if isinstance(ctx_result, dict) else {}
-    ) or {}
+    from servicenow.pages import _shape_change_from_context
+    change_shaped = _shape_change_from_context(ctx_result) or {}
 
     try:
-        result = orsvc.run_cr_briefing_for(review, change_record)
+        result = orsvc.run_cr_briefing_for(review, change_shaped)
     except Exception as e:
         return {"error": "ai_failed", "detail": str(e)}
 
