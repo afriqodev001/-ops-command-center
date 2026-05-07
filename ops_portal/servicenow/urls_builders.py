@@ -7,6 +7,26 @@ def _base() -> str:
     return settings.SERVICENOW_BASE.rstrip("/")
 
 
+def _normalize_display_value(dv) -> str | None:
+    """Translate the various display_value inputs callers may pass into the
+    sysparm_display_value query value.
+
+    Accepts True/False, the strings "true"/"false"/"all", or None. Returns
+    None to signal "do not include the param at all" (server default).
+    """
+    if dv is None:
+        return None
+    if dv is True:
+        return "true"
+    if dv is False:
+        return "false"
+    if isinstance(dv, str):
+        s = dv.strip().lower()
+        if s in ("true", "false", "all"):
+            return s
+    return None
+
+
 def build_table_record_url(
     table: str,
     sys_id: str,
@@ -23,8 +43,9 @@ def build_table_record_url(
     params = {}
     if fields:
         params["sysparm_fields"] = fields
-    if display_value is True:
-        params["sysparm_display_value"] = "true"
+    dv = _normalize_display_value(display_value)
+    if dv is not None:
+        params["sysparm_display_value"] = dv
 
     return base + ("?" + urlencode(params) if params else "")
 
@@ -48,8 +69,9 @@ def build_table_list_url(
         params["sysparm_query"] = query
     if fields:
         params["sysparm_fields"] = fields
-    if display_value is True:
-        params["sysparm_display_value"] = "true"
+    dv = _normalize_display_value(display_value)
+    if dv is not None:
+        params["sysparm_display_value"] = dv
 
     return base + "?" + urlencode(params)
 
