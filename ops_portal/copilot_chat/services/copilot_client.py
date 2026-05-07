@@ -327,8 +327,36 @@ class TeamsCopilotClient:
             const lastChat = t.querySelector("div[data-testid='lastChatMessage']");
             const aEl = (lastChat && lastChat.querySelector("div[data-testid='markdown-reply']"))
                         || t.querySelector(A_SEL);
-            const txt = aEl ? norm(aEl.innerText) : "";
-            if (txt) return txt;
+            if (!aEl) continue;
+
+            // 1. Primary pass \u2014 visible text via innerText. Preserves line
+            //    breaks and skips items hidden via CSS. In some Copilot Teams
+            //    renderings this MISSES the body of fenced code blocks (the
+            //    user only sees the "JSON" / "PYTHON" language label as the
+            //    visible text).
+            let primary = norm(aEl.innerText);
+
+            // 2. Code-block pass \u2014 walk every <pre>/<code>/Copilot-rendered
+            //    code container and pull textContent (which always reflects
+            //    DOM content even when innerText doesn't). De-dupe against
+            //    text already in `primary` so we don't paste the same block
+            //    twice. The list of selectors covers the standard Markdown
+            //    pre/code plus the Fluent UI "CodeBlock" class Copilot uses.
+            const codeBlocks = aEl.querySelectorAll(
+                'pre, code, [class*="CodeBlock"], [class*="codeBlock"]'
+            );
+            const extraParts = [];
+            codeBlocks.forEach(c => {
+                const tx = norm(c.textContent || "");
+                if (tx && !primary.includes(tx) && !extraParts.includes(tx)) {
+                    extraParts.push(tx);
+                }
+            });
+
+            const out = extraParts.length
+                ? (primary ? primary + "\n\n" + extraParts.join("\n\n") : extraParts.join("\n\n"))
+                : primary;
+            if (out) return out;
         }
         return "";
         """
