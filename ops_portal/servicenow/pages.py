@@ -423,8 +423,10 @@ def _adapt_live_change(rec):
         'backout_plan':      _dv(rec.get('backout_plan')),
         'test_plan':         _dv(rec.get('test_plan')),
         'outage':            _dv(rec.get('outage')) or _dv(rec.get('u_outage')),
+        'code_change':       _dv(rec.get('u_code_change')) or _dv(rec.get('code_change')),
         'cmdb_ci':           _dv(rec.get('cmdb_ci')),
         'opened_by':         _dv(rec.get('opened_by')),
+        'requested_by':      _dv(rec.get('requested_by')),
         'ctasks':            [],          # populated by the change-context poll renderer on detail pages
         'ctask_closed':      0,
         'ctask_pct':         0,
@@ -601,12 +603,19 @@ def _parse_sn_journal(raw) -> list:
 
 
 def _adapt_live_ctask(rec) -> dict:
+    short = _dv(rec.get('short_description'))
+    full = _dv(rec.get('description'))
     return {
-        'sys_id':      _dv(rec.get('sys_id')),
-        'number':      _dv(rec.get('number')),
-        'description': _dv(rec.get('short_description')) or _dv(rec.get('description')),
-        'state':       _dv(rec.get('state')),
-        'assigned_to': _dv(rec.get('assigned_to')),
+        'sys_id':            _dv(rec.get('sys_id')),
+        'number':            _dv(rec.get('number')),
+        'short_description': short,
+        # Keep `description` for backward compat with templates that read it;
+        # callers that want the full body should read 'full_description'.
+        'description':       short or full,
+        'full_description':  full,
+        'state':             _dv(rec.get('state')),
+        'assignment_group':  _dv(rec.get('assignment_group')),
+        'assigned_to':       _dv(rec.get('assigned_to')),
     }
 
 
@@ -1245,13 +1254,15 @@ def format_change_record_block(change, attachment_texts=None) -> str:
     # ── Change record ───────────────────────────────────────
     lines.append(section("CHANGE RECORD"))
     for f in [
-        field("Number",          change.get('number')),
-        field("Type",            change.get('type')),
-        field("Risk Level",      change.get('risk', 'Unknown')),
-        field("Current State",   change.get('state')),
+        field("Number",           change.get('number')),
+        field("Type",             change.get('type')),
+        field("Risk Level",       change.get('risk', 'Unknown')),
+        field("Current State",    change.get('state')),
         field("Assignment Group", change.get('assignment_group')),
-        field("Planned Start",   change.get('start_date') or change.get('scheduled')),
-        field("Planned End",     change.get('end_date')),
+        field("Assigned To",      change.get('assigned_to')),
+        field("Configuration Item", change.get('cmdb_ci')),
+        field("Planned Start",    change.get('start_date') or change.get('scheduled')),
+        field("Planned End",      change.get('end_date')),
     ]:
         if f:
             lines.append(f)
@@ -1266,6 +1277,7 @@ def format_change_record_block(change, attachment_texts=None) -> str:
     planning_fields = [
         ("JUSTIFICATION",        change.get('justification', '')),
         ("OUTAGE",               change.get('outage', '')),
+        ("CODE CHANGE",          change.get('code_change', '')),
         ("IMPLEMENTATION PLAN",  change.get('implementation_plan', '')),
         ("BACKOUT PLAN",         change.get('backout_plan', '')),
         ("TEST PLAN",            change.get('test_plan', '')),
@@ -1289,11 +1301,14 @@ def format_change_record_block(change, attachment_texts=None) -> str:
             else:
                 marker = '[OPEN] '
             assignee = f"  ← {t['assigned_to']}" if t.get('assigned_to') else ''
-            lines.append(f"  {marker}{t.get('number', '')}  {t.get('description', '')}{assignee}")
+            short = t.get('short_description') or t.get('description') or ''
+            full = t.get('full_description') or ''
+            lines.append(f"  {marker}{t.get('number', '')}  {short}{assignee}")
             lines.append(f"          Status: {t.get('state', '')}")
-            task_desc = t.get('description', '')
-            if task_desc and len(task_desc) > 60:
-                lines.append(f"          Detail: {task_desc}")
+            if full and full != short:
+                lines.append(f"          Description:")
+                for line in full.strip().splitlines():
+                    lines.append(f"          {line}")
 
     # ── Work notes ──────────────────────────────────────────
     work_notes = change.get('work_notes') or []

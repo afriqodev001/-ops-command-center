@@ -21,6 +21,8 @@ from typing import Dict, Any, List, Optional
 import json
 import urllib.request
 
+# Re-exported as the canonical provider list; preferences_save validates against this.
+
 from .creation_templates import KIND_FIELDS, FIELD_LABELS
 
 
@@ -304,8 +306,16 @@ def _get_ai_config() -> Dict:
     }
 
 
-def _call_llm(system: str, user: str) -> str:
+def _call_llm(system: str, user: str, files: Optional[List[str]] = None) -> str:
     """Route the LLM call to the configured provider.
+
+    Args:
+        system: system instruction.
+        user: user prompt body.
+        files: optional list of absolute file paths to upload alongside the
+            prompt. Currently only honored by 'copilot'; other providers
+            ignore it (their callers should still inline relevant text into
+            the user prompt for cross-provider parity).
 
     Returns the raw response text (expected to be JSON for field suggestion,
     or free-text for briefing review).
@@ -316,7 +326,7 @@ def _call_llm(system: str, user: str) -> str:
     if provider == 'tachyon':
         return _call_tachyon(system, user, cfg)
     elif provider == 'copilot':
-        return _call_copilot(system, user, cfg)
+        return _call_copilot(system, user, cfg, files=files)
     elif provider == 'claude':
         return _call_claude(system, user, cfg)
     elif provider == 'openai':
@@ -390,12 +400,16 @@ def _call_tachyon(system: str, user: str, cfg: Dict) -> str:
         return json.dumps({'_ai_error': f'Tachyon call failed: {e}'})
 
 
-def _call_copilot(system: str, user: str, cfg: Dict) -> str:
+def _call_copilot(system: str, user: str, cfg: Dict, files: Optional[List[str]] = None) -> str:
     """Call Microsoft Copilot (via Teams) using the existing Celery task.
 
     Copilot Chat has no separate system-instruction parameter, so we inline-
     prefix it on the user prompt. Conversations in Teams Copilot are stateful
     by default; for now we accept that (each call extends the same thread).
+
+    When `files` is supplied the call is routed through
+    copilot_run_prompt_with_files_task, which uploads each file as a Teams
+    Copilot attachment before sending the prompt.
     """
     # Layer 1: cheap port-alive probe (already done in ai_preflight, but the
     # generic _call_llm path is also reachable from places that don't preflight).
@@ -406,7 +420,11 @@ def _call_copilot(system: str, user: str, cfg: Dict) -> str:
 
     # Layer 2: deep readiness probe (Teams loaded → Copilot in left rail → iframe ready).
     try:
-        from copilot_chat.tasks import copilot_auth_check_task, copilot_run_prompt_task
+        from copilot_chat.tasks import (
+            copilot_auth_check_task,
+            copilot_run_prompt_task,
+            copilot_run_prompt_with_files_task,
+        )
         check = copilot_auth_check_task.apply(args=({'user_key': 'localuser'},)).result or {}
         if not check.get('authed'):
             step = check.get('step') or 'unknown'
@@ -420,10 +438,18 @@ def _call_copilot(system: str, user: str, cfg: Dict) -> str:
     combined = f"[Instructions]\n{system}\n\n[Request]\n{user}" if system else user
 
     try:
-        result = copilot_run_prompt_task.apply(args=({
-            'user_key': 'localuser',
-            'prompt': combined,
-        },)).result or {}
+        if files:
+            result = copilot_run_prompt_with_files_task.apply(args=({
+                'user_key': 'localuser',
+                'prompt': combined,
+                'upload_paths': list(files),
+                'clear_attachments': True,
+            },)).result or {}
+        else:
+            result = copilot_run_prompt_task.apply(args=({
+                'user_key': 'localuser',
+                'prompt': combined,
+            },)).result or {}
 
         if isinstance(result, dict):
             if result.get('error'):

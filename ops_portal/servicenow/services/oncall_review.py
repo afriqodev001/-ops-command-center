@@ -11,6 +11,7 @@ Stitches together:
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -370,12 +371,18 @@ def run_content_summary_for(
     review: OncallChangeReview,
     change_shaped: dict,
     attachment_texts: dict | None = None,
+    files: list | None = None,
 ) -> dict:
-    """Synchronously run AI content summary and persist to the row."""
+    """Synchronously run AI content summary and persist to the row.
+
+    `files` is a list of absolute file paths to upload alongside the prompt
+    (currently honored only by Copilot; other providers ignore — the inline
+    extracted text in `attachment_texts` covers them).
+    """
     system = get_prompt('oncall_change_summary')
     user_prompt = build_content_summary_prompt(review, change_shaped, attachment_texts=attachment_texts)
 
-    raw = _call_llm(system, user_prompt) or ''
+    raw = _call_llm(system, user_prompt, files=files) or ''
     parsed = _extract_json_dict(raw) or {}
 
     if parsed.get('_ai_error'):
@@ -406,6 +413,7 @@ def run_content_summary_for(
         'prompt_system': system,
         'prompt_user': user_prompt,
         'raw_response': raw,
+        'uploaded_files': [os.path.basename(p) for p in (files or [])],
     }
     review.ai_payload_json = json.dumps(existing, default=str)
 

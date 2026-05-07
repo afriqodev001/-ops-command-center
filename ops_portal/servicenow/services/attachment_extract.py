@@ -16,9 +16,11 @@ rest of the app (fetch_json_in_browser with arraybuffer response).
 """
 
 from __future__ import annotations
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import base64
 import io
+import os
+import re
 
 TEXT_EXTENSIONS = {
     '.txt', '.csv', '.log', '.json', '.xml', '.yaml', '.yml',
@@ -136,6 +138,92 @@ def fetch_attachment_binary(driver, download_link: str) -> Optional[bytes]:
         return base64.b64decode(b64)
     except Exception:
         return None
+
+
+_UNSAFE_FILENAME_RX = re.compile(r'[^A-Za-z0-9._\-]+')
+
+
+def _safe_filename(name: str) -> str:
+    """Sanitise a filename for cross-platform local storage."""
+    name = (name or 'attachment').strip().replace(' ', '_')
+    safe = _UNSAFE_FILENAME_RX.sub('_', name)
+    return safe[:120] or 'attachment'
+
+
+def download_attachments_to_disk(
+    change,
+    driver,
+    dest_dir: str,
+    max_files: int = 30,
+) -> List[str]:
+    """Download every attachment on the change and its CTASKs to dest_dir.
+
+    Args:
+        change: shaped change dict with 'attachments' and 'ctasks' (with their
+            own 'attachments') — same shape produced by _shape_change_from_context.
+        driver: Selenium WebDriver authenticated to ServiceNow.
+        dest_dir: existing directory to write files into. Caller manages cleanup.
+        max_files: hard cap so a runaway change with hundreds of attachments
+            doesn't blow up the AI provider's upload limit or our network budget.
+
+    Returns:
+        List of absolute file paths written. Skips attachments missing a
+        download_link, attachments that fail to fetch, and duplicates by sys_id.
+    """
+    if not change or not driver or not dest_dir:
+        return []
+
+    saved_paths: List[str] = []
+    seen_sys_ids = set()
+    used_names = set()
+
+    def _save(att):
+        if len(saved_paths) >= max_files:
+            return
+        sys_id = att.get('sys_id')
+        if sys_id and sys_id in seen_sys_ids:
+            return
+        link = att.get('download_link')
+        name = att.get('name') or att.get('file_name')
+        if not link or not name:
+            return
+
+        binary = fetch_attachment_binary(driver, link)
+        if not binary:
+            return
+        if len(binary) > MAX_FILE_SIZE:
+            return
+
+        base = _safe_filename(name)
+        # Disambiguate name collisions across change + ctasks.
+        candidate = base
+        n = 1
+        while candidate in used_names:
+            stem, _, ext = base.rpartition('.')
+            if stem and ext:
+                candidate = f"{stem}_{n}.{ext}"
+            else:
+                candidate = f"{base}_{n}"
+            n += 1
+        used_names.add(candidate)
+        if sys_id:
+            seen_sys_ids.add(sys_id)
+
+        path = os.path.join(dest_dir, candidate)
+        try:
+            with open(path, 'wb') as f:
+                f.write(binary)
+            saved_paths.append(path)
+        except OSError:
+            return
+
+    for att in (change.get('attachments') or []):
+        _save(att)
+    for ct in (change.get('ctasks') or []):
+        for att in (ct.get('attachments') or []):
+            _save(att)
+
+    return saved_paths
 
 
 def extract_attachment_texts(

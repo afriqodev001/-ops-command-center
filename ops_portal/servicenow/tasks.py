@@ -1251,11 +1251,33 @@ def oncall_run_content_summary_task(self, body: dict):
     if not review:
         return {"error": "not_found", "detail": f"No oncall review row for {number}"}
 
-    # Fetch full change context for the prompt.
+    # Fetch full change context for the prompt. The default
+    # SERVICENOW_CHANGE_FIELDS is intentionally minimal for general endpoints;
+    # the AI summary needs the long-form planning fields too. display_value=all
+    # makes reference fields (assignment_group, cmdb_ci, …) come back as
+    # {value, display_value} dicts so we render names instead of sys_ids.
+    summary_change_fields = (
+        "sys_id,number,short_description,description,"
+        "type,risk,priority,impact,"
+        "state,phase,approval,"
+        "assignment_group,assigned_to,opened_by,requested_by,"
+        "cmdb_ci,"
+        "start_date,end_date,"
+        "justification,implementation_plan,backout_plan,test_plan,"
+        "outage,u_outage,"
+        "u_code_change,code_change,"
+        "work_notes,sys_created_on,sys_updated_on"
+    )
+    summary_ctask_fields = (
+        "sys_id,number,short_description,description,"
+        "state,assignment_group,assigned_to,sys_updated_on"
+    )
     ctx_body = {
         "change_number": number,
         "user_key": _user_key(body),
         "display_value": "all",
+        "change_fields": summary_change_fields,
+        "ctask_fields": summary_ctask_fields,
     }
     ctx_result = change_context_task.apply(args=(ctx_body,)).result or {}
     if isinstance(ctx_result, dict) and ctx_result.get("error"):
@@ -1274,14 +1296,35 @@ def oncall_run_content_summary_task(self, body: dict):
     change_shaped = _shape_change_from_context(ctx_result) or {}
     attachment_texts = _extract_briefing_attachments(change_shaped) if change_shaped else {}
 
+    # Download every attachment (change-level + each ctask) to a tempdir so
+    # providers that support file uploads (e.g. Copilot) can attach them
+    # natively rather than relying on inlined text alone. Cleanup is in finally.
+    import tempfile, shutil
+    from servicenow.services.attachment_extract import download_attachments_to_disk
+    from servicenow.runners.servicenow_runner import ServiceNowRunner
+    upload_paths: list = []
+    tmpdir = tempfile.mkdtemp(prefix="oncall_summary_")
     try:
-        parsed = orsvc.run_content_summary_for(
-            review,
-            change_shaped,
-            attachment_texts=attachment_texts,
-        )
-    except Exception as e:
-        return {"error": "ai_failed", "detail": str(e)}
+        try:
+            sn_runner = ServiceNowRunner(_user_key(body))
+            sn_driver = sn_runner.get_driver()
+            upload_paths = download_attachments_to_disk(change_shaped, sn_driver, tmpdir)
+        except Exception:
+            # Non-fatal: proceed with whatever (if any) we got. Inline
+            # attachment text is still in attachment_texts.
+            upload_paths = upload_paths or []
+
+        try:
+            parsed = orsvc.run_content_summary_for(
+                review,
+                change_shaped,
+                attachment_texts=attachment_texts,
+                files=upload_paths or None,
+            )
+        except Exception as e:
+            return {"error": "ai_failed", "detail": str(e)}
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
     if parsed.get("_ai_error"):
         return {"error": "ai_error", "detail": parsed["_ai_error"]}
