@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 # Django / Celery plumbing
 from django.conf import settings
 from celery import shared_task
