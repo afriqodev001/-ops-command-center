@@ -136,6 +136,11 @@ def _iso_to_dt(raw: Any) -> Optional[datetime]:
         return None
     if isinstance(raw, datetime):
         return raw if raw.tzinfo else raw.replace(tzinfo=timezone.utc)
+    if isinstance(raw, dict):
+        # display_value="all" wraps fields in {value, display_value}.
+        raw = raw.get('display_value') or raw.get('value') or ''
+        if not raw:
+            return None
     s = str(raw).strip()
     for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d'):
         try:

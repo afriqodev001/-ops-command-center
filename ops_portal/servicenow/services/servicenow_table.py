@@ -224,9 +224,17 @@ def bulk_get_records_by_field(
 
     records = _unwrap_result(res) or []
 
+    def _flat_key(v):
+        # display_value="all" makes reference/string fields come back as
+        # {value, display_value} dicts, which aren't hashable. Normalise to
+        # the display string (preferred) or raw value before keying.
+        if isinstance(v, dict):
+            return str(v.get('display_value') or v.get('value') or '')
+        return str(v) if v else ''
+
     by_value = {}
     for r in records:
-        key = (r or {}).get(field)
+        key = _flat_key((r or {}).get(field))
         if key:
             by_value[key] = r
 
