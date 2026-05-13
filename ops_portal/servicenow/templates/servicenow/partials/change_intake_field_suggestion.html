@@ -1,0 +1,22 @@
+<div id="field-{{ target_field }}-value" class="animate-fade-in">
+  <textarea name="field__{{ target_field }}" rows="2"
+            class="input-dark text-xs w-full resize-y">{{ suggested_value }}</textarea>
+  {% if error %}
+  <p class="text-[10px] text-danger mt-1">{{ error }}</p>
+  {% elif debug.raw_response %}
+  <details class="group mt-1">
+    <summary class="cursor-pointer text-[10px] text-ink-muted hover:text-ink-secondary">
+      Show prompt + raw response
+    </summary>
+    <div class="mt-2 flex flex-col gap-2">
+      {% if debug.prompt_system %}
+      <pre class="text-[10px] text-ink-secondary whitespace-pre-wrap font-mono bg-surface-3/40 border border-edge rounded p-2">{{ debug.prompt_system }}</pre>
+      {% endif %}
+      {% if debug.prompt_user %}
+      <pre class="text-[10px] text-ink-secondary whitespace-pre-wrap font-mono bg-surface-3/40 border border-edge rounded p-2">{{ debug.prompt_user }}</pre>
+      {% endif %}
+      <pre class="text-[10px] text-ink-secondary whitespace-pre-wrap font-mono bg-surface-3/40 border border-edge rounded p-2">{{ debug.raw_response }}</pre>
+    </div>
+  </details>
+  {% endif %}
+</div>

@@ -334,6 +334,150 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
             "If the trace is small or trivial, say so plainly rather than padding."
         ),
     },
+
+    # ── Vendor spreadsheet → Change intake prompts ───────────
+    'change_intake_completeness': {
+        'label': 'Change Intake — Completeness Check',
+        'description': 'Inspects a parsed vendor spreadsheet + current proposals and reports missing or inconsistent data.',
+        'prompt': (
+            "You are an experienced ServiceNow change management engineer doing a "
+            "pre-flight check on a vendor-supplied change intake spreadsheet.\n\n"
+            "You will be given:\n"
+            "  - The vendor template name.\n"
+            "  - parsed_cells: A1-keyed cells from the spreadsheet's first sheet.\n"
+            "  - parsed_sheets: a short head of each named sheet's text content.\n"
+            "  - proposals: the current list of target_field + source_rule + kind + value,\n"
+            "    representing what will be sent to ServiceNow if submitted now.\n\n"
+            "Your job is to flag anything missing, inconsistent, or suspicious BEFORE the\n"
+            "change is created in ServiceNow. Focus on:\n"
+            "  - Required ServiceNow fields that are still blank.\n"
+            "  - 'human-input' fields the engineer hasn't filled in yet.\n"
+            "  - Source cells referenced by a rule but empty in parsed_cells (the spreadsheet itself is incomplete).\n"
+            "  - Conflicts between cells (e.g. B13 says no outage but description mentions one).\n"
+            "  - Date/time fields that look implausible.\n"
+            "  - Anything an experienced reviewer would push back on.\n\n"
+            "Respond ONLY with a JSON object:\n"
+            "{\n"
+            "  \"ok\": <true if you found NO blocking issues>,\n"
+            "  \"issues\": [\n"
+            "    {\"field\": \"<target_field or 'spreadsheet:<cell>' or 'general'>\",\n"
+            "     \"severity\": \"error\" | \"warning\" | \"info\",\n"
+            "     \"message\": \"<one-sentence explanation>\"}\n"
+            "  ],\n"
+            "  \"suggestions\": [\n"
+            "    {\"field\": \"<target_field>\", \"suggested_value\": \"<draft text>\"}\n"
+            "  ]\n"
+            "}\n\n"
+            "Rules:\n"
+            "- Only suggest values when you're confident; an empty suggestions list is fine.\n"
+            "- Don't repeat the source_rule back as the issue; explain WHY it's a problem.\n"
+            "- Treat fields starting with '_' as internal sub-sections of the combined description."
+        ),
+    },
+
+    'change_intake_category_suggest': {
+        'label': 'Change Intake — Category Suggestion',
+        'description': 'Suggests a ServiceNow change Category from the parsed spreadsheet event description and type.',
+        'prompt': (
+            "You suggest a ServiceNow change category for a vendor change.\n"
+            "Inputs: the event description and event type from the vendor spreadsheet,\n"
+            "plus the current proposal values for context.\n\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<category>\", \"reasoning\": \"<one sentence>\"}.\n"
+            "If you're not confident, return an empty string for value."
+        ),
+    },
+    'change_intake_reason_suggest': {
+        'label': 'Change Intake — Reason Suggestion',
+        'description': 'Suggests a ServiceNow change Reason from the parsed spreadsheet event description and type.',
+        'prompt': (
+            "You suggest a ServiceNow change reason (e.g. Patching, Defect Fix, Enhancement) "
+            "for a vendor change.\n"
+            "Inputs: the event description and event type from the vendor spreadsheet,\n"
+            "plus the current proposal values for context.\n\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<reason>\", \"reasoning\": \"<one sentence>\"}.\n"
+            "If you're not confident, return an empty string for value."
+        ),
+    },
+    'change_intake_dates_suggest': {
+        'label': 'Change Intake — Date Window Suggestion',
+        'description': 'Parses B7 (date) + B8 (free-text duration) into ISO planned_start_date and planned_end_date.',
+        'prompt': (
+            "You convert vendor free-text scheduling notes into a structured planned window.\n"
+            "Inputs: B7 (date) and B8 (duration / timing description like '2 hours starting at 10pm EST').\n\n"
+            "Respond ONLY with a JSON object: \n"
+            "{\"start_date\": \"<YYYY-MM-DD HH:MM>\", \"end_date\": \"<YYYY-MM-DD HH:MM>\", \"reasoning\": \"<one sentence>\"}.\n"
+            "Use the change date as-is. If the timezone is ambiguous, assume local time and\n"
+            "note it in the reasoning. If B8 cannot be parsed, return empty strings for the dates."
+        ),
+    },
+
+    # The following are stub prompts for human-input fields. They wire the
+    # end-to-end pipeline so the team can iterate on the prompt text later
+    # without code changes (edit via /servicenow/prompts/).
+    'change_intake_field_test_plan': {
+        'label': 'Change Intake — Testing Strategy (stub)',
+        'description': 'Drafts a testing strategy section. TODO: refine with org-specific guidance.',
+        'prompt': (
+            "Draft a brief testing strategy for a vendor change. Use the proposal context.\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<2-4 sentences>\"}."
+        ),
+    },
+    'change_intake_field_u_implementation_strategy': {
+        'label': 'Change Intake — Implementation Strategy (stub)',
+        'description': 'Drafts the implementation strategy. TODO: refine with org-specific guidance.',
+        'prompt': (
+            "Draft a brief implementation strategy for a vendor change.\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<2-4 sentences>\"}."
+        ),
+    },
+    'change_intake_field_u_implementation_approach': {
+        'label': 'Change Intake — Implementation Approach (stub)',
+        'description': 'Drafts the implementation approach. TODO: refine with org-specific guidance.',
+        'prompt': (
+            "Draft a brief implementation approach for a vendor change.\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<2-4 sentences>\"}."
+        ),
+    },
+    'change_intake_field_u_who_will_install': {
+        'label': 'Change Intake — Who Will Install (stub)',
+        'description': 'Drafts the installer line. TODO: refine with org-specific guidance.',
+        'prompt': (
+            "Suggest who will perform the install (individual or group). Use vendor name from B5 if present.\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<one line>\"}."
+        ),
+    },
+    'change_intake_field_u_who_will_validate': {
+        'label': 'Change Intake — Who Will Validate (stub)',
+        'description': 'Drafts the validator line. TODO: refine with org-specific guidance.',
+        'prompt': (
+            "Suggest who will validate the change (individual or group).\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<one line>\"}."
+        ),
+    },
+    'change_intake_field_cmdb_ci': {
+        'label': 'Change Intake — CI Suggestion (stub)',
+        'description': 'Drafts a CMDB CI. TODO: refine with CI list.',
+        'prompt': (
+            "Suggest the most likely configuration item. Use B9 (environment) from the spreadsheet if available.\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<CI name>\"}."
+        ),
+    },
+    'change_intake_field_assignment_group': {
+        'label': 'Change Intake — Assignment Group (stub)',
+        'description': 'Drafts the assignment group. TODO: refine with group list.',
+        'prompt': (
+            "Suggest the assignment group for a vendor change.\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<group name>\"}."
+        ),
+    },
+    'change_intake_field_generic': {
+        'label': 'Change Intake — Generic Field (fallback)',
+        'description': 'Fallback used when no field-specific prompt is registered.',
+        'prompt': (
+            "Suggest a value for the named change field, using the proposal context.\n"
+            "Respond ONLY with a JSON object: {\"value\": \"<text>\"}."
+        ),
+    },
 }
 
 PROMPT_KEYS = list(DEFAULTS.keys())

@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import pages
 from . import oncall_pages
+from . import change_intake_pages
 
 urlpatterns = [
 
@@ -66,6 +67,35 @@ urlpatterns = [
     path("oncall/history/",                       oncall_pages.oncall_history_page,     name="oncall-history"),
     path("oncall/history/partial/",               oncall_pages.oncall_history_partial,  name="oncall-history-partial"),
 
+
+    # ─── Vendor Spreadsheet → Change intake wizard ─────
+    path("change-intake/",
+         change_intake_pages.change_intake_upload_page,
+         name="change-intake-upload-page"),
+    path("change-intake/upload/",
+         change_intake_pages.change_intake_upload_submit,
+         name="change-intake-upload-submit"),
+    path("change-intake/<int:intake_id>/mapping/save/",
+         change_intake_pages.change_intake_mapping_save,
+         name="change-intake-mapping-save"),
+    path("change-intake/<int:intake_id>/completeness/run/",
+         change_intake_pages.change_intake_completeness_run,
+         name="change-intake-completeness-run"),
+    path("change-intake/<int:intake_id>/completeness/poll/<str:task_id>/",
+         change_intake_pages.change_intake_completeness_poll,
+         name="change-intake-completeness-poll"),
+    path("change-intake/<int:intake_id>/field/<str:target_field>/generate/",
+         change_intake_pages.change_intake_field_generate,
+         name="change-intake-field-generate"),
+    path("change-intake/<int:intake_id>/field/<str:target_field>/poll/<str:task_id>/",
+         change_intake_pages.change_intake_field_poll,
+         name="change-intake-field-poll"),
+    path("change-intake/<int:intake_id>/submit/",
+         change_intake_pages.change_intake_submit,
+         name="change-intake-submit"),
+    path("change-intake/<int:intake_id>/submit/poll/<str:task_id>/",
+         change_intake_pages.change_intake_submit_poll,
+         name="change-intake-submit-poll"),
 
     # ─── UI pages ───────────────────────────────
     path("incidents/",                 pages.incidents_list,   name="incidents-list"),

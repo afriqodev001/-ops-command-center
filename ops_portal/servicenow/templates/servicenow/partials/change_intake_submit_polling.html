@@ -1,0 +1,20 @@
+<div class="rounded-lg border border-edge bg-surface-3/40 p-3 animate-fade-in"
+     hx-get="/servicenow/change-intake/{{ intake.pk }}/submit/poll/{{ task_id }}/"
+     hx-trigger="load delay:3s"
+     hx-target="#intake-submit-area"
+     hx-swap="innerHTML">
+  <div class="flex items-center gap-3">
+    <div class="w-4 h-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin flex-shrink-0"></div>
+    <div class="flex-1">
+      <p class="text-xs font-semibold text-info">
+        {% if intake.submit_status == 'submitting' %}Creating change record…{% endif %}
+        {% if intake.submit_status == 'cr_created' %}Uploading spreadsheet…{% endif %}
+        {% if intake.submit_status == 'xlsx_attached' %}Creating CTASK…{% endif %}
+        {% if intake.submit_status == 'ctask_created' %}Finalising…{% endif %}
+      </p>
+      <p class="text-[10px] text-ink-muted mt-0.5">
+        {% if intake.created_chg_number %}CHG: <span class="font-mono text-brand-light">{{ intake.created_chg_number }}</span>{% endif %}
+      </p>
+    </div>
+  </div>
+</div>

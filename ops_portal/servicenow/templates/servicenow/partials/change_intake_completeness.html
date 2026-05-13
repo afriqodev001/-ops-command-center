@@ -1,0 +1,90 @@
+<div class="flex flex-col gap-3 animate-fade-in">
+
+  {% if completeness.ok %}
+  <div class="rounded-lg border border-ok/30 bg-ok/10 p-3">
+    <p class="text-xs font-semibold text-ok flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+      No blocking issues found.
+    </p>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-warn/30 bg-warn/10 p-3">
+    <p class="text-xs font-semibold text-warn flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/>
+      </svg>
+      Issues to address before submit.
+    </p>
+  </div>
+  {% endif %}
+
+  {% if completeness.issues %}
+  <div class="border border-edge rounded-lg overflow-hidden">
+    <div class="bg-surface-3/60 px-3 py-1.5 border-b border-edge">
+      <span class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Issues</span>
+    </div>
+    <div class="divide-y divide-edge">
+      {% for issue in completeness.issues %}
+      <div class="p-3 flex items-start gap-2">
+        <span class="badge {% if issue.severity == 'error' %}badge-p1{% elif issue.severity == 'warning' %}badge-info{% else %}badge-muted{% endif %} flex-shrink-0">
+          {{ issue.severity|default:"info" }}
+        </span>
+        <div class="flex-1 min-w-0">
+          <code class="text-[10px] text-ink-muted">{{ issue.field }}</code>
+          <p class="text-xs text-ink-primary">{{ issue.message }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if completeness.suggestions %}
+  <div class="border border-edge rounded-lg overflow-hidden">
+    <div class="bg-surface-3/60 px-3 py-1.5 border-b border-edge">
+      <span class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">AI suggestions</span>
+    </div>
+    <div class="divide-y divide-edge">
+      {% for s in completeness.suggestions %}
+      <div class="p-3">
+        <div class="flex items-center gap-2 mb-1">
+          <code class="text-[10px] text-brand-light">{{ s.field }}</code>
+        </div>
+        <p class="text-xs text-ink-secondary whitespace-pre-wrap">{{ s.suggested_value }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if debug.prompt_system or debug.prompt_user or debug.raw_response %}
+  <details class="group">
+    <summary class="cursor-pointer text-[10px] text-ink-muted hover:text-ink-secondary">
+      Show prompt + raw response
+    </summary>
+    <div class="mt-2 flex flex-col gap-2">
+      {% if debug.prompt_system %}
+      <div>
+        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">System</p>
+        <pre class="text-[10px] text-ink-secondary whitespace-pre-wrap font-mono bg-surface-3/40 border border-edge rounded p-2">{{ debug.prompt_system }}</pre>
+      </div>
+      {% endif %}
+      {% if debug.prompt_user %}
+      <div>
+        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">User</p>
+        <pre class="text-[10px] text-ink-secondary whitespace-pre-wrap font-mono bg-surface-3/40 border border-edge rounded p-2">{{ debug.prompt_user }}</pre>
+      </div>
+      {% endif %}
+      {% if debug.raw_response %}
+      <div>
+        <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">Raw response</p>
+        <pre class="text-[10px] text-ink-secondary whitespace-pre-wrap font-mono bg-surface-3/40 border border-edge rounded p-2">{{ debug.raw_response }}</pre>
+      </div>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
+
+</div>

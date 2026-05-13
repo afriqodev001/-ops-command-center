@@ -123,6 +123,16 @@
           Bulk Create
         </a>
 
+        <a href="/servicenow/change-intake/"
+           class="{% if 'change-intake' in request.path %}nav-item-active{% else %}nav-item{% endif %}"
+           title="Upload a vendor spreadsheet to auto-create a Normal Change with CTASK + attachment">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6m-4 0h4m-9 4h14a2 2 0 002-2V7a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+          Vendor Intake
+        </a>
+
         <a href="/servicenow/oncall/"
            class="{% if '/servicenow/oncall' in request.path %}nav-item-active{% else %}nav-item{% endif %}"
            title="Oncall change-review workflow — reviews, suppression matrix, history, window reports">

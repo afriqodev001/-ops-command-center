@@ -220,6 +220,7 @@ SERVICENOW_BASE = os.environ.get(
 
 SERVICENOW_CHANGE_TABLE = "change_request"
 SERVICENOW_CHANGE_FIELDS = "number,sys_id,assignment_group,assigned_to,state,short_description"
+SERVICENOW_CTASK_TABLE = "change_task"
 
 SERVICENOW_INCIDENT_TABLE = "incident"
 SERVICENOW_INCIDENT_TASK_TABLE = "incident_task"

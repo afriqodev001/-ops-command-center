@@ -199,3 +199,79 @@ class OncallChangeReview(models.Model):
 
     def at_or_past(self, target_stage: str) -> bool:
         return self.stage_order >= ONCALL_STAGE_INDEX.get(target_stage, 0)
+
+
+# ────────────────────────────────────────────────────────────────
+# Vendor spreadsheet → ServiceNow Change intake wizard
+# ────────────────────────────────────────────────────────────────
+
+CHANGE_INTAKE_STATUS_CHOICES = (
+    ('draft',          'Draft'),
+    ('submitting',     'Submitting'),
+    ('cr_created',     'CR created'),
+    ('xlsx_attached',  'Spreadsheet attached'),
+    ('ctask_created',  'CTASK created'),
+    ('done',           'Done'),
+    ('error',          'Error'),
+)
+
+
+class ChangeIntakeRequest(models.Model):
+    """
+    One row per uploaded vendor spreadsheet → Normal Change workflow.
+
+    Persists every state of the wizard so the engineer can navigate back
+    to the result page later. JSON-as-TextField matches the rest of this
+    app (see OncallChangeReview.ai_payload_json).
+    """
+
+    vendor_template = models.CharField(
+        max_length=64,
+        default='epsilon',
+        db_index=True,
+    )
+
+    uploaded_file = models.FileField(upload_to='servicenow_excel_uploads/')
+    original_filename = models.CharField(max_length=255, blank=True)
+
+    # Full parsed payload from excel_parser: {cells: {...}, sheets: {...}}
+    parsed_payload_json = models.TextField(blank=True)
+
+    # Current edited proposal list:
+    # [{target_field, label, source_rule, kind, group, value}, ...]
+    proposals_json = models.TextField(blank=True)
+
+    # AI completeness check result + debug:
+    # {ok, issues:[{field, severity, message}], suggestions:[{field, suggested_value}],
+    #  _debug:{prompt_system, prompt_user, raw_response}}
+    ai_completeness_json = models.TextField(blank=True)
+
+    # Per-field AI-generate debug, keyed by target_field:
+    # {<field>: {prompt_system, prompt_user, raw_response, suggested_value}}
+    ai_field_debug_json = models.TextField(blank=True)
+
+    submit_status = models.CharField(
+        max_length=32,
+        choices=CHANGE_INTAKE_STATUS_CHOICES,
+        default='draft',
+        db_index=True,
+    )
+    submit_error = models.TextField(blank=True)
+
+    created_chg_number = models.CharField(max_length=32, blank=True)
+    created_chg_sys_id = models.CharField(max_length=64, blank=True)
+    created_ctask_number = models.CharField(max_length=32, blank=True)
+    created_ctask_sys_id = models.CharField(max_length=64, blank=True)
+
+    submit_task_id = models.CharField(max_length=64, blank=True)
+    completeness_task_id = models.CharField(max_length=64, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        suffix = self.created_chg_number or f'(draft {self.pk})'
+        return f'{self.vendor_template} → {suffix}'

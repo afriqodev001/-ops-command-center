@@ -1,0 +1,44 @@
+{% if intake.submit_status == 'done' %}
+<div class="rounded-lg border border-ok/30 bg-ok/10 p-4 animate-fade-in">
+  <div class="flex items-start gap-3">
+    <svg class="w-5 h-5 text-ok flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <div class="flex-1">
+      <p class="text-sm font-semibold text-ok">Change created successfully</p>
+      <div class="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+        <div>
+          <span class="text-ink-muted">CHG:</span>
+          <a href="/servicenow/changes/{{ intake.created_chg_number }}/"
+             class="ml-1 font-mono text-brand-light hover:text-brand">{{ intake.created_chg_number }}</a>
+        </div>
+        <div>
+          <span class="text-ink-muted">CTASK:</span>
+          <span class="ml-1 font-mono text-ink-primary">{{ intake.created_ctask_number|default:"(no number returned)" }}</span>
+        </div>
+      </div>
+      <p class="text-[10px] text-ink-muted mt-2">Spreadsheet <code>{{ intake.original_filename }}</code> was attached to the change.</p>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="rounded-lg border border-danger/30 bg-danger/10 p-4 animate-fade-in">
+  <div class="flex items-start gap-3">
+    <svg class="w-5 h-5 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/>
+    </svg>
+    <div class="flex-1">
+      <p class="text-sm font-semibold text-danger">Submit failed</p>
+      <p class="text-xs text-ink-primary mt-1">{{ intake.submit_error|default:"Unknown error." }}</p>
+      {% if intake.created_chg_number %}
+      <p class="text-[10px] text-ink-muted mt-2">
+        Partial state: CHG
+        <a href="/servicenow/changes/{{ intake.created_chg_number }}/"
+           class="font-mono text-brand-light hover:text-brand">{{ intake.created_chg_number }}</a>
+        was created — review it in ServiceNow before retrying.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
