@@ -1,0 +1,12 @@
+<div class="glass-card p-5 animate-fade-in">
+  <div class="flex items-center gap-2 mb-3">
+    <span class="badge badge-info">Preview</span>
+    <h3 class="text-sm font-semibold text-ink-primary">Assembled description</h3>
+    {% if not has_sample %}
+    <span class="ml-auto text-[10px] text-ink-muted">No saved intakes for {{ vendor_slug }} yet — rendering all-placeholder preview.</span>
+    {% else %}
+    <span class="ml-auto text-[10px] text-ink-muted">Built from the most recent {{ vendor_slug }} intake's proposal values.</span>
+    {% endif %}
+  </div>
+  <pre class="text-[11px] text-ink-secondary whitespace-pre-wrap font-mono bg-surface-3/40 border border-edge rounded p-3">{{ preview }}</pre>
+</div>

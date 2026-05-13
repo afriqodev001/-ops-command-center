@@ -248,7 +248,7 @@ def change_intake_submit_task(self, body: dict):
         intake.save(update_fields=['submit_status', 'submit_error', 'updated_at'])
         return {'error': 'no_proposals'}
 
-    cr_fields = fields_for_servicenow(proposals)
+    cr_fields = fields_for_servicenow(proposals, intake.vendor_template)
 
     intake.submit_status = 'submitting'
     intake.submit_error = ''

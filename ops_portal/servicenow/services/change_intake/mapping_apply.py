@@ -2,17 +2,17 @@
 Apply a VendorMapping to a parsed payload, producing the list of
 FieldProposals the wizard renders + edits.
 
-`build_description` re-assembles the combined ServiceNow `description`
-field from a structured template at submit time, using whatever the
-engineer has edited. Empty `<human input>` sub-sections render as
-visible `[TODO: <name>]` placeholders so they're flagged to reviewers
-in ServiceNow.
+`build_description` assembles the combined ServiceNow `description` from
+whichever sections the active ChangeIntakeTemplate (in template_store)
+references. Empty sub-section values render as `[TODO: <heading>]`
+placeholders so they're flagged in the final CR.
 """
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Set
 
 from .mapping_spec import ParsedPayload, VendorMapping
+from .template_store import load_template
 
 
 def apply_mapping(parsed: ParsedPayload, mapping: VendorMapping) -> List[Dict]:
@@ -35,55 +35,64 @@ def apply_mapping(parsed: ParsedPayload, mapping: VendorMapping) -> List[Dict]:
     return out
 
 
-# ── Description assembly ──────────────────────────────────────────
+def build_description(proposals_by_field: Dict[str, str], vendor_slug: str) -> str:
+    """Assemble the combined `description` for `vendor_slug` from the per-section
+    proposal values using whichever template is active in template_store.
 
-_DESCRIPTION_SECTIONS = [
-    # (proposal field key, section heading shown in CR description)
-    ('_executive_summary',         'Executive summary'),
-    ('_benefit',                   'Benefit / business justification'),
-    ('_why_now',                   'Why now'),
-    ('_impacts_if_not_installed',  'Impacts if not installed'),
-    ('u_outage',                   'Outage'),
-    ('test_plan',                  'Testing strategy'),
-    ('_install_steps',             'Install steps'),
-    ('_install_duration',          'Install duration'),
-    ('u_who_will_install',         'Who will install'),
-    ('u_implementation_strategy',  'Implementation strategy'),
-    ('u_implementation_approach',  'Implementation approach'),
-    ('u_who_will_validate',        'Who will validate'),
-    ('_backout_steps',             'Backout steps'),
-]
+    Empty sections render as `[TODO: <heading>]` (or the section's overridden
+    placeholder text, if set)."""
+    template = load_template(vendor_slug) or {}
+    sections = template.get('sections') or []
+
+    if not sections:
+        # Fall back to a single dump of the description proposal value, if any.
+        return (proposals_by_field.get('description') or '').strip()
+
+    lines: List[str] = []
+    intro = (template.get('intro') or '').strip()
+    if intro:
+        lines.append(intro)
+        lines.append('')
+
+    for section in sections:
+        heading = section.get('heading') or section.get('field') or ''
+        field_key = section.get('field') or ''
+        placeholder = section.get('placeholder') or f'[TODO: {heading}]'
+
+        value = (proposals_by_field.get(field_key) or '').strip()
+        lines.append(f'== {heading} ==')
+        lines.append(value if value else placeholder)
+        lines.append('')
+
+    outro = (template.get('outro') or '').strip()
+    if outro:
+        lines.append(outro)
+
+    return '\n'.join(lines).strip()
 
 
-def build_description(proposals_by_field: Dict[str, str]) -> str:
-    """Assemble the combined `description` from the per-section proposal
-    values. Empty sections render as `[TODO: <name>]` placeholders."""
-    out_lines: List[str] = []
-    for key, heading in _DESCRIPTION_SECTIONS:
-        value = (proposals_by_field.get(key) or '').strip()
-        out_lines.append(f'== {heading} ==')
-        if value:
-            out_lines.append(value)
-        else:
-            out_lines.append(f'[TODO: {heading}]')
-        out_lines.append('')
-    return '\n'.join(out_lines).strip()
-
-
-# ── Helpers for views/tasks ───────────────────────────────────────
-
-def fields_for_servicenow(proposals: List[Dict]) -> Dict[str, str]:
+def fields_for_servicenow(proposals: List[Dict], vendor_slug: str) -> Dict[str, str]:
     """Project the editable proposals down to the dict we pass to
-    `create_change_via_table_api(fields=...)`. Hidden helper fields
-    (those starting with '_') are folded into the combined description
-    rather than sent to ServiceNow directly."""
+    `create_change_via_table_api(fields=...)`.
+
+    - Fields whose names start with '_' are hidden helpers folded into the
+      combined description by build_description.
+    - The combined `description` is rebuilt at submit time from the current
+      sub-section values + the active template.
+    """
     by_field = {p['target_field']: (p.get('value') or '').strip() for p in proposals}
 
-    # Build the final description from sub-sections + replace whatever
-    # was previously stored under 'description'.
-    by_field['description'] = build_description(by_field)
+    by_field['description'] = build_description(by_field, vendor_slug)
 
     return {
         k: v for k, v in by_field.items()
         if not k.startswith('_') and v
     }
+
+
+def description_field_keys(vendor_slug: str) -> Set[str]:
+    """The set of proposal fields the active template assembles into the
+    combined description. Useful for the UI to render the description-only
+    sections as a separate accordion."""
+    template = load_template(vendor_slug) or {}
+    return {s.get('field') for s in (template.get('sections') or []) if s.get('field')}

@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Description templates — Ops Center{% endblock %}
+{% block page_title %}Description templates{% endblock %}
+{% block page_subtitle %}Edit how each vendor's spreadsheet fields are stitched into the ServiceNow Change <code>description</code>.{% endblock %}
+
+{% block header_actions %}
+<a href="/servicenow/change-intake/" class="btn-ghost text-xs gap-1.5">
+  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+  </svg>
+  Back to wizard
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-5 h-full overflow-y-auto">
+  <div class="glass-card p-5">
+    <h2 class="text-sm font-semibold text-ink-primary mb-3">Vendors</h2>
+    <div class="overflow-x-auto border border-edge rounded-xl">
+      <table class="w-full text-xs">
+        <thead class="bg-surface-3 border-b border-edge">
+          <tr>
+            <th class="th">Vendor</th>
+            <th class="th">Template name</th>
+            <th class="th">Sections</th>
+            <th class="th">State</th>
+            <th class="th text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in vendors %}
+          <tr class="table-row">
+            <td class="td font-mono text-ink-secondary">{{ v.slug }}</td>
+            <td class="td text-ink-primary">{{ v.name }}</td>
+            <td class="td tabular-nums">{{ v.section_count }}</td>
+            <td class="td">
+              {% if v.customised %}
+              <span class="badge badge-info">Customised</span>
+              {% else %}
+              <span class="badge badge-muted">Default</span>
+              {% endif %}
+            </td>
+            <td class="td text-right">
+              <a href="/servicenow/change-intake/templates/{{ v.slug }}/" class="btn-ghost text-[10px] py-1 px-2 gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Edit
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
