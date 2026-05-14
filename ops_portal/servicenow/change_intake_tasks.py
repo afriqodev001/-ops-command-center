@@ -177,10 +177,22 @@ def change_intake_ai_extract_task(self, body: dict):
         for p in editable
     ]
 
+    # Constrain category + reason to the existing change-creation lists
+    # so the AI returns values that match the dropdown options exactly.
+    from servicenow.services.creation_templates import (
+        load_change_categories, load_change_reasons,
+    )
+    allowed_categories = list(load_change_categories().keys())
+    allowed_reasons = list(load_change_reasons().keys())
+
     system = get_prompt('change_intake_ai_extract')
     user = (
         f"Vendor template: {intake.vendor_template}\n\n"
         f"{_summarise_parsed(parsed)}\n\n"
+        f"allowed_categories (use one of these exactly, or empty string):\n"
+        f"{json.dumps(allowed_categories)}\n\n"
+        f"allowed_reasons (use one of these exactly, or empty string):\n"
+        f"{json.dumps(allowed_reasons)}\n\n"
         f"editable_fields:\n{json.dumps(editable_summary, indent=2)}"
     )
 
@@ -199,6 +211,14 @@ def change_intake_ai_extract_task(self, body: dict):
                     suggested[k] = v.strip()
                 elif v is not None:
                     suggested[k] = str(v).strip()
+
+    # Drop AI category / reason if they don't match the allowed lists —
+    # we'd rather leave the field blank than poison the dropdown with a
+    # value that won't appear among the options.
+    if 'category' in suggested and suggested['category'] not in allowed_categories:
+        suggested.pop('category', None)
+    if 'reason' in suggested and suggested['reason'] not in allowed_reasons:
+        suggested.pop('reason', None)
 
     # Apply: only fill empty non-auto fields. Don't clobber engineer edits.
     editable_field_names = {p['target_field'] for p in editable}
@@ -296,6 +316,18 @@ def change_intake_ai_field_generate_task(self, body: dict):
         suggested_value = ''
     else:
         error = ''
+
+    # Validate category / reason against the existing dropdown lists —
+    # otherwise the AI suggestion won't match any <option> and the dropdown
+    # silently falls back to blank.
+    if target_field == 'category' and suggested_value:
+        from servicenow.services.creation_templates import load_change_categories
+        if suggested_value not in load_change_categories():
+            suggested_value = ''
+    elif target_field == 'reason' and suggested_value:
+        from servicenow.services.creation_templates import load_change_reasons
+        if suggested_value not in load_change_reasons():
+            suggested_value = ''
 
     debug = _load(intake.ai_field_debug_json) or {}
     debug[target_field] = {

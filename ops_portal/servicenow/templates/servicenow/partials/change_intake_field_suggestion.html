@@ -1,6 +1,26 @@
 <div id="field-{{ target_field }}-value" class="animate-fade-in">
-  <textarea name="field__{{ target_field }}" rows="2"
-            class="input-dark text-xs w-full resize-y">{{ suggested_value }}</textarea>
+  {% if target_field == 'category' %}
+    <select name="field__category" class="input-dark text-xs w-full">
+      <option value="">— pick a category —</option>
+      {% for cat, cat_desc in change_categories.items %}
+      <option value="{{ cat }}" {% if suggested_value == cat %}selected{% endif %}>
+        {{ cat }}{% if cat_desc %} — {{ cat_desc }}{% endif %}
+      </option>
+      {% endfor %}
+    </select>
+  {% elif target_field == 'reason' %}
+    <select name="field__reason" class="input-dark text-xs w-full">
+      <option value="">— pick a reason —</option>
+      {% for reason, reason_desc in change_reasons.items %}
+      <option value="{{ reason }}" {% if suggested_value == reason %}selected{% endif %}>
+        {{ reason }}{% if reason_desc %} — {{ reason_desc }}{% endif %}
+      </option>
+      {% endfor %}
+    </select>
+  {% else %}
+    <textarea name="field__{{ target_field }}" rows="2"
+              class="input-dark text-xs w-full resize-y">{{ suggested_value }}</textarea>
+  {% endif %}
   {% if error %}
   <p class="text-[10px] text-danger mt-1">{{ error }}</p>
   {% elif debug.raw_response %}

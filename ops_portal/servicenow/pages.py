@@ -2440,9 +2440,11 @@ def preferences_save(request):
 
 
 def prompts_editor(request):
-    """GET: return the AI prompts editor partial."""
+    """GET: render the full AI prompts editor page (extends base.html with
+    proper margins and chrome). POST views still return the bare partial
+    so HTMX can swap #prompts-editor-body in place."""
     from .services.prompt_store import get_all_prompts
-    return render(request, 'servicenow/partials/prompts_editor.html', {
+    return render(request, 'servicenow/prompts_editor.html', {
         'prompts': get_all_prompts(),
     })
 

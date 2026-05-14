@@ -91,7 +91,7 @@ EPSILON_MAPPING = VendorMapping(
             label='Description',
             source_rule="Template (edit at /servicenow/prompts/ → 'change_intake_template_description')",
             kind='auto',
-            group='Description',
+            group='Identity',
             extractor=lambda p: render_template('change_intake_template_description', p),
         ),
         FieldRule(
@@ -99,7 +99,7 @@ EPSILON_MAPPING = VendorMapping(
             label='Justification',
             source_rule="Template (edit at /servicenow/prompts/ → 'change_intake_template_justification')",
             kind='auto',
-            group='Description',
+            group='Planning',
             extractor=lambda p: render_template('change_intake_template_justification', p),
         ),
         FieldRule(

@@ -39,17 +39,48 @@ def _load_json_field(text: str, default):
         return default
 
 
+# Explicit display order (per the engineer's spec). Anything outside this
+# list falls to the end of its group in alphabetical order.
+FIELD_ORDER: List[str] = [
+    # Identity (no umbrella header — these render flat)
+    'category',
+    'reason',
+    'cmdb_ci',
+    'assignment_group',
+    'short_description',
+    'description',
+    'u_code_change',
+    # Planning umbrella
+    'justification',
+    'u_outage',
+    'test_plan',
+    'implementation_plan',
+    'u_implementation_strategy',
+    'u_implementation_approach',
+    'backout_plan',
+    # Schedule umbrella
+    'start_date',
+    'end_date',
+]
+
+GROUP_ORDER = {'Identity': 0, 'Planning': 1, 'Schedule': 2, '': 9}
+
+
 def _proposals_for_render(intake: ChangeIntakeRequest) -> List[Dict]:
     proposals = _load_json_field(intake.proposals_json, [])
-    # Sort by group so the UI groups by section.
-    order = {'Identity': 0, 'Schedule': 1, 'Description': 2,
-             'Planning': 3, 'People': 4, '': 9}
-    proposals.sort(key=lambda p: (order.get(p.get('group', ''), 99),
-                                  p.get('target_field', '')))
+    field_index = {f: i for i, f in enumerate(FIELD_ORDER)}
+    proposals.sort(key=lambda p: (
+        GROUP_ORDER.get(p.get('group', ''), 99),
+        field_index.get(p.get('target_field', ''), 999),
+        p.get('target_field', ''),
+    ))
     return proposals
 
 
 def _render_mapping_form(request, intake: ChangeIntakeRequest):
+    from .services.creation_templates import (
+        load_change_categories, load_change_reasons,
+    )
     completeness = _load_json_field(intake.ai_completeness_json, {})
     completeness_debug = completeness.pop('_debug', {}) if isinstance(completeness, dict) else {}
     return render(request, 'servicenow/partials/change_intake_mapping_form.html', {
@@ -57,6 +88,8 @@ def _render_mapping_form(request, intake: ChangeIntakeRequest):
         'proposals': _proposals_for_render(intake),
         'completeness': completeness,
         'completeness_debug': completeness_debug,
+        'change_categories': load_change_categories(),
+        'change_reasons': load_change_reasons(),
     })
 
 
@@ -367,12 +400,18 @@ def change_intake_field_poll(request, intake_id: int, target_field: str, task_id
 
     debug = _load_json_field(intake.ai_field_debug_json, {}).get(target_field, {})
 
+    # Category / reason render as <select>; pass options for those cases.
+    from .services.creation_templates import (
+        load_change_categories, load_change_reasons,
+    )
     return render(request, 'servicenow/partials/change_intake_field_suggestion.html', {
         'intake': intake,
         'target_field': target_field,
         'suggested_value': suggested,
         'error': error,
         'debug': debug,
+        'change_categories': load_change_categories(),
+        'change_reasons': load_change_reasons(),
     })
 
 

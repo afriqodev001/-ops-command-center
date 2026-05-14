@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}AI Prompts — Ops Center{% endblock %}
+{% block page_title %}AI Prompts{% endblock %}
+{% block page_subtitle %}Edit the system prompts used by AI features. Changes take effect immediately. Default prompts can be reset; customized ones show a badge.{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto h-full overflow-y-auto pr-1">
+  <div class="glass-card p-5">
+    <div id="prompts-editor-body">
+      {% include 'servicenow/partials/prompts_editor.html' %}
+    </div>
+  </div>
+</div>
+{% endblock %}

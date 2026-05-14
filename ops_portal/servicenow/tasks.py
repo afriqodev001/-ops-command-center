@@ -1588,3 +1588,9 @@ def oncall_update_cr_review_ctask_task(self, body: dict):
     if isinstance(out, dict) and out.get("error"):
         return out
     return {"ok": True, "ctask_number": ctask_number, "closed": do_close, "result": out.get("result") or out}
+
+
+# Side-effect import: registers @shared_task functions defined in the
+# change-intake module. Celery's autodiscover only picks up modules
+# literally named `tasks`, so we import the sibling here for it to find.
+from . import change_intake_tasks  # noqa: E402,F401
