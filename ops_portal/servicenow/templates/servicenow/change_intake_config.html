@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Vendor Defaults — Change Intake{% endblock %}
+{% block page_title %}Vendor Defaults{% endblock %}
+{% block page_subtitle %}Per-vendor default values for fields that don't come from the spreadsheet — Configuration Item, Assignment Group, Code Change flag, etc. Defaults fill in blank fields after upload; engineer edits always win.{% endblock %}
+
+{% block header_actions %}
+<a href="/servicenow/change-intake/" class="btn-ghost text-xs gap-1.5">
+  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+  </svg>
+  Back to wizard
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-5 h-full overflow-y-auto">
+  {% for v in vendors %}
+  <div class="glass-card p-5" x-data="{ open: true }">
+    <div class="flex items-center gap-2 mb-3">
+      <h2 class="text-sm font-semibold text-ink-primary">{{ v.name }}</h2>
+      <code class="text-[10px] text-ink-muted">{{ v.slug }}</code>
+      <span class="ml-auto text-[10px] text-ink-muted">
+        {% if v.updated_at %}Updated {{ v.updated_at|date:"Y-m-d H:i" }}{% else %}No defaults saved yet{% endif %}
+      </span>
+    </div>
+
+    <form id="config-{{ v.slug }}-form"
+          hx-post="/servicenow/change-intake/config/{{ v.slug }}/save/"
+          hx-target="#config-{{ v.slug }}-indicator"
+          hx-swap="innerHTML"
+          class="flex flex-col gap-3">
+      {% csrf_token %}
+
+      <div class="border border-edge rounded-lg overflow-hidden">
+        <div class="bg-surface-3/60 px-3 py-1.5 border-b border-edge">
+          <span class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Field defaults</span>
+        </div>
+        <div class="divide-y divide-edge">
+          {% for r in v.rows %}
+          <div class="p-3">
+            <div class="flex items-center gap-2 mb-1">
+              <label class="text-xs font-semibold text-ink-primary">{{ r.label }}</label>
+              <code class="text-[10px] text-ink-muted">{{ r.target_field }}</code>
+              {% if r.kind == 'auto' %}<span class="badge badge-ok">auto</span>{% endif %}
+              {% if r.kind == 'ai-candidate' %}<span class="badge badge-info">ai-candidate</span>{% endif %}
+              {% if r.kind == 'human-input' %}<span class="badge badge-muted">human-input</span>{% endif %}
+            </div>
+            <p class="text-[10px] text-ink-muted mb-1.5">{{ r.source_rule }}</p>
+            <input type="text" name="default__{{ r.target_field }}"
+                   value="{{ r.value }}"
+                   placeholder="(no default — blank lets the extractor or engineer fill it in)"
+                   class="input-dark text-xs w-full">
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2 border-t border-edge">
+        <button type="submit" class="btn-primary text-xs px-3 py-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          Save defaults
+        </button>
+        <span id="config-{{ v.slug }}-indicator" class="text-[10px] text-ink-muted"></span>
+        <span class="ml-auto text-[10px] text-ink-muted">Leave a field blank to disable its default.</span>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

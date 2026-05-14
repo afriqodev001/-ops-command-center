@@ -22,9 +22,7 @@ from typing import Any, Callable, Dict, List
 @dataclass
 class ParsedPayload:
     cells: Dict[str, str] = field(default_factory=dict)
-    cell_labels: Dict[str, str] = field(default_factory=dict)
     sheets: Dict[str, str] = field(default_factory=dict)
-    first_sheet_name: str = ''
 
 
 FieldKind = str  # 'auto' | 'ai-candidate' | 'human-input'

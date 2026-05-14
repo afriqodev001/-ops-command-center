@@ -275,3 +275,41 @@ class ChangeIntakeRequest(models.Model):
     def __str__(self) -> str:
         suffix = self.created_chg_number or f'(draft {self.pk})'
         return f'{self.vendor_template} → {suffix}'
+
+
+class VendorConfig(models.Model):
+    """
+    Per-vendor default values for change-intake fields that don't come from
+    the spreadsheet (Configuration Item, Assignment Group, Assigned To,
+    Code Change flag, etc.).
+
+    Stored as a flat JSON dict of {target_field: default_value} so the set
+    of overridable fields can evolve without schema changes. Empty values
+    fall through to whatever the extractor returned.
+    """
+
+    vendor_template = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+    )
+    defaults_json = models.TextField(
+        blank=True,
+        default='{}',
+        help_text='JSON dict {target_field: default_value}',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['vendor_template']
+
+    def __str__(self) -> str:
+        return self.vendor_template
+
+    def defaults(self) -> dict:
+        try:
+            import json
+            data = json.loads(self.defaults_json or '{}')
+            return data if isinstance(data, dict) else {}
+        except (ValueError, TypeError):
+            return {}

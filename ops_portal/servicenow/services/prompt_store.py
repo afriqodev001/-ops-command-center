@@ -478,6 +478,92 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
             "Respond ONLY with a JSON object: {\"value\": \"<text>\"}."
         ),
     },
+
+    'change_intake_template_description': {
+        'label': 'Change Intake — Description Template',
+        'description': "Template for the ServiceNow `description` field. Edit freely; {Bnn} = cell value, {sheet:Name} = sheet text, <human input> = engineer fills before submit.",
+        'prompt': (
+            "Executive Summary:\n"
+            "{B15}\n"
+        ),
+    },
+    'change_intake_template_justification': {
+        'label': 'Change Intake — Justification Template',
+        'description': "Template for the `justification` field. <human input> placeholders block submit until replaced.",
+        'prompt': (
+            "1. What's the benefit or advantage of this change from the business or customer perspective?\n"
+            "<human input>\n\n"
+            "2. Why now (why must this change install on this date)?\n"
+            "{B32}\n\n"
+            "3. What are the impacts if this change does not install?\n"
+            "{B18}\n"
+        ),
+    },
+    'change_intake_template_implementation_plan': {
+        'label': 'Change Intake — Implementation Plan Template',
+        'description': "Template for the `implementation_plan` field. Combines cell values, the Implementation Plan tab, and the Validation Plan tab.",
+        'prompt': (
+            "CT Template - Version 3.1\n"
+            "If Outage question is selected as Full or Partial, then create an Outage Record in ServiceNow.\n\n"
+            "1. What are the install steps?\n"
+            "{sheet:Implementation Plan}\n\n"
+            "2. Who will install (individual or group)?\n"
+            "{B5}\n\n"
+            "3. What is the estimated install duration?\n"
+            "{B8}\n"
+            "(If multiday install, specify full timeline.)\n\n"
+            "4. What are the validation steps and who will validate (individual or group)?\n"
+            "{B27}\n\n"
+            "{sheet:Validation Plan}\n"
+        ),
+    },
+    'change_intake_template_backout_plan': {
+        'label': 'Change Intake — Backout Plan Template',
+        'description': "Template for the `backout_plan` field. Combines the Roll Back Plan tab and B29 narrative.",
+        'prompt': (
+            "CT Template - Version 3.1\n\n"
+            "1. What are the backout steps or reason why this change cannot be backed out?\n"
+            "{B29}\n\n"
+            "{sheet:Roll Back Plan}\n\n"
+            "(Skip next question if change cannot be backed out.)\n\n"
+            "2. Who will perform backout (individual or group)?\n"
+            "{B5}\n"
+        ),
+    },
+
+    'change_intake_ai_extract': {
+        'label': 'Change Intake — Bulk AI Extraction',
+        'description': "One-shot AI pass that reads the full parsed spreadsheet and proposes values for every non-auto field at once (categories, start/end ISO dates, CI, owner roles, strategies, etc.).",
+        'prompt': (
+            "You are reading a vendor change-management spreadsheet for ServiceNow Normal Change creation.\n"
+            "You will be given:\n"
+            "  - parsed_cells: A1-keyed cells from the spreadsheet's first sheet 'Change Details'. "
+            "Column A holds labels, column B holds the values. The cell keys are the B-column values "
+            "(e.g. 'B5' holds the vendor name, 'B7' the change date range, 'B8' the time-of-day "
+            "window in ET, 'B10' the event description, etc.).\n"
+            "  - parsed_sheets: a short head of each named tab's content.\n"
+            "  - editable_fields: the target_field + label + source_rule + kind + current_value for "
+            "every non-auto field we want you to propose values for.\n\n"
+            "Your job: propose values for each editable_field by reading the spreadsheet content. "
+            "DO NOT invent fields. DO NOT touch auto fields (they're already populated from the cells).\n\n"
+            "Specifically you are unusually good at:\n"
+            "  - Combining B7 ('5/12/2026 - 5/13/2026') and B8 ('11:30 PM - 7:00 AM ET') into ISO "
+            "    start_date and end_date in the form 'YYYY-MM-DD HH:MM' (preserve ET timezone). "
+            "    Note that the END time on B8 may roll to the next day in B7's range.\n"
+            "  - Inferring the ServiceNow Category and Reason from B10 (Event Description) + B12 "
+            "    (Event Type). E.g. 'Certificate Renewal' → category Security or Configuration, "
+            "    reason Maintenance/Patching.\n"
+            "  - Pulling the configuration item out of B10's parenthetical (e.g. "
+            "    'Certificate Renewal (wfsaml2ping)' → 'wfsaml2ping').\n\n"
+            "Respond ONLY with a JSON object: {\"fields\": {<target_field>: <suggested_value>, ...}}.\n"
+            "Rules:\n"
+            "- Use the exact target_field keys from editable_fields. Omit fields you can't confidently fill.\n"
+            "- For date fields, return ISO 'YYYY-MM-DD HH:MM' format (no timezone suffix; ServiceNow "
+            "  will store in user-local).\n"
+            "- For free-text fields, return practical, concise content the engineer would actually use.\n"
+            "- Don't echo back a value that is already filled in (current_value) unless you're correcting it."
+        ),
+    },
 }
 
 PROMPT_KEYS = list(DEFAULTS.keys())

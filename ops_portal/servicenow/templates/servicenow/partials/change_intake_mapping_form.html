@@ -10,9 +10,25 @@
       </span>
     </div>
     <p class="text-[11px] text-ink-muted mb-3">
-      Auto fields are pre-filled from the spreadsheet. AI-candidate and human-input fields are blank — fill them in or click <strong>Generate with AI</strong>.
-      The combined <code>description</code> assembles all sub-sections at submit time; missing human-input sections render as <code>[TODO: …]</code> placeholders in the final ServiceNow record.
+      Auto fields are pre-filled from the spreadsheet. <strong>Extract with AI</strong> bootstraps empty AI-candidate / human-input fields in one pass (especially start/end dates from B7+B8 time strings).
+      The combined <code>description</code> assembles all sub-sections at submit via the editable template at
+      <a href="/servicenow/prompts/" class="text-brand-light hover:text-brand">/servicenow/prompts/</a> &rarr; <code>change_intake_description_template</code>; empty sections render as <code>[TODO: …]</code>.
     </p>
+
+    <div class="flex items-center gap-3 mb-3 pb-3 border-b border-edge">
+      <button type="button"
+              hx-post="/servicenow/change-intake/{{ intake.pk }}/extract/run/"
+              hx-target="#intake-wizard"
+              hx-swap="innerHTML"
+              hx-include="#intake-mapping-form"
+              class="btn-primary text-xs px-3 py-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        Extract with AI
+      </button>
+      <p class="text-[10px] text-ink-muted">Only fills empty editable fields. Won't overwrite your edits.</p>
+    </div>
 
     <form id="intake-mapping-form"
           hx-post="/servicenow/change-intake/{{ intake.pk }}/mapping/save/"

@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import ChangeIntakeRequest, OncallChangeReview
+from .models import ChangeIntakeRequest, OncallChangeReview, VendorConfig
+
+
+@admin.register(VendorConfig)
+class VendorConfigAdmin(admin.ModelAdmin):
+    list_display = ('vendor_template', 'updated_at')
+    search_fields = ('vendor_template',)
 
 
 @admin.register(ChangeIntakeRequest)

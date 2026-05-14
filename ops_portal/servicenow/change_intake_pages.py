@@ -18,11 +18,14 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from servicenow.models import ChangeIntakeRequest
+from servicenow.models import ChangeIntakeRequest, VendorConfig
 from servicenow.services.change_intake.mapping_spec import get_mapping, VENDORS
 from servicenow.services.change_intake.excel_parser import parse_xlsx
-from servicenow.services.change_intake.mapping_apply import apply_mapping, build_description
-from servicenow.services.change_intake import template_store
+from servicenow.services.change_intake.mapping_apply import (
+    apply_mapping,
+    apply_vendor_defaults,
+    find_unfilled_proposals,
+)
 
 
 # ── helpers ─────────────────────────────────────────────────────
@@ -68,6 +71,65 @@ def change_intake_upload_page(request):
     })
 
 
+# ── Vendor defaults config page ─────────────────────────────────
+
+@require_GET
+def change_intake_config_page(request):
+    """GET /servicenow/change-intake/config/ — edit per-vendor defaults."""
+    vendor_rows = []
+    for slug, mapping in VENDORS.items():
+        cfg = VendorConfig.objects.filter(vendor_template=slug).first()
+        defaults = cfg.defaults() if cfg else {}
+        # Surface every target_field on the mapping so the engineer can set
+        # a default for any of them, not just the three Epsilon-seeded ones.
+        rows = []
+        for rule in mapping.rules:
+            if rule.target_field.startswith('_'):
+                continue
+            rows.append({
+                'target_field': rule.target_field,
+                'label': rule.label or rule.target_field,
+                'kind': rule.kind,
+                'source_rule': rule.source_rule,
+                'value': defaults.get(rule.target_field, ''),
+            })
+        vendor_rows.append({
+            'slug': slug,
+            'name': mapping.name,
+            'rows': rows,
+            'updated_at': cfg.updated_at if cfg else None,
+        })
+    return render(request, 'servicenow/change_intake_config.html', {
+        'vendors': vendor_rows,
+    })
+
+
+@csrf_exempt
+@require_POST
+def change_intake_config_save(request, vendor_slug: str):
+    """POST /servicenow/change-intake/config/<vendor>/save/"""
+    if vendor_slug not in VENDORS:
+        return render(request, 'servicenow/partials/change_intake_error.html', {
+            'error': f'Unknown vendor: {vendor_slug}',
+        })
+    prefix = 'default__'
+    edits = {
+        key[len(prefix):]: (value or '').strip()
+        for key, value in request.POST.items()
+        if key.startswith(prefix)
+    }
+    # Drop empty values so the dict stays compact.
+    defaults = {k: v for k, v in edits.items() if v}
+
+    cfg, _ = VendorConfig.objects.update_or_create(
+        vendor_template=vendor_slug,
+        defaults={'defaults_json': json.dumps(defaults, indent=2)},
+    )
+    return render(request, 'servicenow/partials/change_intake_saved_indicator.html', {
+        'saved_at': timezone.now(),
+    })
+
+
 # ── 2. Upload + parse + create intake row ───────────────────────
 
 @csrf_exempt
@@ -105,6 +167,7 @@ def change_intake_upload_submit(request):
         })
 
     proposals = apply_mapping(parsed, mapping)
+    proposals = apply_vendor_defaults(proposals, vendor)
 
     intake.parsed_payload_json = json.dumps({
         'cells': parsed.cells,
@@ -191,6 +254,61 @@ def change_intake_completeness_poll(request, intake_id: int, task_id: str):
         'completeness': completeness,
         'debug': debug,
     })
+
+
+# ── 4b. Bulk AI extraction ──────────────────────────────────────
+
+@csrf_exempt
+@require_POST
+def change_intake_extract_run(request, intake_id: int):
+    """POST /servicenow/change-intake/<id>/extract/run/"""
+    intake = get_object_or_404(ChangeIntakeRequest, pk=intake_id)
+
+    # Pick up any in-flight edits posted alongside the trigger so we don't
+    # overwrite them when the task merges suggestions back in.
+    prefix = 'field__'
+    edits = {
+        key[len(prefix):]: value
+        for key, value in request.POST.items()
+        if key.startswith(prefix)
+    }
+    if edits:
+        proposals = _load_json_field(intake.proposals_json, [])
+        for p in proposals:
+            if p['target_field'] in edits:
+                p['value'] = edits[p['target_field']]
+        intake.proposals_json = json.dumps(proposals)
+        intake.save(update_fields=['proposals_json', 'updated_at'])
+
+    from .change_intake_tasks import change_intake_ai_extract_task
+    task = change_intake_ai_extract_task.delay({'intake_id': intake.pk})
+
+    return render(request, 'servicenow/partials/change_intake_extract_polling.html', {
+        'intake': intake,
+        'task_id': task.id,
+    })
+
+
+@require_GET
+def change_intake_extract_poll(request, intake_id: int, task_id: str):
+    """GET /servicenow/change-intake/<id>/extract/poll/<task_id>/"""
+    intake = get_object_or_404(ChangeIntakeRequest, pk=intake_id)
+    ar = AsyncResult(task_id)
+
+    if ar.state in ('PENDING', 'RECEIVED', 'STARTED'):
+        return render(request, 'servicenow/partials/change_intake_extract_polling.html', {
+            'intake': intake,
+            'task_id': task_id,
+        })
+
+    if ar.state == 'FAILURE':
+        return render(request, 'servicenow/partials/change_intake_error.html', {
+            'error': str(ar.result),
+        })
+
+    # Re-render the whole mapping form so the new suggestions show in the
+    # textareas. The wrapping wizard panel swaps this in via hx-target.
+    return _render_mapping_form(request, intake)
 
 
 # ── 5. Per-field "Generate with AI" ─────────────────────────────
@@ -280,6 +398,16 @@ def change_intake_submit(request, intake_id: int):
             if p['target_field'] in edits:
                 p['value'] = edits[p['target_field']]
         intake.proposals_json = json.dumps(proposals)
+        intake.save(update_fields=['proposals_json', 'updated_at'])
+
+    # Block submit if any template-rendered field still has <human input>
+    # or [TODO:] markers — the engineer must fill them in first.
+    unfilled = find_unfilled_proposals(proposals)
+    if unfilled:
+        return render(request, 'servicenow/partials/change_intake_submit_blocked.html', {
+            'intake': intake,
+            'unfilled': unfilled,
+        })
 
     from .change_intake_tasks import change_intake_submit_task
     task = change_intake_submit_task.delay({'intake_id': intake.pk})
@@ -295,131 +423,6 @@ def change_intake_submit(request, intake_id: int):
     return render(request, 'servicenow/partials/change_intake_submit_polling.html', {
         'intake': intake,
         'task_id': task.id,
-    })
-
-
-# ── 7. Description template editor ──────────────────────────────
-
-@require_GET
-def change_intake_template_list(request):
-    """GET /servicenow/change-intake/templates/ — pick which vendor template to edit."""
-    vendors = []
-    for slug in template_store.list_vendors():
-        tpl = template_store.load_template(slug) or {}
-        vendors.append({
-            'slug': slug,
-            'name': tpl.get('name') or slug,
-            'section_count': len(tpl.get('sections') or []),
-            'customised': template_store.is_customised(slug),
-        })
-    return render(request, 'servicenow/change_intake_templates.html', {
-        'vendors': vendors,
-    })
-
-
-@require_GET
-def change_intake_template_edit(request, vendor_slug: str):
-    """GET /servicenow/change-intake/templates/<vendor>/ — edit one vendor's template."""
-    template = template_store.load_template(vendor_slug)
-    if not template:
-        return render(request, 'servicenow/partials/change_intake_error.html', {
-            'error': f"No template exists for vendor '{vendor_slug}'.",
-        })
-
-    mapping = get_mapping(vendor_slug)
-    available_fields = []
-    if mapping:
-        for rule in mapping.rules:
-            if rule.target_field == 'description':
-                continue
-            available_fields.append({
-                'field': rule.target_field,
-                'label': rule.label or rule.target_field,
-                'kind': rule.kind,
-            })
-
-    return render(request, 'servicenow/change_intake_template_edit.html', {
-        'vendor_slug': vendor_slug,
-        'template': template,
-        'sections_json': json.dumps(template.get('sections') or []),
-        'available_fields': available_fields,
-        'available_fields_json': json.dumps(available_fields),
-        'is_customised': template_store.is_customised(vendor_slug),
-    })
-
-
-@csrf_exempt
-@require_POST
-def change_intake_template_save(request, vendor_slug: str):
-    """POST /servicenow/change-intake/templates/<vendor>/save/"""
-    current = template_store.load_template(vendor_slug) or {}
-
-    name = (request.POST.get('name') or current.get('name') or vendor_slug).strip()
-    intro = request.POST.get('intro', current.get('intro', ''))
-    outro = request.POST.get('outro', current.get('outro', ''))
-
-    try:
-        sections = json.loads(request.POST.get('sections_json') or '[]')
-        if not isinstance(sections, list):
-            sections = []
-    except (ValueError, TypeError):
-        return render(request, 'servicenow/partials/change_intake_error.html', {
-            'error': 'sections_json was not valid JSON.',
-        })
-
-    # Normalise each section.
-    cleaned = []
-    for s in sections:
-        if not isinstance(s, dict):
-            continue
-        heading = (s.get('heading') or '').strip()
-        field = (s.get('field') or '').strip()
-        placeholder = (s.get('placeholder') or '').strip()
-        if not (heading and field):
-            continue
-        cleaned.append({
-            'heading': heading,
-            'field': field,
-            'placeholder': placeholder,
-        })
-
-    template_store.save_template(vendor_slug, {
-        'name': name,
-        'intro': intro,
-        'outro': outro,
-        'sections': cleaned,
-    })
-
-    return redirect(reverse('change-intake-template-edit', kwargs={'vendor_slug': vendor_slug}) + '?saved=1')
-
-
-@csrf_exempt
-@require_POST
-def change_intake_template_reset(request, vendor_slug: str):
-    """POST /servicenow/change-intake/templates/<vendor>/reset/"""
-    template_store.reset_template(vendor_slug)
-    return redirect(reverse('change-intake-template-edit', kwargs={'vendor_slug': vendor_slug}) + '?reset=1')
-
-
-@require_GET
-def change_intake_template_preview(request, vendor_slug: str):
-    """GET /servicenow/change-intake/templates/<vendor>/preview/ — HTMX preview
-    of the assembled description using sample data drawn from in-progress
-    intakes for this vendor (or empty values if none)."""
-    # Pull the latest intake's proposal values for this vendor, if any, so the
-    # preview shows the template against realistic content.
-    intake = (ChangeIntakeRequest.objects
-              .filter(vendor_template=vendor_slug)
-              .order_by('-updated_at')
-              .first())
-    proposals = _load_json_field(intake.proposals_json, []) if intake else []
-    by_field = {p['target_field']: (p.get('value') or '') for p in proposals}
-
-    preview = build_description(by_field, vendor_slug)
-    return render(request, 'servicenow/partials/change_intake_template_preview.html', {
-        'vendor_slug': vendor_slug,
-        'preview': preview,
-        'has_sample': bool(intake),
     })
 
 

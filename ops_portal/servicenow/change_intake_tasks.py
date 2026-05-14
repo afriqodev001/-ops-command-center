@@ -33,6 +33,10 @@ from servicenow.services.servicenow_attachment_upload import (
 from servicenow.services.servicenow_ctask_create import (
     create_change_task_via_table_api,
 )
+from servicenow.services.servicenow_table import (
+    list_tasks_for_change,
+    patch_change_task,
+)
 from servicenow.tasks import with_servicenow_auth_retry
 
 
@@ -137,6 +141,104 @@ def change_intake_ai_completeness_task(self, body: dict):
     intake.save(update_fields=['ai_completeness_json', 'updated_at'])
 
     return {'ok': result['ok'], 'intake_id': intake_id}
+
+
+# ── 1b. Bulk AI extraction (fills all empty non-auto fields) ────
+
+@shared_task(bind=True)
+def change_intake_ai_extract_task(self, body: dict):
+    """One-shot AI pass over the parsed spreadsheet that proposes values
+    for every editable (non-auto) field — particularly useful for parsing
+    B7+B8 into ISO start/end dates and inferring category/reason.
+    """
+    from servicenow.models import ChangeIntakeRequest
+
+    intake_id = (body or {}).get('intake_id')
+    if not intake_id:
+        return {'error': 'missing_intake_id'}
+
+    try:
+        intake = ChangeIntakeRequest.objects.get(pk=intake_id)
+    except ChangeIntakeRequest.DoesNotExist:
+        return {'error': 'intake_not_found', 'intake_id': intake_id}
+
+    parsed = _load(intake.parsed_payload_json) or {}
+    proposals = _load(intake.proposals_json) or []
+
+    editable = [p for p in proposals if p.get('kind') != 'auto']
+    editable_summary = [
+        {
+            'target_field': p.get('target_field'),
+            'label': p.get('label'),
+            'source_rule': p.get('source_rule'),
+            'kind': p.get('kind'),
+            'current_value': p.get('value') or '',
+        }
+        for p in editable
+    ]
+
+    system = get_prompt('change_intake_ai_extract')
+    user = (
+        f"Vendor template: {intake.vendor_template}\n\n"
+        f"{_summarise_parsed(parsed)}\n\n"
+        f"editable_fields:\n{json.dumps(editable_summary, indent=2)}"
+    )
+
+    raw = _call_llm(system, user) or ''
+    parsed_resp = _extract_json_dict(raw) or {}
+
+    error = ''
+    suggested = {}
+    if '_ai_error' in parsed_resp:
+        error = parsed_resp['_ai_error']
+    else:
+        raw_fields = parsed_resp.get('fields') or {}
+        if isinstance(raw_fields, dict):
+            for k, v in raw_fields.items():
+                if isinstance(v, str):
+                    suggested[k] = v.strip()
+                elif v is not None:
+                    suggested[k] = str(v).strip()
+
+    # Apply: only fill empty non-auto fields. Don't clobber engineer edits.
+    editable_field_names = {p['target_field'] for p in editable}
+    applied = []
+    for p in proposals:
+        if p.get('kind') == 'auto':
+            continue
+        if p['target_field'] not in suggested:
+            continue
+        if (p.get('value') or '').strip():
+            continue  # engineer (or seed extractor) already provided a value
+        if p['target_field'] not in editable_field_names:
+            continue
+        p['value'] = suggested[p['target_field']]
+        applied.append(p['target_field'])
+
+    intake.proposals_json = json.dumps(proposals)
+
+    debug = _load(intake.ai_field_debug_json) or {}
+    debug['_ai_extract'] = {
+        'prompt_system': system,
+        'prompt_user': user,
+        'raw_response': raw,
+        'suggested': suggested,
+        'applied': applied,
+        'error': error,
+        'ran_at': timezone.now().isoformat(),
+    }
+    intake.ai_field_debug_json = json.dumps(debug)
+    intake.save(update_fields=[
+        'proposals_json', 'ai_field_debug_json', 'updated_at',
+    ])
+
+    return {
+        'ok': not bool(error),
+        'applied': applied,
+        'suggested_count': len(suggested),
+        'error': error,
+        'intake_id': intake_id,
+    }
 
 
 # ── 2. Per-field "Generate with AI" ─────────────────────────────
@@ -248,7 +350,7 @@ def change_intake_submit_task(self, body: dict):
         intake.save(update_fields=['submit_status', 'submit_error', 'updated_at'])
         return {'error': 'no_proposals'}
 
-    cr_fields = fields_for_servicenow(proposals, intake.vendor_template)
+    cr_fields = fields_for_servicenow(proposals)
 
     intake.submit_status = 'submitting'
     intake.submit_error = ''
@@ -329,7 +431,7 @@ def change_intake_submit_task(self, body: dict):
     intake.submit_status = 'xlsx_attached'
     intake.save(update_fields=['submit_status', 'updated_at'])
 
-    # ── Step 3: create the CTASK ──
+    # ── Step 3: update an auto-created CTASK if one exists, otherwise create. ──
     # Per the locked decision: explicitly copy assignment_group + the inherited
     # short_description / description / planned dates from the CR fields.
     ctask_fields = {
@@ -343,30 +445,63 @@ def change_intake_submit_task(self, body: dict):
     if cr_fields.get('end_date'):
         ctask_fields['planned_end_date'] = cr_fields['end_date']
 
-    def op_ctask(driver):
-        return create_change_task_via_table_api(
-            driver,
-            parent_change_sys_id=cr_sys_id,
-            fields=ctask_fields,
-        )
+    def op_list_ctasks(driver):
+        return list_tasks_for_change(driver, change_sys_id=cr_sys_id)
 
-    ctask_result = with_servicenow_auth_retry(
-        body=body, operation=op_ctask, retry_once=True,
+    list_result = with_servicenow_auth_retry(
+        body=body, operation=op_list_ctasks, retry_once=True,
     )
+    existing = []
+    if isinstance(list_result, dict) and not list_result.get('error'):
+        # `list_records` returns {records: [...]} or {result: [...]} depending on call site.
+        existing = list_result.get('records') or list_result.get('result') or []
+        if isinstance(existing, dict):
+            existing = existing.get('result') or []
+        if not isinstance(existing, list):
+            existing = []
+
+    if existing:
+        first = existing[0] or {}
+        existing_sys_id = first.get('sys_id') or ''
+
+        def op_patch_ctask(driver):
+            return patch_change_task(
+                driver,
+                sys_id=existing_sys_id,
+                fields_to_patch=ctask_fields,
+            )
+
+        ctask_result = with_servicenow_auth_retry(
+            body=body, operation=op_patch_ctask, retry_once=True,
+        )
+        ctask_action = 'updated'
+    else:
+        def op_ctask(driver):
+            return create_change_task_via_table_api(
+                driver,
+                parent_change_sys_id=cr_sys_id,
+                fields=ctask_fields,
+            )
+
+        ctask_result = with_servicenow_auth_retry(
+            body=body, operation=op_ctask, retry_once=True,
+        )
+        ctask_action = 'created'
+
     if ctask_result.get('error'):
         intake.submit_status = 'error'
         intake.submit_error = (
-            f"CR {cr_number} created and spreadsheet attached, but CTASK create failed: "
+            f"CR {cr_number} created and spreadsheet attached, but CTASK {ctask_action} failed: "
             f"{ctask_result.get('detail') or ctask_result.get('error')}"
         )
         intake.save(update_fields=['submit_status', 'submit_error', 'updated_at'])
-        return {'error': 'ctask_create_failed', 'cr_number': cr_number}
+        return {'error': f'ctask_{ctask_action}_failed', 'cr_number': cr_number}
 
     ctask_record = (ctask_result.get('result') or {}).get('result') or ctask_result.get('result') or {}
     if not isinstance(ctask_record, dict):
         ctask_record = {}
-    intake.created_ctask_sys_id = ctask_record.get('sys_id') or ''
-    intake.created_ctask_number = ctask_record.get('number') or ''
+    intake.created_ctask_sys_id = ctask_record.get('sys_id') or (existing[0].get('sys_id') if existing else '')
+    intake.created_ctask_number = ctask_record.get('number') or (existing[0].get('number') if existing else '')
     intake.submit_status = 'done'
     intake.save(update_fields=[
         'created_ctask_sys_id', 'created_ctask_number',
@@ -377,5 +512,6 @@ def change_intake_submit_task(self, body: dict):
         'ok': True,
         'cr_number': intake.created_chg_number,
         'ctask_number': intake.created_ctask_number,
+        'ctask_action': ctask_action,  # 'updated' or 'created'
         'intake_id': intake_id,
     }

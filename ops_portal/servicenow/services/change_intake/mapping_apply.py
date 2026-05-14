@@ -2,22 +2,25 @@
 Apply a VendorMapping to a parsed payload, producing the list of
 FieldProposals the wizard renders + edits.
 
-`build_description` assembles the combined ServiceNow `description` from
-whichever sections the active ChangeIntakeTemplate (in template_store)
-references. Empty sub-section values render as `[TODO: <heading>]`
-placeholders so they're flagged in the final CR.
+Each FieldRule's extractor pulls a value from the parsed payload.
+For vendor-default fields the extractor returns empty and
+`apply_vendor_defaults` fills it in from the VendorConfig row.
+For template-rendered fields (description, justification, etc.) the
+extractor calls `render_template(<key>, parsed)` which substitutes
+{Bnn} / {sheet:Name} placeholders against the parsed payload and
+leaves `<human input>` markers in place.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Set
+import json
+from typing import Dict, List, Tuple
 
 from .mapping_spec import ParsedPayload, VendorMapping
-from .template_store import load_template
+from .template_render import find_unfilled_markers
 
 
 def apply_mapping(parsed: ParsedPayload, mapping: VendorMapping) -> List[Dict]:
-    """Run each FieldRule's extractor against the parsed payload and return
-    a list of proposal dicts ready to be serialised into JSON."""
+    """Run each FieldRule's extractor against the parsed payload."""
     out: List[Dict] = []
     for rule in mapping.rules:
         try:
@@ -35,64 +38,49 @@ def apply_mapping(parsed: ParsedPayload, mapping: VendorMapping) -> List[Dict]:
     return out
 
 
-def build_description(proposals_by_field: Dict[str, str], vendor_slug: str) -> str:
-    """Assemble the combined `description` for `vendor_slug` from the per-section
-    proposal values using whichever template is active in template_store.
+def apply_vendor_defaults(proposals: List[Dict], vendor_template: str) -> List[Dict]:
+    """Overlay vendor defaults onto any proposal whose value is blank.
 
-    Empty sections render as `[TODO: <heading>]` (or the section's overridden
-    placeholder text, if set)."""
-    template = load_template(vendor_slug) or {}
-    sections = template.get('sections') or []
-
-    if not sections:
-        # Fall back to a single dump of the description proposal value, if any.
-        return (proposals_by_field.get('description') or '').strip()
-
-    lines: List[str] = []
-    intro = (template.get('intro') or '').strip()
-    if intro:
-        lines.append(intro)
-        lines.append('')
-
-    for section in sections:
-        heading = section.get('heading') or section.get('field') or ''
-        field_key = section.get('field') or ''
-        placeholder = section.get('placeholder') or f'[TODO: {heading}]'
-
-        value = (proposals_by_field.get(field_key) or '').strip()
-        lines.append(f'== {heading} ==')
-        lines.append(value if value else placeholder)
-        lines.append('')
-
-    outro = (template.get('outro') or '').strip()
-    if outro:
-        lines.append(outro)
-
-    return '\n'.join(lines).strip()
-
-
-def fields_for_servicenow(proposals: List[Dict], vendor_slug: str) -> Dict[str, str]:
-    """Project the editable proposals down to the dict we pass to
-    `create_change_via_table_api(fields=...)`.
-
-    - Fields whose names start with '_' are hidden helpers folded into the
-      combined description by build_description.
-    - The combined `description` is rebuilt at submit time from the current
-      sub-section values + the active template.
+    Engineer edits (non-blank values) are preserved. If no VendorConfig
+    exists for the vendor, the proposals come back untouched.
     """
-    by_field = {p['target_field']: (p.get('value') or '').strip() for p in proposals}
+    try:
+        from servicenow.models import VendorConfig
+        cfg = VendorConfig.objects.filter(vendor_template=vendor_template).first()
+    except Exception:
+        cfg = None
+    if not cfg:
+        return proposals
+    defaults = cfg.defaults()
+    if not defaults:
+        return proposals
+    for p in proposals:
+        if (p.get('value') or '').strip():
+            continue
+        value = defaults.get(p['target_field'])
+        if value:
+            p['value'] = value
+    return proposals
 
-    by_field['description'] = build_description(by_field, vendor_slug)
 
+def fields_for_servicenow(proposals: List[Dict]) -> Dict[str, str]:
+    """Project the editable proposals down to the dict we pass to
+    `create_change_via_table_api(fields=...)`. Drops underscore-prefixed
+    helper fields and blank values."""
     return {
-        k: v for k, v in by_field.items()
-        if not k.startswith('_') and v
+        p['target_field']: (p.get('value') or '').strip()
+        for p in proposals
+        if not p['target_field'].startswith('_')
+        and (p.get('value') or '').strip()
     }
 
 
-def description_field_keys(vendor_slug: str) -> Set[str]:
-    """The set of proposal fields the active template assembles into the
-    combined description. Useful for the UI to render the description-only
-    sections as a separate accordion."""
-    template = load_template(vendor_slug) or {}
-    return {s.get('field') for s in (template.get('sections') or []) if s.get('field')}
+def find_unfilled_proposals(proposals: List[Dict]) -> List[Tuple[str, str]]:
+    """Return [(target_field, label), …] for any proposal that still
+    contains a `<human input>` or `[TODO:` marker. Used by the submit
+    endpoint to refuse dispatch until the engineer fills them in."""
+    out: List[Tuple[str, str]] = []
+    for p in proposals:
+        if find_unfilled_markers(p.get('value') or ''):
+            out.append((p['target_field'], p.get('label') or p['target_field']))
+    return out
