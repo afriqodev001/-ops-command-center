@@ -484,9 +484,20 @@ def change_intake_submit_task(self, body: dict):
 
     cr_fields = fields_for_servicenow(proposals)
 
+    # Persist the exact dict we're about to send so we can diagnose any
+    # silently-rejected fields (e.g. choice values SN doesn't recognise).
+    debug = _load(intake.ai_field_debug_json) or {}
+    debug['_submit_request'] = {
+        'cr_fields': cr_fields,
+        'sent_at': timezone.now().isoformat(),
+    }
+    intake.ai_field_debug_json = json.dumps(debug)
+
     intake.submit_status = 'submitting'
     intake.submit_error = ''
-    intake.save(update_fields=['submit_status', 'submit_error', 'updated_at'])
+    intake.save(update_fields=[
+        'ai_field_debug_json', 'submit_status', 'submit_error', 'updated_at',
+    ])
 
     # ── Step 1: create the CR ──
     def op_create_change(driver):

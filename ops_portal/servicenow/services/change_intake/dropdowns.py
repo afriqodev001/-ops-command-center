@@ -21,7 +21,7 @@ DROPDOWN_OPTIONS: Dict[str, List[str]] = {
         'None Expected',
         'Partial',
     ],
-    'test_plan': [
+    'u_testing_approach': [
         'Fully Automated',
         'Manual',
         'Partially Automated',

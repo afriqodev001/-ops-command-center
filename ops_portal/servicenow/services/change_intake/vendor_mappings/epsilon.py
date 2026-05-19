@@ -186,7 +186,7 @@ EPSILON_MAPPING = VendorMapping(
 
         # ── Human-input fields ─────────────────────────────────
         FieldRule(
-            target_field='test_plan',
+            target_field='u_testing_approach',
             label='Testing approach',
             source_rule='<human input> — engineer fills in',
             kind='human-input',

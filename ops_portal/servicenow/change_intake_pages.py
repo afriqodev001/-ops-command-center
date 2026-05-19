@@ -39,6 +39,43 @@ def _load_json_field(text: str, default):
         return default
 
 
+DATETIME_FIELDS = {'start_date', 'end_date'}
+
+
+def _sn_format_datetime(value: str) -> str:
+    """Normalise a datetime value to ServiceNow's 'YYYY-MM-DD HH:MM:SS'.
+
+    Accepts the browser's datetime-local format ('YYYY-MM-DDTHH:MM',
+    sometimes with seconds), or an already-formatted SN datetime.
+    Returns the input unchanged if it doesn't look like a datetime, so
+    free-text values entered manually still pass through.
+    """
+    v = (value or '').strip()
+    if not v:
+        return ''
+    # 'YYYY-MM-DDTHH:MM[:SS]'  -> 'YYYY-MM-DD HH:MM:SS'
+    if 'T' in v and len(v) >= 16 and v[4] == '-' and v[7] == '-':
+        v = v.replace('T', ' ', 1)
+    if len(v) == 16 and v[10] == ' ':  # 'YYYY-MM-DD HH:MM' — pad seconds
+        v = v + ':00'
+    return v
+
+
+def _datetime_for_input(value: str) -> str:
+    """Convert a stored SN datetime ('YYYY-MM-DD HH:MM:SS') to the format
+    HTML5 datetime-local expects ('YYYY-MM-DDTHH:MM'). Returns '' for blank
+    values; returns input unchanged if it doesn't look like an SN datetime
+    so the engineer can clear the field by typing nonsense."""
+    v = (value or '').strip()
+    if not v:
+        return ''
+    if len(v) >= 19 and v[10] == ' ' and v[4] == '-' and v[7] == '-':
+        return v[:10] + 'T' + v[11:16]
+    if len(v) >= 16 and v[10] == 'T' and v[4] == '-':
+        return v[:16]
+    return ''
+
+
 # Explicit display order (per the engineer's spec). Anything outside this
 # list falls to the end of its group in alphabetical order.
 FIELD_ORDER: List[str] = [
@@ -53,7 +90,7 @@ FIELD_ORDER: List[str] = [
     # Planning umbrella
     'justification',
     'u_outage',
-    'test_plan',
+    'u_testing_approach',
     'implementation_plan',
     'u_implementation_strategy',
     'u_implementation_approach',
@@ -77,12 +114,15 @@ def _proposals_for_render(intake: ChangeIntakeRequest) -> List[Dict]:
         field_index.get(p.get('target_field', ''), 999),
         p.get('target_field', ''),
     ))
-    # Attach dropdown options at render time (not persisted). The template
-    # branches on `p.options` to decide select-vs-textarea for the fixed-list
-    # fields (Outage, Testing approach, Implementation strategy/approach,
-    # Backout approach/duration).
+    # Attach dropdown options + datetime input-formatted value at render time
+    # (not persisted). The template branches on `p.options` / `p.is_datetime`
+    # to pick the right input control.
     for p in proposals:
-        p['options'] = options_for(p.get('target_field', ''))
+        tf = p.get('target_field', '')
+        p['options'] = options_for(tf)
+        p['is_datetime'] = tf in DATETIME_FIELDS
+        if p['is_datetime']:
+            p['datetime_value'] = _datetime_for_input(p.get('value') or '')
     return proposals
 
 
@@ -241,8 +281,12 @@ def change_intake_mapping_save(request, intake_id: int):
     }
 
     for p in proposals:
-        if p['target_field'] in edits:
-            p['value'] = edits[p['target_field']]
+        tf = p['target_field']
+        if tf in edits:
+            v = edits[tf]
+            if tf in DATETIME_FIELDS:
+                v = _sn_format_datetime(v)
+            p['value'] = v
 
     intake.proposals_json = json.dumps(proposals)
     intake.save(update_fields=['proposals_json', 'updated_at'])
@@ -447,8 +491,12 @@ def change_intake_submit(request, intake_id: int):
     }
     if edits:
         for p in proposals:
-            if p['target_field'] in edits:
-                p['value'] = edits[p['target_field']]
+            tf = p['target_field']
+            if tf in edits:
+                v = edits[tf]
+                if tf in DATETIME_FIELDS:
+                    v = _sn_format_datetime(v)
+                p['value'] = v
         intake.proposals_json = json.dumps(proposals)
         intake.save(update_fields=['proposals_json', 'updated_at'])
 

@@ -414,7 +414,7 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
     # The following are stub prompts for human-input fields. They wire the
     # end-to-end pipeline so the team can iterate on the prompt text later
     # without code changes (edit via /servicenow/prompts/).
-    'change_intake_field_test_plan': {
+    'change_intake_field_u_testing_approach': {
         'label': 'Change Intake — Testing Strategy (stub)',
         'description': 'Drafts a testing strategy section. TODO: refine with org-specific guidance.',
         'prompt': (
