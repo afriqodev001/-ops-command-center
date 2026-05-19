@@ -36,9 +36,20 @@
             {% endfor %}
           </select>
         {% elif p.is_datetime %}
-          <input type="datetime-local" name="field__{{ p.target_field }}" step="60"
-                 value="{{ p.datetime_value }}"
-                 class="input-dark text-xs w-full">
+          <div class="flex items-center gap-2">
+            <input type="datetime-local" name="field__{{ p.target_field }}" step="60"
+                   value="{{ p.datetime_value }}"
+                   class="input-dark intake-date-input text-xs w-64">
+            <button type="button"
+                    onclick="const i=this.previousElementSibling;i.value='';i.dispatchEvent(new Event('change',{bubbles:true}));"
+                    class="btn-ghost text-[10px] py-1 px-2 gap-1"
+                    title="Clear date">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Clear
+            </button>
+          </div>
         {% else %}
           <textarea name="field__{{ p.target_field }}" rows="2"
                     class="input-dark text-xs w-full resize-y">{{ p.value }}</textarea>

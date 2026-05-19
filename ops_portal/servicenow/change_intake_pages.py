@@ -464,6 +464,7 @@ def change_intake_field_poll(request, intake_id: int, target_field: str, task_id
         'intake': intake,
         'target_field': target_field,
         'suggested_value': suggested,
+        'datetime_value': _datetime_for_input(suggested) if target_field in DATETIME_FIELDS else '',
         'error': error,
         'debug': debug,
         'change_categories': load_change_categories(),

@@ -1,5 +1,17 @@
 <div id="intake-wizard-inner" class="flex flex-col gap-5 animate-fade-in">
 
+  <style>
+    /* Make the native datetime picker icon visible against the dark input. */
+    .intake-date-input::-webkit-calendar-picker-indicator {
+      filter: invert(0.9) brightness(1.4);
+      cursor: pointer;
+      opacity: 0.85;
+      padding: 2px;
+    }
+    .intake-date-input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+    /* Firefox shows the picker on focus; no indicator to style there. */
+  </style>
+
   <!-- ═ STEP 2 · MAPPING REVIEW ════════════════════════════════ -->
   <div class="glass-card p-5">
     <div class="flex items-center gap-2 mb-3">
