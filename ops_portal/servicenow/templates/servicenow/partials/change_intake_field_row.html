@@ -36,8 +36,6 @@
             {% endfor %}
           </select>
         {% elif p.is_datetime %}
-          {# datetime-local sends "YYYY-MM-DDTHH:MM"; the save / submit views
-             rewrite it as ServiceNow's "YYYY-MM-DD HH:MM:SS". #}
           <input type="datetime-local" name="field__{{ p.target_field }}" step="60"
                  value="{{ p.datetime_value }}"
                  class="input-dark text-xs w-full">
