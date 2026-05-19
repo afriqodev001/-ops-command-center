@@ -51,6 +51,93 @@ def _load(text: str) -> dict | list:
         return {}
 
 
+def _unwrap_sn_record(result) -> dict | list:
+    """Return the inner ServiceNow record from any of the response shapes
+    we've seen across the codebase. Drills past `data`, `result`, and `record`
+    wrappers (in any order, possibly nested) until it finds either a flat
+    record (has `sys_id`/`number`) or a list. Returns {} if nothing matches.
+
+    Known shapes:
+      - raw fetch_json_in_browser:  {ok, status, data: {result: <record>}}
+      - servicenow_table helpers:   {result: <record-or-list>}
+      - doubly-wrapped (rare):      {result: {result: <record>}}
+      - flat record:                <record>
+    """
+    seen = set()
+
+    def _drill(obj):
+        if obj is None:
+            return None
+        obj_id = id(obj)
+        if obj_id in seen:
+            return None
+        seen.add(obj_id)
+        if isinstance(obj, list):
+            return obj
+        if not isinstance(obj, dict):
+            return None
+        if obj.get('sys_id') or obj.get('number'):
+            return obj
+        for key in ('result', 'record', 'data'):
+            inner = obj.get(key)
+            if inner is None:
+                continue
+            found = _drill(inner)
+            if found is not None:
+                return found
+        return None
+
+    found = _drill(result)
+    if isinstance(found, (dict, list)):
+        return found
+    return {}
+
+
+def _diagnose_shape(obj, depth: int = 0) -> str:
+    """Return a short, human-readable summary of a response shape (no values,
+    just keys + types) so we can debug unexpected ServiceNow responses without
+    leaking record contents into submit_error."""
+    if depth > 4:
+        return '…'
+    if obj is None:
+        return 'None'
+    if isinstance(obj, bool):
+        return f'bool={obj}'
+    if isinstance(obj, (int, float)):
+        return f'{type(obj).__name__}'
+    if isinstance(obj, str):
+        return f'str(len={len(obj)})'
+    if isinstance(obj, list):
+        if not obj:
+            return 'list(empty)'
+        return f'list(len={len(obj)}, [0]={_diagnose_shape(obj[0], depth + 1)})'
+    if isinstance(obj, dict):
+        parts = []
+        for k in list(obj.keys())[:8]:
+            parts.append(f'{k}: {_diagnose_shape(obj[k], depth + 1)}')
+        return '{' + ', '.join(parts) + '}'
+    return type(obj).__name__
+
+
+def _sn_error_detail(result) -> str:
+    """Extract a human-readable error from either response shape."""
+    if not isinstance(result, dict):
+        return 'no response'
+    if result.get('detail'):
+        return str(result.get('detail'))
+    data = result.get('data') if isinstance(result.get('data'), dict) else {}
+    if isinstance(data, dict) and data.get('error'):
+        err = data['error']
+        if isinstance(err, dict):
+            return err.get('message') or err.get('detail') or json.dumps(err)[:300]
+        return str(err)
+    return (
+        result.get('error')
+        or result.get('statusText')
+        or f"HTTP {result.get('status', '?')}"
+    )
+
+
 def _summarise_proposals(proposals: List[Dict]) -> str:
     """Render the current proposal list as a compact text block for the AI."""
     lines = []
@@ -182,6 +269,7 @@ def change_intake_ai_extract_task(self, body: dict):
     from servicenow.services.creation_templates import (
         load_change_categories, load_change_reasons,
     )
+    from servicenow.services.change_intake.dropdowns import DROPDOWN_OPTIONS
     allowed_categories = list(load_change_categories().keys())
     allowed_reasons = list(load_change_reasons().keys())
 
@@ -193,6 +281,8 @@ def change_intake_ai_extract_task(self, body: dict):
         f"{json.dumps(allowed_categories)}\n\n"
         f"allowed_reasons (use one of these exactly, or empty string):\n"
         f"{json.dumps(allowed_reasons)}\n\n"
+        f"allowed_values_by_field (for these fields, use one of the listed values exactly or an empty string):\n"
+        f"{json.dumps(DROPDOWN_OPTIONS, indent=2)}\n\n"
         f"editable_fields:\n{json.dumps(editable_summary, indent=2)}"
     )
 
@@ -219,6 +309,11 @@ def change_intake_ai_extract_task(self, body: dict):
         suggested.pop('category', None)
     if 'reason' in suggested and suggested['reason'] not in allowed_reasons:
         suggested.pop('reason', None)
+    # Same defence for the fixed-list dropdowns (outage, testing approach,
+    # implementation strategy/approach, backout approach/duration).
+    for field_name, allowed in DROPDOWN_OPTIONS.items():
+        if field_name in suggested and suggested[field_name] not in allowed:
+            suggested.pop(field_name, None)
 
     # Apply: only fill empty non-auto fields. Don't clobber engineer edits.
     editable_field_names = {p['target_field'] for p in editable}
@@ -328,6 +423,11 @@ def change_intake_ai_field_generate_task(self, body: dict):
         from servicenow.services.creation_templates import load_change_reasons
         if suggested_value not in load_change_reasons():
             suggested_value = ''
+    else:
+        from servicenow.services.change_intake.dropdowns import DROPDOWN_OPTIONS
+        if target_field in DROPDOWN_OPTIONS and suggested_value:
+            if suggested_value not in DROPDOWN_OPTIONS[target_field]:
+                suggested_value = ''
 
     debug = _load(intake.ai_field_debug_json) or {}
     debug[target_field] = {
@@ -395,14 +495,13 @@ def change_intake_submit_task(self, body: dict):
     cr_result = with_servicenow_auth_retry(
         body=body, operation=op_create_change, retry_once=True,
     )
-    if cr_result.get('error'):
+    if cr_result.get('error') or cr_result.get('ok') is False:
         intake.submit_status = 'error'
-        intake.submit_error = f"CR create failed: {cr_result.get('detail') or cr_result.get('error')}"
+        intake.submit_error = f"CR create failed: {_sn_error_detail(cr_result)}"
         intake.save(update_fields=['submit_status', 'submit_error', 'updated_at'])
         return {'error': 'cr_create_failed', 'detail': intake.submit_error}
 
-    cr_record = (cr_result.get('result') or {}).get('result') or cr_result.get('result') or {}
-    # ServiceNow's table API typically returns {result: {sys_id, number, ...}}; handle both shapes.
+    cr_record = _unwrap_sn_record(cr_result)
     if not isinstance(cr_record, dict):
         cr_record = {}
     cr_sys_id = cr_record.get('sys_id') or ''
@@ -419,10 +518,11 @@ def change_intake_submit_task(self, body: dict):
         intake.submit_status = 'error'
         intake.submit_error = (
             'CR was created but ServiceNow did not return a sys_id; '
-            'cannot continue with attachment/CTASK.'
+            'cannot continue with attachment/CTASK. '
+            f'response shape: {_diagnose_shape(cr_result)}'
         )
         intake.save(update_fields=['submit_status', 'submit_error', 'updated_at'])
-        return {'error': 'cr_no_sys_id'}
+        return {'error': 'cr_no_sys_id', 'shape': _diagnose_shape(cr_result)}
 
     # ── Step 2: upload the xlsx as an attachment ──
     table_name = getattr(dj_settings, 'SERVICENOW_CHANGE_TABLE', 'change_request')
@@ -485,10 +585,7 @@ def change_intake_submit_task(self, body: dict):
     )
     existing = []
     if isinstance(list_result, dict) and not list_result.get('error'):
-        # `list_records` returns {records: [...]} or {result: [...]} depending on call site.
-        existing = list_result.get('records') or list_result.get('result') or []
-        if isinstance(existing, dict):
-            existing = existing.get('result') or []
+        existing = _unwrap_sn_record(list_result)
         if not isinstance(existing, list):
             existing = []
 
@@ -520,16 +617,16 @@ def change_intake_submit_task(self, body: dict):
         )
         ctask_action = 'created'
 
-    if ctask_result.get('error'):
+    if ctask_result.get('error') or ctask_result.get('ok') is False:
         intake.submit_status = 'error'
         intake.submit_error = (
             f"CR {cr_number} created and spreadsheet attached, but CTASK {ctask_action} failed: "
-            f"{ctask_result.get('detail') or ctask_result.get('error')}"
+            f"{_sn_error_detail(ctask_result)}"
         )
         intake.save(update_fields=['submit_status', 'submit_error', 'updated_at'])
         return {'error': f'ctask_{ctask_action}_failed', 'cr_number': cr_number}
 
-    ctask_record = (ctask_result.get('result') or {}).get('result') or ctask_result.get('result') or {}
+    ctask_record = _unwrap_sn_record(ctask_result)
     if not isinstance(ctask_record, dict):
         ctask_record = {}
     intake.created_ctask_sys_id = ctask_record.get('sys_id') or (existing[0].get('sys_id') if existing else '')

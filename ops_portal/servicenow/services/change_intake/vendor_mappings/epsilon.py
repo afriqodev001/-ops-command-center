@@ -49,15 +49,17 @@ def _short_description(p: ParsedPayload) -> str:
 
 
 def _outage_value(p: ParsedPayload) -> str:
-    """B13 → 'Full' (Yes) or 'None Expected' (No) per the mapping notes."""
+    """B13 → one of the Outage dropdown values."""
     raw = _cell(p, 'B13').lower()
     if not raw:
         return ''
-    if 'yes' in raw or 'full' in raw or 'partial' in raw:
+    if 'partial' in raw:
+        return 'Partial'
+    if 'yes' in raw or 'full' in raw:
         return 'Full'
     if 'no' in raw:
         return 'None Expected'
-    return raw
+    return ''
 
 
 EPSILON_MAPPING = VendorMapping(
@@ -202,6 +204,22 @@ EPSILON_MAPPING = VendorMapping(
         FieldRule(
             target_field='u_implementation_approach',
             label='Implementation approach',
+            source_rule='<human input> — engineer fills in',
+            kind='human-input',
+            group='Planning',
+            extractor=lambda p: '',
+        ),
+        FieldRule(
+            target_field='u_backout_approach',
+            label='Backout approach',
+            source_rule='<human input> — engineer fills in',
+            kind='human-input',
+            group='Planning',
+            extractor=lambda p: '',
+        ),
+        FieldRule(
+            target_field='u_backout_duration',
+            label='Backout duration',
             source_rule='<human input> — engineer fills in',
             kind='human-input',
             group='Planning',

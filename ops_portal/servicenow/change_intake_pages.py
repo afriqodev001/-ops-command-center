@@ -58,6 +58,8 @@ FIELD_ORDER: List[str] = [
     'u_implementation_strategy',
     'u_implementation_approach',
     'backout_plan',
+    'u_backout_approach',
+    'u_backout_duration',
     # Schedule umbrella
     'start_date',
     'end_date',
@@ -67,6 +69,7 @@ GROUP_ORDER = {'Identity': 0, 'Planning': 1, 'Schedule': 2, '': 9}
 
 
 def _proposals_for_render(intake: ChangeIntakeRequest) -> List[Dict]:
+    from .services.change_intake.dropdowns import options_for
     proposals = _load_json_field(intake.proposals_json, [])
     field_index = {f: i for i, f in enumerate(FIELD_ORDER)}
     proposals.sort(key=lambda p: (
@@ -74,6 +77,12 @@ def _proposals_for_render(intake: ChangeIntakeRequest) -> List[Dict]:
         field_index.get(p.get('target_field', ''), 999),
         p.get('target_field', ''),
     ))
+    # Attach dropdown options at render time (not persisted). The template
+    # branches on `p.options` to decide select-vs-textarea for the fixed-list
+    # fields (Outage, Testing approach, Implementation strategy/approach,
+    # Backout approach/duration).
+    for p in proposals:
+        p['options'] = options_for(p.get('target_field', ''))
     return proposals
 
 
@@ -400,10 +409,13 @@ def change_intake_field_poll(request, intake_id: int, target_field: str, task_id
 
     debug = _load_json_field(intake.ai_field_debug_json, {}).get(target_field, {})
 
-    # Category / reason render as <select>; pass options for those cases.
+    # Category / reason render as <select> from creation_templates; the
+    # fixed-list dropdowns (outage, testing, implementation, backout) render
+    # as <select> from dropdowns.options_for.
     from .services.creation_templates import (
         load_change_categories, load_change_reasons,
     )
+    from .services.change_intake.dropdowns import options_for
     return render(request, 'servicenow/partials/change_intake_field_suggestion.html', {
         'intake': intake,
         'target_field': target_field,
@@ -412,6 +424,7 @@ def change_intake_field_poll(request, intake_id: int, target_field: str, task_id
         'debug': debug,
         'change_categories': load_change_categories(),
         'change_reasons': load_change_reasons(),
+        'field_options': options_for(target_field),
     })
 
 

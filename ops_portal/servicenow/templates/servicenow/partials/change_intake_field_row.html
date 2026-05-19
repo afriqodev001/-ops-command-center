@@ -28,6 +28,13 @@
             </option>
             {% endfor %}
           </select>
+        {% elif p.options %}
+          <select name="field__{{ p.target_field }}" class="input-dark text-xs w-full">
+            <option value="">-- None --</option>
+            {% for opt in p.options %}
+            <option value="{{ opt }}" {% if p.value == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+          </select>
         {% else %}
           <textarea name="field__{{ p.target_field }}" rows="2"
                     class="input-dark text-xs w-full resize-y">{{ p.value }}</textarea>
