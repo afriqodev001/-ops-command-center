@@ -28,7 +28,7 @@
     <div class="flex items-center gap-2">
       <input type="datetime-local" name="field__{{ target_field }}" step="60"
              value="{{ datetime_value }}"
-             class="input-dark intake-date-input text-xs w-64">
+             class="input-dark intake-date-input text-xs flex-1 min-w-0">
       <button type="button"
               onclick="const i=this.previousElementSibling;i.value='';i.dispatchEvent(new Event('change',{bubbles:true}));"
               class="btn-ghost text-[10px] py-1 px-2 gap-1"

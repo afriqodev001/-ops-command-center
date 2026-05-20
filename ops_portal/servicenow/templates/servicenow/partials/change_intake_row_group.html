@@ -1,0 +1,9 @@
+{# One display row: a single full-width field, or two fields rendered two-up. #}
+{% if row.fields|length == 2 %}
+<div class="grid grid-cols-2 divide-x divide-edge">
+  {% include 'servicenow/partials/change_intake_field_row.html' with p=row.fields.0 %}
+  {% include 'servicenow/partials/change_intake_field_row.html' with p=row.fields.1 %}
+</div>
+{% else %}
+{% include 'servicenow/partials/change_intake_field_row.html' with p=row.fields.0 %}
+{% endif %}

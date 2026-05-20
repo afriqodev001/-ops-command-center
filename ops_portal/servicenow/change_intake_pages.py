@@ -104,6 +104,43 @@ FIELD_ORDER: List[str] = [
 
 GROUP_ORDER = {'Identity': 0, 'Planning': 1, 'Schedule': 2, '': 9}
 
+# Field pairs that render two-up on a single row (each takes ~half the width)
+# to save vertical space. Both members of a pair must be adjacent in
+# FIELD_ORDER and share a group.
+FIELD_PAIRS = [
+    ('u_outage', 'u_testing_approach'),
+    ('u_implementation_strategy', 'u_implementation_approach'),
+    ('u_backout_approach', 'u_backout_duration'),
+    ('start_date', 'end_date'),
+]
+
+
+def _proposal_rows(proposals: List[Dict]) -> List[Dict]:
+    """Group the sorted proposals into display rows. Each row is
+    {'group': <group>, 'fields': [p]} for a full-width field, or
+    {'group': <group>, 'fields': [p1, p2]} for a two-up pair."""
+    partner = {}
+    for a, b in FIELD_PAIRS:
+        partner[a] = b
+        partner[b] = a
+    by_field = {p.get('target_field'): p for p in proposals}
+    consumed = set()
+    rows: List[Dict] = []
+    for p in proposals:
+        tf = p.get('target_field')
+        if tf in consumed:
+            continue
+        mate_field = partner.get(tf)
+        mate = by_field.get(mate_field) if mate_field else None
+        if mate and mate_field not in consumed and mate.get('group') == p.get('group'):
+            rows.append({'group': p.get('group', ''), 'fields': [p, mate]})
+            consumed.add(tf)
+            consumed.add(mate_field)
+        else:
+            rows.append({'group': p.get('group', ''), 'fields': [p]})
+            consumed.add(tf)
+    return rows
+
 
 def _proposals_for_render(intake: ChangeIntakeRequest) -> List[Dict]:
     from .services.change_intake.dropdowns import options_for
@@ -132,9 +169,15 @@ def _render_mapping_form(request, intake: ChangeIntakeRequest):
     )
     completeness = _load_json_field(intake.ai_completeness_json, {})
     completeness_debug = completeness.pop('_debug', {}) if isinstance(completeness, dict) else {}
+    proposals = _proposals_for_render(intake)
+    group_field_counts: Dict[str, int] = {}
+    for p in proposals:
+        g = p.get('group', '') or ''
+        group_field_counts[g] = group_field_counts.get(g, 0) + 1
     return render(request, 'servicenow/partials/change_intake_mapping_form.html', {
         'intake': intake,
-        'proposals': _proposals_for_render(intake),
+        'proposal_rows': _proposal_rows(proposals),
+        'group_field_counts': group_field_counts,
         'completeness': completeness,
         'completeness_debug': completeness_debug,
         'change_categories': load_change_categories(),

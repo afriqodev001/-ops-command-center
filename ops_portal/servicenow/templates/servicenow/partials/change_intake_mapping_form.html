@@ -51,15 +51,15 @@
           class="flex flex-col gap-4">
       {% csrf_token %}
 
-      {# Pre-split proposals into the three display sections. #}
-      {% regroup proposals by group as group_list %}
+      {# Pre-split display rows into the three sections. #}
+      {% regroup proposal_rows by group as group_list %}
       {% for section in group_list %}
         {% if section.grouper == 'Identity' %}
           <!-- ── Identity (no umbrella header — these render flat) ── -->
           <div class="border border-edge rounded-lg overflow-hidden">
             <div class="divide-y divide-edge">
-              {% for p in section.list %}
-                {% include 'servicenow/partials/change_intake_field_row.html' with p=p intake=intake change_categories=change_categories change_reasons=change_reasons %}
+              {% for row in section.list %}
+                {% include 'servicenow/partials/change_intake_row_group.html' with row=row intake=intake change_categories=change_categories change_reasons=change_reasons %}
               {% endfor %}
             </div>
           </div>
@@ -75,11 +75,11 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
               </svg>
               <span class="text-xs font-bold text-ink-primary uppercase tracking-wider">Planning</span>
-              <span class="text-[10px] text-ink-muted">{{ section.list|length }} field{{ section.list|length|pluralize }}</span>
+              <span class="text-[10px] text-ink-muted">{{ group_field_counts.Planning }} field{{ group_field_counts.Planning|pluralize }}</span>
             </button>
             <div x-show="open" x-cloak class="divide-y divide-edge">
-              {% for p in section.list %}
-                {% include 'servicenow/partials/change_intake_field_row.html' with p=p intake=intake change_categories=change_categories change_reasons=change_reasons %}
+              {% for row in section.list %}
+                {% include 'servicenow/partials/change_intake_row_group.html' with row=row intake=intake change_categories=change_categories change_reasons=change_reasons %}
               {% endfor %}
             </div>
           </div>
@@ -95,11 +95,11 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
               </svg>
               <span class="text-xs font-bold text-ink-primary uppercase tracking-wider">Schedule</span>
-              <span class="text-[10px] text-ink-muted">{{ section.list|length }} field{{ section.list|length|pluralize }}</span>
+              <span class="text-[10px] text-ink-muted">{{ group_field_counts.Schedule }} field{{ group_field_counts.Schedule|pluralize }}</span>
             </button>
             <div x-show="open" x-cloak class="divide-y divide-edge">
-              {% for p in section.list %}
-                {% include 'servicenow/partials/change_intake_field_row.html' with p=p intake=intake change_categories=change_categories change_reasons=change_reasons %}
+              {% for row in section.list %}
+                {% include 'servicenow/partials/change_intake_row_group.html' with row=row intake=intake change_categories=change_categories change_reasons=change_reasons %}
               {% endfor %}
             </div>
           </div>
@@ -111,8 +111,8 @@
               <span class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">{{ section.grouper|default:"Other" }}</span>
             </div>
             <div class="divide-y divide-edge">
-              {% for p in section.list %}
-                {% include 'servicenow/partials/change_intake_field_row.html' with p=p intake=intake change_categories=change_categories change_reasons=change_reasons %}
+              {% for row in section.list %}
+                {% include 'servicenow/partials/change_intake_row_group.html' with row=row intake=intake change_categories=change_categories change_reasons=change_reasons %}
               {% endfor %}
             </div>
           </div>
