@@ -35,7 +35,6 @@ from servicenow.services.servicenow_ctask_create import (
 )
 from servicenow.services.servicenow_table import (
     list_tasks_for_change,
-    patch_change_task,
 )
 from servicenow.tasks import with_servicenow_auth_retry
 
@@ -604,11 +603,22 @@ def change_intake_submit_task(self, body: dict):
         first = existing[0] or {}
         existing_sys_id = first.get('sys_id') or ''
 
+        # PATCH directly via fetch_json_in_browser so we can include
+        # sysparm_input_display_value=true — matching the create path.
+        # The generic patch_change_task helper omits this parameter, which
+        # caused datetime values to be interpreted as UTC and show up 5h
+        # behind the CR (user is in ET).
+        from servicenow.services.servicenow_fetch import fetch_json_in_browser
+        ctask_table = getattr(dj_settings, 'SERVICENOW_CTASK_TABLE', 'change_task')
+        sn_base = getattr(dj_settings, 'SERVICENOW_BASE', '').rstrip('/')
+        patch_url = (
+            f"{sn_base}/api/now/table/{ctask_table}/{existing_sys_id}"
+            f"?sysparm_input_display_value=true"
+        )
+
         def op_patch_ctask(driver):
-            return patch_change_task(
-                driver,
-                sys_id=existing_sys_id,
-                fields_to_patch=ctask_fields,
+            return fetch_json_in_browser(
+                driver, method='PATCH', url=patch_url, body_obj=ctask_fields,
             )
 
         ctask_result = with_servicenow_auth_retry(
