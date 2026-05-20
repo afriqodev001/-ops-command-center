@@ -63,6 +63,13 @@ ALLOWED_HOSTS = _env_list('DJANGO_ALLOWED_HOSTS', [])
 
 # Application definition
 
+# Feature apps load per the active deployment profile (OPS_PROFILE env var,
+# default 'full'). See ops_portal/profiles.py. 'core' is the shared base and
+# always loads; feature apps depend on core, never the reverse.
+from ops_portal.profiles import feature_apps, resolve_profile
+
+OPS_PROFILE = resolve_profile(os.environ.get('OPS_PROFILE'))
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -70,14 +77,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # local apps
+    # shared base — always loaded
     'core',
-    'servicenow',
-    'tachyon',
-    'copilot_chat',
-    'harness',
-    'splunk',
-    'sploc',
+    # feature apps — selected by OPS_PROFILE
+    *feature_apps(OPS_PROFILE),
     # celery results backend
     'django_celery_results',
 ]

@@ -1,32 +1,33 @@
 """
-URL configuration for ops_portal project.
+URL configuration for the ops_portal project.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+Feature-app routes are mounted only when the app is part of the active
+OPS_PROFILE (see ops_portal/profiles.py). 'core' (dashboard + task status)
+always mounts. Admin always mounts.
 """
+from django.apps import apps
 from django.contrib import admin
 from django.urls import include, path
+
+# (url prefix, app label, urlconf module) — mounted only if the app is
+# installed in the active profile.
+_FEATURE_URLCONFS = [
+    ('servicenow/', 'servicenow',   'servicenow.urls'),
+    ('tachyon/',    'tachyon',      'tachyon.urls'),
+    ('copilot/',    'copilot_chat', 'copilot_chat.urls'),
+    ('splunk/',     'splunk',       'splunk.urls'),
+    ('sploc/',      'sploc',        'sploc.urls'),
+    ('harness/',    'harness',      'harness.urls'),
+]
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
-    path('servicenow/', include('servicenow.urls')),
-    path('tachyon/', include('tachyon.urls')),
-    path('copilot/', include('copilot_chat.urls')),
-    path('splunk/', include('splunk.urls')),
-    path('sploc/', include('sploc.urls')),
-    path('harness/', include('harness.urls')),
 ]
+
+for _prefix, _app_label, _urlconf in _FEATURE_URLCONFS:
+    if apps.is_installed(_app_label):
+        urlpatterns.append(path(_prefix, include(_urlconf)))
 
 # Local-only URL includes (gitignored). See ops_portal/local_urls.py.
 try:

@@ -28,6 +28,7 @@ Developer-oriented documentation covering architecture, patterns, and feature in
 15. [Tachyon](15_tachyon.md) — LLM playground, preset management
 16. [Adding a New Integration](16_adding_integration.md) — session widget, runner, tasks pattern
 17. [SPLOC (SignalFx)](17_sploc.md) — trace scraper, AI Assistant, prompt packs, cross-app linking
+18. [Deployment Profiles](18_deployment_profiles.md) — OPS_PROFILE, per-coworker app subsets
 
 ## Terminology
 

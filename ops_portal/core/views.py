@@ -1,8 +1,19 @@
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from ops_portal.celery import app as celery_app
 from celery.result import AsyncResult
+
+
+# ============================================================
+# FALLBACK DASHBOARD
+# ============================================================
+
+def fallback_dashboard(request):
+    """Minimal landing page used when the servicenow app — which owns the
+    rich dashboard — is not part of the active OPS_PROFILE."""
+    return render(request, 'core/fallback_dashboard.html')
 
 
 # ============================================================

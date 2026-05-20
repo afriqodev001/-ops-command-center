@@ -19,6 +19,7 @@ ops-command-center/
     ├── ops_portal/              # Django project config
     │   ├── settings.py
     │   ├── urls.py
+    │   ├── profiles.py          # Deployment profiles (OPS_PROFILE)
     │   └── ...
     ├── core/                    # Shared infra (browser registry, task views)
     │   ├── browser/

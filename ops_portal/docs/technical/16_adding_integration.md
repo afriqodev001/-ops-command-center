@@ -8,7 +8,9 @@ Pattern for adding a new browser-authenticated service (like Harness, Grafana, e
 python manage.py startapp myapp
 ```
 
-Add to `INSTALLED_APPS` in `settings.py`. Set `default_auto_field` in `apps.py`.
+`INSTALLED_APPS` is profile-driven — register the app in
+`ops_portal/profiles.py` (`FEATURE_PROFILES`) so it loads under the right
+profiles. Set `default_auto_field` in `apps.py`. See `18_deployment_profiles.md`.
 
 ## 2. Add Port Base
 
@@ -38,8 +40,12 @@ Copy any `templates/<app>/partials/session_widget.html`. Change URL paths and va
 ## 5. Add to Sidebar
 
 In `templates/base.html`:
-- Add nav items under a new section header
+- Add nav items under a new section header, wrapped in
+  `{% if 'myapp' in installed_features %}` … `{% endif %}`
 - Add session widget (conditional: `{% if '/myapp/' in request.path %}`)
+
+Add the app label to the `installed_features` set in
+`core/context_processors.py` so the guard above can see it.
 
 ## 6. Wire URLs
 
@@ -53,9 +59,10 @@ path("session/reset/",    session_views.session_reset),
 path("session/status/",   session_views.session_status_json),
 ```
 
-Mount in `ops_portal/urls.py`:
+Mount in `ops_portal/urls.py` by adding a row to `_FEATURE_URLCONFS` — the
+route is then included only when the app is in the active profile:
 ```python
-path('myapp/', include('myapp.urls')),
+('myapp/', 'myapp', 'myapp.urls'),
 ```
 
 ## 7. Add Settings
@@ -85,12 +92,13 @@ Copy `splunk/services/splunk_fetch.py` pattern — `fetch()` inside the browser 
 
 ## Checklist
 
-- [ ] App created + registered in INSTALLED_APPS
+- [ ] App created + registered in `ops_portal/profiles.py`
 - [ ] Port base in EDGE_PORT_BASES
 - [ ] session_views.py with all 6 endpoints
 - [ ] Session widget template (4 states)
-- [ ] Sidebar nav + conditional session widget in base.html
-- [ ] URLs mounted
+- [ ] Profile-guarded sidebar nav + conditional session widget in base.html
+- [ ] App label added to `installed_features` in `core/context_processors.py`
+- [ ] URLs mounted (row in `_FEATURE_URLCONFS`)
 - [ ] Settings + .env.example
 - [ ] Runner class (if needed)
 - [ ] Auth check function: `(driver, origin_url) -> bool`

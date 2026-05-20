@@ -61,6 +61,7 @@
           Dashboard
         </a>
 
+        {% if 'servicenow' in installed_features %}
         <!-- ServiceNow section -->
         <div class="mt-5 mx-2 pt-3 pb-2 border-t border-edge">
           <div class="flex items-center gap-2 px-1">
@@ -160,7 +161,9 @@
           </svg>
           Templates
         </a>
+        {% endif %}
 
+        {% if 'tachyon' in installed_features %}
         <!-- Tachyon -->
         <div class="mt-5 mx-2 pt-3 pb-2 border-t border-edge">
           <div class="flex items-center gap-2 px-1">
@@ -177,9 +180,11 @@
           </svg>
           Playground
         </a>
+        {% endif %}
 
         {% include_optional 'local_nav.html' %}
 
+        {% if 'copilot_chat' in installed_features %}
         <!-- Copilot Chat -->
         <div class="mt-5 mx-2 pt-3 pb-2 border-t border-edge">
           <div class="flex items-center gap-2 px-1">
@@ -196,7 +201,9 @@
           </svg>
           Chat
         </a>
+        {% endif %}
 
+        {% if 'splunk' in installed_features %}
         <!-- Splunk -->
         <div class="mt-5 mx-2 pt-3 pb-2 border-t border-edge">
           <div class="flex items-center gap-2 px-1">
@@ -226,7 +233,9 @@
           </svg>
           Saved Searches
         </a>
+        {% endif %}
 
+        {% if 'sploc' in installed_features %}
         <!-- SPLOC (Splunk Observability Cloud) -->
         <div class="mt-5 mx-2 pt-3 pb-2 border-t border-edge">
           <div class="flex items-center gap-2 px-1">
@@ -270,7 +279,9 @@
           </svg>
           Prompt Packs
         </a>
+        {% endif %}
 
+        {% if 'harness' in installed_features %}
         <!-- Harness (CI/CD) -->
         <div class="mt-5 mx-2 pt-3 pb-2 border-t border-edge">
           <div class="flex items-center gap-2 px-1">
@@ -335,6 +346,7 @@
           </svg>
           Workspace
         </a>
+        {% endif %}
 
         <!-- Placeholder future integrations -->
         <div class="mt-5 mx-2 pt-3 pb-2 border-t border-edge opacity-70">

@@ -33,11 +33,16 @@ def ui_context(request):
     """Available in every template:
         - os_user: { 'name': 'owner', 'initials': 'OW' }
         - user_prefs: dict from user_preferences.json (defaults applied)
+        - oncall_banner: active oncall banner, or None
+        - installed_features: set of feature-app labels in the active profile
+          (drives which sidebar sections render — see ops_portal/profiles.py)
     """
-    from servicenow.services.user_preferences import load_preferences
-
     name = _os_user_name()
+
+    # user_preferences lives in the servicenow app; degrade gracefully when
+    # a profile doesn't include servicenow.
     try:
+        from servicenow.services.user_preferences import load_preferences
         prefs = load_preferences()
     except Exception:
         prefs = {'default_data_mode': 'demo'}
@@ -48,15 +53,27 @@ def ui_context(request):
     # Don't overwrite ai_model from preferences — settings.AI_MODEL is the fallback,
     # prefs['ai_model'] is the user's override (set in Preferences panel)
 
-    # Oncall banner (servicenow app) — None on every page that doesn't have one.
+    # Oncall banner (servicenow app) — None when servicenow isn't loaded.
     try:
         from servicenow.services.oncall_banner import get_active as _oncall_banner_active
         oncall_banner = _oncall_banner_active()
     except Exception:
         oncall_banner = None
 
+    # Which feature apps the active profile loaded — the sidebar nav renders
+    # an app's section only when its label is in this set.
+    from django.apps import apps as _django_apps
+    installed_features = {
+        label for label in (
+            'servicenow', 'tachyon', 'copilot_chat',
+            'harness', 'splunk', 'sploc',
+        )
+        if _django_apps.is_installed(label)
+    }
+
     return {
-        'os_user':       {'name': name, 'initials': _initials(name)},
-        'user_prefs':    prefs,
-        'oncall_banner': oncall_banner,
+        'os_user':            {'name': name, 'initials': _initials(name)},
+        'user_prefs':         prefs,
+        'oncall_banner':      oncall_banner,
+        'installed_features': installed_features,
     }
