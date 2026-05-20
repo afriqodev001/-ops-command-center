@@ -83,6 +83,7 @@ def list_records(
     fields: str = "",
     limit: int = 20,
     display_value: bool | None = None,
+    suppress_pagination_header: bool = False,
 ) -> Dict[str, Any]:
     url = build_table_list_url(
         table,
@@ -90,6 +91,7 @@ def list_records(
         fields=fields,
         limit=limit,
         display_value=display_value,
+        suppress_pagination_header=suppress_pagination_header,
     )
 
     res = fetch_json_in_browser(driver, method="GET", url=url)

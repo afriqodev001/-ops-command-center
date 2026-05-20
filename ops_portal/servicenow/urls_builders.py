@@ -57,10 +57,18 @@ def build_table_list_url(
     fields: str = "",
     limit: int = 20,
     display_value: bool | None = None,
+    suppress_pagination_header: bool = False,
 ) -> str:
     """
     Builds:
       {SERVICENOW_BASE}/api/now/table/<table>?sysparm_query=...&sysparm_fields=...&sysparm_limit=...
+
+    suppress_pagination_header: when True, adds
+      sysparm_suppress_pagination_header=true. ServiceNow builds Link
+      response headers that embed the full sysparm_query; a long query
+      makes those header URLs exceed an internal limit and the request
+      fails. Suppressing them sidesteps that — safe when the caller
+      doesn't paginate (the response body is unaffected).
     """
     base = f"{_base()}/api/now/table/{table}"
 
@@ -72,6 +80,8 @@ def build_table_list_url(
     dv = _normalize_display_value(display_value)
     if dv is not None:
         params["sysparm_display_value"] = dv
+    if suppress_pagination_header:
+        params["sysparm_suppress_pagination_header"] = "true"
 
     return base + "?" + urlencode(params)
 

@@ -41,6 +41,9 @@ def reports_run_task(self, body: dict):
             fields=fields,
             limit=limit,
             display_value=True,
+            # Reports don't paginate; suppressing the Link headers lets
+            # long queries through (SN otherwise fails building them).
+            suppress_pagination_header=True,
         )
 
     return with_servicenow_auth_retry(body=body, operation=op, retry_once=True)
