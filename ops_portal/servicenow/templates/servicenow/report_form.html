@@ -1,13 +1,24 @@
 {% extends "base.html" %}
 
-{% block page_title %}{% if is_edit %}Edit report{% else %}New report{% endif %}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}New{% endif %} {{ domain_label }} report{% endblock %}
 {% block page_subtitle %}Reports{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
-  <form method="post" action="/servicenow/reports/save/" class="glass-card p-5 flex flex-col gap-4">
+<div class="max-w-2xl mx-auto flex flex-col gap-3">
+
+  <a href="/servicenow/reports/" class="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink-secondary">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+    Back to Reports
+  </a>
+
+  <form method="post" action="/servicenow/reports/save/"
+        x-data="{ emailOn: {% if 'email' in selected_actions %}true{% else %}false{% endif %} }"
+        class="glass-card p-5 flex flex-col gap-4">
     {% csrf_token %}
     {% if form.slug %}<input type="hidden" name="slug" value="{{ form.slug }}">{% endif %}
+    <input type="hidden" name="domain" value="{{ form.domain }}">
 
     {% if errors %}
     <div class="border border-danger/30 bg-danger/10 rounded-lg p-3">
@@ -16,6 +27,13 @@
       </ul>
     </div>
     {% endif %}
+
+    <div class="flex items-center gap-2">
+      <span class="badge badge-info text-[10px]">{{ domain_label }} report</span>
+      <span class="text-[11px] text-ink-muted">
+        Pulls from the <code class="text-brand-light">{{ domain_table }}</code> table.
+      </span>
+    </div>
 
     <div>
       <label class="label">Report name</label>
@@ -29,19 +47,6 @@
              class="input-dark text-sm" placeholder="Optional — what this report is for">
     </div>
 
-    <div class="grid grid-cols-2 gap-3">
-      <div>
-        <label class="label">Table</label>
-        <input type="text" name="table" value="{{ form.table }}" required
-               class="input-dark text-sm" placeholder="incident">
-      </div>
-      <div>
-        <label class="label">Row limit</label>
-        <input type="number" name="row_limit" value="{{ form.row_limit }}" min="1" max="10000"
-               class="input-dark text-sm">
-      </div>
-    </div>
-
     <div>
       <label class="label">ServiceNow query</label>
       <textarea name="query" rows="3" required
@@ -52,11 +57,17 @@
       </p>
     </div>
 
-    <div>
-      <label class="label">Fields</label>
-      <textarea name="fields" rows="2"
-                class="input-dark text-xs font-mono resize-y">{{ form.fields }}</textarea>
-      <p class="text-[10px] text-ink-muted mt-1">Comma-separated columns to return.</p>
+    <div class="grid grid-cols-[1fr_auto] gap-3">
+      <div>
+        <label class="label">Fields</label>
+        <textarea name="fields" rows="2"
+                  class="input-dark text-xs font-mono resize-y">{{ form.fields }}</textarea>
+      </div>
+      <div>
+        <label class="label">Row limit</label>
+        <input type="number" name="row_limit" value="{{ form.row_limit }}" min="1" max="10000"
+               class="input-dark text-sm w-24">
+      </div>
     </div>
 
     <div>
@@ -64,12 +75,34 @@
       <div class="flex flex-col gap-1.5 mt-1">
         {% for key, label in action_choices %}
         <label class="flex items-center gap-2 text-xs text-ink-secondary cursor-pointer">
+          {% if key == 'email' %}
+          <input type="checkbox" name="actions" value="email" x-model="emailOn" class="accent-brand">
+          {% else %}
           <input type="checkbox" name="actions" value="{{ key }}"
-                 {% if key in selected_actions %}checked{% endif %}
-                 class="accent-brand">
+                 {% if key in selected_actions %}checked{% endif %} class="accent-brand">
+          {% endif %}
           {{ label }}
         </label>
         {% endfor %}
+      </div>
+    </div>
+
+    <div x-show="emailOn" x-cloak
+         class="flex flex-col gap-3 border border-edge rounded-lg p-3 bg-surface-3/30">
+      <p class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Email settings</p>
+      <div>
+        <label class="label">Recipients</label>
+        <input type="text" name="email_recipients" value="{{ form.email_recipients }}"
+               class="input-dark text-xs" placeholder="name@example.com; other@example.com">
+        <p class="text-[10px] text-ink-muted mt-1">Separate multiple addresses with a semicolon.</p>
+      </div>
+      <div>
+        <label class="label">Message body</label>
+        <textarea name="email_body" rows="4" class="input-dark text-xs resize-y"
+                  placeholder="Hi team, please find the report attached…">{{ form.email_body }}</textarea>
+        <p class="text-[10px] text-ink-muted mt-1">
+          The report's CSV result is attached to the Outlook draft automatically.
+        </p>
       </div>
     </div>
 

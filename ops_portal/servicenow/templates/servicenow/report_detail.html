@@ -1,16 +1,26 @@
 {% extends "base.html" %}
 
 {% block page_title %}{{ report.name }}{% endblock %}
-{% block page_subtitle %}Report{% endblock %}
+{% block page_subtitle %}{{ report.domain_label }} report{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto flex flex-col gap-4">
   {% csrf_token %}
 
+  <a href="/servicenow/reports/" class="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink-secondary">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+    Back to Reports
+  </a>
+
   <div class="glass-card p-5">
     <div class="flex items-start gap-3">
       <div class="flex-1 min-w-0">
-        <h2 class="text-sm font-semibold text-ink-primary">{{ report.name }}</h2>
+        <div class="flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-ink-primary">{{ report.name }}</h2>
+          <span class="badge badge-info text-[10px]">{{ report.domain_label }}</span>
+        </div>
         {% if report.description %}
         <p class="text-xs text-ink-muted mt-0.5">{{ report.description }}</p>
         {% endif %}
@@ -27,7 +37,6 @@
       </div>
       <div class="flex flex-col gap-1.5">
         <a href="/servicenow/reports/{{ report.slug }}/edit/" class="btn-ghost text-[11px] px-2 py-1">Edit</a>
-        <a href="/servicenow/reports/" class="btn-ghost text-[11px] px-2 py-1">All reports</a>
         <form method="post" action="/servicenow/reports/{{ report.slug }}/delete/"
               onsubmit="return confirm('Delete the report &quot;{{ report.name|escapejs }}&quot;?');">
           {% csrf_token %}

@@ -328,6 +328,20 @@ REPORT_ACTION_CHOICES = (
 
 REPORT_ACTION_VALUES = [a[0] for a in REPORT_ACTION_CHOICES]
 
+# A report targets one ServiceNow domain; the table is derived from it, so
+# engineers pick Change / Incident rather than typing a table name.
+REPORT_DOMAIN_CHOICES = (
+    ('change',   'Change'),
+    ('incident', 'Incident'),
+)
+
+REPORT_DOMAIN_VALUES = [d[0] for d in REPORT_DOMAIN_CHOICES]
+
+REPORT_DOMAIN_TABLE = {
+    'change':   'change_request',
+    'incident': 'incident',
+}
+
 
 class Report(models.Model):
     """A saved, named ServiceNow query plus the actions that can be run on
@@ -342,6 +356,14 @@ class Report(models.Model):
     slug = models.SlugField(max_length=120, unique=True)
     description = models.TextField(blank=True)
 
+    # Domain the report targets; `table` is derived from it on save.
+    domain = models.CharField(
+        max_length=16,
+        choices=REPORT_DOMAIN_CHOICES,
+        default='incident',
+        db_index=True,
+    )
+
     # ServiceNow Table API query
     table = models.CharField(max_length=80, default='incident')
     query = models.TextField(blank=True, help_text='ServiceNow encoded query.')
@@ -353,6 +375,10 @@ class Report(models.Model):
 
     # JSON list of action keys (subset of REPORT_ACTION_VALUES)
     actions_json = models.TextField(blank=True, default='[]')
+
+    # Email action config — prefills the Outlook draft when 'email' is run.
+    email_recipients = models.TextField(blank=True)
+    email_body = models.TextField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -381,3 +407,6 @@ class Report(models.Model):
         """Human-readable labels for this report's actions."""
         labels = dict(REPORT_ACTION_CHOICES)
         return [labels.get(a, a) for a in self.actions()]
+
+    def domain_label(self) -> str:
+        return dict(REPORT_DOMAIN_CHOICES).get(self.domain, self.domain)

@@ -4,47 +4,57 @@
 {% block page_subtitle %}Saved ServiceNow queries with one-click actions{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto flex flex-col gap-5">
+<div class="max-w-5xl mx-auto flex flex-col gap-6">
 
-  <div class="flex items-center gap-3">
-    <p class="text-sm text-ink-secondary">Pick a report to run, or create a new one.</p>
-    <a href="/servicenow/reports/new/" class="ml-auto btn-primary text-xs px-3 py-2">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-      </svg>
-      New report
-    </a>
-  </div>
-
-  {% if reports %}
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    {% for report in reports %}
-    <div class="glass-card p-4 flex flex-col gap-2">
-      <div class="flex items-start gap-2">
-        <h3 class="text-sm font-semibold text-ink-primary flex-1 min-w-0">{{ report.name }}</h3>
-        <code class="text-[10px] text-ink-muted whitespace-nowrap">{{ report.table }}</code>
-      </div>
-      {% if report.description %}
-      <p class="text-[11px] text-ink-muted">{{ report.description }}</p>
-      {% endif %}
-      <div class="flex flex-wrap gap-1">
-        {% for label in report.action_labels %}
-        <span class="badge badge-muted text-[10px]">{{ label }}</span>
-        {% endfor %}
-      </div>
-      <div class="flex items-center gap-2 mt-1 pt-2 border-t border-edge">
-        <a href="/servicenow/reports/{{ report.slug }}/" class="btn-primary text-[11px] px-2.5 py-1">Open</a>
-        <a href="/servicenow/reports/{{ report.slug }}/edit/" class="btn-ghost text-[11px] px-2 py-1">Edit</a>
-      </div>
+  {# ── Change reports ───────────────────────────────────────── #}
+  <section>
+    <div class="flex items-center gap-2 mb-3">
+      <span class="w-1.5 h-4 rounded-sm bg-brand-light flex-shrink-0"></span>
+      <h2 class="text-sm font-bold text-ink-primary uppercase tracking-wider">Change reports</h2>
+      <a href="/servicenow/reports/new/?domain=change" class="ml-auto btn-primary text-xs px-3 py-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        New change report
+      </a>
     </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="glass-card p-8 text-center">
-    <p class="text-sm font-medium text-ink-primary mb-1">No reports yet</p>
-    <p class="text-xs text-ink-muted">Create your first report to pull data from ServiceNow and act on it.</p>
-  </div>
-  {% endif %}
+    {% if change_reports %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% for report in change_reports %}
+      {% include 'servicenow/partials/report_card.html' %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="glass-card p-5 text-center">
+      <p class="text-xs text-ink-muted">No change reports yet.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  {# ── Incident reports ─────────────────────────────────────── #}
+  <section>
+    <div class="flex items-center gap-2 mb-3">
+      <span class="w-1.5 h-4 rounded-sm bg-warn flex-shrink-0"></span>
+      <h2 class="text-sm font-bold text-ink-primary uppercase tracking-wider">Incident reports</h2>
+      <a href="/servicenow/reports/new/?domain=incident" class="ml-auto btn-primary text-xs px-3 py-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        New incident report
+      </a>
+    </div>
+    {% if incident_reports %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% for report in incident_reports %}
+      {% include 'servicenow/partials/report_card.html' %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="glass-card p-5 text-center">
+      <p class="text-xs text-ink-muted">No incident reports yet.</p>
+    </div>
+    {% endif %}
+  </section>
 
 </div>
 {% endblock %}

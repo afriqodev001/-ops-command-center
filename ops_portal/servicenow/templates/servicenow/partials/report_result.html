@@ -112,6 +112,9 @@
     <input type="text" x-model="recipients"
            placeholder="name@example.com; other@example.com"
            class="input-dark text-xs">
+    <label class="text-[10px] font-medium text-ink-muted uppercase tracking-wider">Message body</label>
+    <textarea x-model="body" rows="4" class="input-dark text-xs resize-y"
+              placeholder="Hi team, please find the report attached…"></textarea>
     <div class="flex items-center gap-2">
       <button type="button" @click="sendEmail()" :disabled="emailing"
               class="btn-primary text-xs px-3 py-1.5 disabled:opacity-50">
@@ -119,6 +122,9 @@
       </button>
       <span class="text-[10px] text-ink-muted" x-text="emailResult" x-cloak></span>
     </div>
+    <p class="text-[10px] text-ink-muted">
+      Recipients and body are prefilled from the report. The CSV result is attached automatically.
+    </p>
   </div>
   {% endif %}
   {% endif %}
@@ -151,7 +157,8 @@
   function _defineReportActions() {
     Alpine.data('reportActions', () => ({
       emailOpen: false,
-      recipients: '',
+      recipients: "{{ report.email_recipients|escapejs }}",
+      body: "{{ report.email_body|escapejs }}",
       emailing: false,
       emailResult: '',
 
@@ -178,8 +185,9 @@
         const count = csv ? csv.split('\n').length - 1 : 0;
         const date = new Date().toLocaleDateString();
         const subject = REPORT_NAME + ' — ' + count + ' records — ' + date;
-        const body = 'Hi team,\n\nPlease find the "' + REPORT_NAME +
-                     '" report attached.\n\n' + count + ' records as of ' + date + '.';
+        const body = this.body.trim() ||
+                     ('Hi team,\n\nPlease find the "' + REPORT_NAME +
+                      '" report attached.\n\n' + count + ' records as of ' + date + '.');
         const csrfEl = document.querySelector('input[name="csrfmiddlewaretoken"]');
         try {
           const resp = await fetch('/servicenow/presets/email/', {

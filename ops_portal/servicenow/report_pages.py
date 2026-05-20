@@ -21,13 +21,23 @@ from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from servicenow.models import Report, REPORT_ACTION_CHOICES, REPORT_ACTION_VALUES
-
-
-DEFAULT_FIELDS = (
-    'number,short_description,state,priority,'
-    'assignment_group,assigned_to,sys_updated_on'
+from servicenow.models import (
+    Report,
+    REPORT_ACTION_CHOICES, REPORT_ACTION_VALUES,
+    REPORT_DOMAIN_CHOICES, REPORT_DOMAIN_VALUES, REPORT_DOMAIN_TABLE,
 )
+
+
+# Sensible starting column set per domain — prefilled so creating a report
+# is mostly just a name + query.
+DEFAULT_FIELDS = {
+    'incident': ('number,short_description,state,priority,'
+                 'assignment_group,assigned_to,sys_updated_on'),
+    'change':   ('number,short_description,state,risk,'
+                 'assignment_group,assigned_to,start_date,end_date'),
+}
+
+_DOMAIN_LABELS = dict(REPORT_DOMAIN_CHOICES)
 
 HEADER_LABELS = {
     'number': 'Number', 'short_description': 'Description', 'priority': 'Priority',
@@ -101,10 +111,12 @@ def _form_from_post(request) -> dict:
         'slug': request.POST.get('slug', '').strip(),
         'name': request.POST.get('name', '').strip(),
         'description': request.POST.get('description', '').strip(),
-        'table': request.POST.get('table', '').strip(),
+        'domain': request.POST.get('domain', '').strip(),
         'query': request.POST.get('query', '').strip(),
         'fields': request.POST.get('fields', '').strip(),
         'row_limit': request.POST.get('row_limit', '').strip(),
+        'email_recipients': request.POST.get('email_recipients', '').strip(),
+        'email_body': request.POST.get('email_body', '').strip(),
     }
 
 
@@ -113,10 +125,12 @@ def _form_from_report(report: Report) -> dict:
         'slug': report.slug,
         'name': report.name,
         'description': report.description,
-        'table': report.table,
+        'domain': report.domain,
         'query': report.query,
         'fields': report.fields,
         'row_limit': str(report.row_limit),
+        'email_recipients': report.email_recipients,
+        'email_body': report.email_body,
     }
 
 
@@ -124,9 +138,10 @@ def _form_from_report(report: Report) -> dict:
 
 @require_GET
 def reports_landing(request):
-    """GET /servicenow/reports/ — saved reports + a New report button."""
+    """GET /servicenow/reports/ — saved reports, split by domain."""
     return render(request, 'servicenow/reports.html', {
-        'reports': Report.objects.all(),
+        'change_reports': Report.objects.filter(domain='change'),
+        'incident_reports': Report.objects.filter(domain='incident'),
     })
 
 
@@ -134,15 +149,21 @@ def reports_landing(request):
 
 @require_GET
 def report_new(request):
-    """GET /servicenow/reports/new/"""
+    """GET /servicenow/reports/new/?domain=change|incident"""
+    domain = request.GET.get('domain', '').strip()
+    if domain not in REPORT_DOMAIN_VALUES:
+        domain = 'incident'
     return render(request, 'servicenow/report_form.html', {
         'form': {
             'slug': '', 'name': '', 'description': '',
-            'table': 'incident', 'query': '',
-            'fields': DEFAULT_FIELDS, 'row_limit': '100',
+            'domain': domain, 'query': '',
+            'fields': DEFAULT_FIELDS[domain], 'row_limit': '100',
+            'email_recipients': '', 'email_body': '',
         },
         'selected_actions': ['view'],
         'action_choices': REPORT_ACTION_CHOICES,
+        'domain_table': REPORT_DOMAIN_TABLE[domain],
+        'domain_label': _DOMAIN_LABELS[domain],
         'errors': [],
         'is_edit': False,
     })
@@ -156,6 +177,8 @@ def report_edit(request, slug: str):
         'form': _form_from_report(report),
         'selected_actions': report.actions(),
         'action_choices': REPORT_ACTION_CHOICES,
+        'domain_table': REPORT_DOMAIN_TABLE.get(report.domain, report.table),
+        'domain_label': report.domain_label(),
         'errors': [],
         'is_edit': True,
     })
@@ -168,12 +191,11 @@ def report_save(request):
     form = _form_from_post(request)
     selected_actions = [a for a in request.POST.getlist('actions')
                         if a in REPORT_ACTION_VALUES]
+    domain = form['domain'] if form['domain'] in REPORT_DOMAIN_VALUES else 'incident'
 
     errors = []
     if not form['name']:
         errors.append('Report name is required.')
-    if not form['table']:
-        errors.append('Table is required (e.g. incident, change_request).')
     if not form['query']:
         errors.append('ServiceNow query is required.')
     try:
@@ -186,6 +208,8 @@ def report_save(request):
             'form': form,
             'selected_actions': selected_actions or ['view'],
             'action_choices': REPORT_ACTION_CHOICES,
+            'domain_table': REPORT_DOMAIN_TABLE[domain],
+            'domain_label': _DOMAIN_LABELS[domain],
             'errors': errors,
             'is_edit': bool(form['slug']),
         }, status=200)
@@ -197,11 +221,14 @@ def report_save(request):
 
     report.name = form['name']
     report.description = form['description']
-    report.table = form['table']
+    report.domain = domain
+    report.table = REPORT_DOMAIN_TABLE[domain]
     report.query = form['query']
-    report.fields = form['fields'] or DEFAULT_FIELDS
+    report.fields = form['fields'] or DEFAULT_FIELDS[domain]
     report.row_limit = row_limit
     report.actions_json = json.dumps(selected_actions or ['view'])
+    report.email_recipients = form['email_recipients']
+    report.email_body = form['email_body']
     report.save()
 
     return HttpResponseRedirect(f'/servicenow/reports/{report.slug}/')
