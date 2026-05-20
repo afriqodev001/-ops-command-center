@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ report.name }}{% endblock %}
+{% block page_subtitle %}Report{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto flex flex-col gap-4">
+  {% csrf_token %}
+
+  <div class="glass-card p-5">
+    <div class="flex items-start gap-3">
+      <div class="flex-1 min-w-0">
+        <h2 class="text-sm font-semibold text-ink-primary">{{ report.name }}</h2>
+        {% if report.description %}
+        <p class="text-xs text-ink-muted mt-0.5">{{ report.description }}</p>
+        {% endif %}
+        <dl class="mt-3 space-y-1 text-[11px] font-mono">
+          <div class="flex gap-3"><dt class="text-ink-muted w-12 flex-shrink-0">table</dt><dd class="text-brand-light">{{ report.table }}</dd></div>
+          <div class="flex gap-3"><dt class="text-ink-muted w-12 flex-shrink-0">query</dt><dd class="text-ink-primary break-all">{{ report.query }}</dd></div>
+          <div class="flex gap-3"><dt class="text-ink-muted w-12 flex-shrink-0">limit</dt><dd class="text-ink-secondary">{{ report.row_limit }}</dd></div>
+        </dl>
+        <div class="flex flex-wrap gap-1 mt-2">
+          {% for label in report.action_labels %}
+          <span class="badge badge-muted text-[10px]">{{ label }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <a href="/servicenow/reports/{{ report.slug }}/edit/" class="btn-ghost text-[11px] px-2 py-1">Edit</a>
+        <a href="/servicenow/reports/" class="btn-ghost text-[11px] px-2 py-1">All reports</a>
+        <form method="post" action="/servicenow/reports/{{ report.slug }}/delete/"
+              onsubmit="return confirm('Delete the report &quot;{{ report.name|escapejs }}&quot;?');">
+          {% csrf_token %}
+          <button type="submit" class="btn-ghost text-[11px] px-2 py-1 text-danger w-full">Delete</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="mt-4 pt-3 border-t border-edge">
+      <button type="button"
+              hx-post="/servicenow/reports/{{ report.slug }}/run/"
+              hx-target="#report-result"
+              hx-swap="innerHTML"
+              class="btn-primary text-xs px-4 py-2">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Run report
+      </button>
+      <p class="text-[10px] text-ink-muted mt-1.5">Pulls live data from ServiceNow.</p>
+    </div>
+  </div>
+
+  <div id="report-result"></div>
+</div>
+{% endblock %}

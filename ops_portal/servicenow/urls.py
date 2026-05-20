@@ -3,6 +3,7 @@ from . import views
 from . import pages
 from . import oncall_pages
 from . import change_intake_pages
+from . import report_pages
 
 urlpatterns = [
 
@@ -108,6 +109,20 @@ urlpatterns = [
     path("change-intake/<int:intake_id>/submit/poll/<str:task_id>/",
          change_intake_pages.change_intake_submit_poll,
          name="change-intake-submit-poll"),
+
+    # ─── Reports — saved ServiceNow queries + actions ──
+    path("reports/",                          report_pages.reports_landing,       name="reports-landing"),
+    path("reports/new/",                      report_pages.report_new,            name="report-new"),
+    path("reports/save/",                     report_pages.report_save,           name="report-save"),
+    path("reports/<slug:slug>/",              report_pages.report_detail,         name="report-detail"),
+    path("reports/<slug:slug>/edit/",         report_pages.report_edit,           name="report-edit"),
+    path("reports/<slug:slug>/delete/",       report_pages.report_delete,         name="report-delete"),
+    path("reports/<slug:slug>/run/",          report_pages.report_run,            name="report-run"),
+    path("reports/<slug:slug>/run/poll/<str:task_id>/",
+         report_pages.report_run_poll,        name="report-run-poll"),
+    path("reports/<slug:slug>/ai-summary/",   report_pages.report_ai_summary,     name="report-ai-summary"),
+    path("reports/<slug:slug>/ai-summary/poll/<str:task_id>/",
+         report_pages.report_ai_summary_poll, name="report-ai-summary-poll"),
 
     # ─── UI pages ───────────────────────────────
     path("incidents/",                 pages.incidents_list,   name="incidents-list"),

@@ -1,0 +1,7 @@
+<div hx-get="/servicenow/reports/{{ report.slug }}/ai-summary/poll/{{ task_id }}/"
+     hx-trigger="load delay:1500ms"
+     hx-swap="outerHTML"
+     class="glass-card p-4 flex items-center gap-3">
+  <div class="w-4 h-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin"></div>
+  <span class="text-xs text-ink-muted">Generating AI summary…</span>
+</div>

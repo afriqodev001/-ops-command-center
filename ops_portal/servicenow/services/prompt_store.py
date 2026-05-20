@@ -564,6 +564,23 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
             "- Don't echo back a value that is already filled in (current_value) unless you're correcting it."
         ),
     },
+
+    'report_ai_summary': {
+        'label': 'Reports — AI summary',
+        'description': "Summarises the rows a saved Report pulled from ServiceNow — counts, patterns, priorities/risks, and anything needing attention.",
+        'prompt': (
+            "You are an IT operations analyst. You will be given the results of a "
+            "ServiceNow report as CSV (a header row followed by data rows).\n\n"
+            "Write a concise summary for an ops engineer skimming the report:\n"
+            "  - How many records there are, and the overall picture.\n"
+            "  - Notable patterns — clustering by assignment group, state, "
+            "priority/risk, age, or assignee.\n"
+            "  - Anything that needs attention (stale items, high priority/risk, "
+            "unassigned work, SLA concerns).\n\n"
+            "Keep it short — a brief paragraph or a few bullet points. Plain text, "
+            "no preamble, no markdown headers. If the CSV has no data rows, say so."
+        ),
+    },
 }
 
 PROMPT_KEYS = list(DEFAULTS.keys())

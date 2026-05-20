@@ -313,3 +313,71 @@ class VendorConfig(models.Model):
             return data if isinstance(data, dict) else {}
         except (ValueError, TypeError):
             return {}
+
+
+# ────────────────────────────────────────────────────────────────
+# Reports — saved ServiceNow query + actions
+# ────────────────────────────────────────────────────────────────
+
+REPORT_ACTION_CHOICES = (
+    ('view',       'View on screen'),
+    ('csv',        'Download CSV'),
+    ('email',      'Email (Outlook draft)'),
+    ('ai_summary', 'AI summary'),
+)
+
+REPORT_ACTION_VALUES = [a[0] for a in REPORT_ACTION_CHOICES]
+
+
+class Report(models.Model):
+    """A saved, named ServiceNow query plus the actions that can be run on
+    its results.
+
+    Powers the focused Reports UI — a friendlier alternative to the full
+    Presets page: an engineer picks or creates a report, runs it, and acts
+    on the rows (view / CSV / email / AI summary).
+    """
+
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=120, unique=True)
+    description = models.TextField(blank=True)
+
+    # ServiceNow Table API query
+    table = models.CharField(max_length=80, default='incident')
+    query = models.TextField(blank=True, help_text='ServiceNow encoded query.')
+    fields = models.TextField(
+        blank=True,
+        help_text='Comma-separated ServiceNow field names to return.',
+    )
+    row_limit = models.PositiveIntegerField(default=100)
+
+    # JSON list of action keys (subset of REPORT_ACTION_VALUES)
+    actions_json = models.TextField(blank=True, default='[]')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self) -> str:
+        return self.name
+
+    def actions(self) -> list:
+        """Parsed action-key list, filtered to known actions."""
+        try:
+            import json
+            data = json.loads(self.actions_json or '[]')
+        except (ValueError, TypeError):
+            return []
+        if not isinstance(data, list):
+            return []
+        return [a for a in data if a in REPORT_ACTION_VALUES]
+
+    def field_list(self) -> list:
+        return [f.strip() for f in (self.fields or '').split(',') if f.strip()]
+
+    def action_labels(self) -> list:
+        """Human-readable labels for this report's actions."""
+        labels = dict(REPORT_ACTION_CHOICES)
+        return [labels.get(a, a) for a in self.actions()]

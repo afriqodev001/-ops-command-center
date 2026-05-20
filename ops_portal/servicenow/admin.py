@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ChangeIntakeRequest, OncallChangeReview, VendorConfig
+from .models import ChangeIntakeRequest, OncallChangeReview, Report, VendorConfig
 
 
 @admin.register(VendorConfig)
@@ -25,6 +25,14 @@ class ChangeIntakeRequestAdmin(admin.ModelAdmin):
         'ai_completeness_json', 'ai_field_debug_json',
         'submit_task_id', 'completeness_task_id',
     )
+
+
+@admin.register(Report)
+class ReportAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'table', 'row_limit', 'updated_at')
+    search_fields = ('name', 'slug', 'table', 'query')
+    prepopulated_fields = {'slug': ('name',)}
+    readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(OncallChangeReview)
