@@ -297,7 +297,7 @@ def _data_mode(request) -> str:
             return m
     # No session-level override → fall back to saved user preference
     try:
-        from .services.user_preferences import load_preferences
+        from core.services.user_preferences import load_preferences
         m = load_preferences().get('default_data_mode', 'demo')
     except Exception:
         m = 'demo'
@@ -1115,7 +1115,7 @@ def dashboard(request):
 def _default_group_filter(request) -> str:
     """Read the saved default group filter from preferences. Empty = no filter."""
     try:
-        from .services.user_preferences import load_preferences
+        from core.services.user_preferences import load_preferences
         return (load_preferences().get('default_group_filter') or '').strip()
     except Exception:
         return ''
@@ -2375,7 +2375,7 @@ def data_mode_toggle(request):
 
 def _preferences_context(request):
     """Build the context dict used by the preferences modal body partial."""
-    from .services.user_preferences import load_preferences
+    from core.services.user_preferences import load_preferences
     from .services.query_presets import load_user_presets
     from .services.creation_templates import load_templates as load_creation_templates
     from .services.search_presets import load_presets as load_search_presets
@@ -2407,7 +2407,7 @@ def preferences_modal(request):
 def preferences_save(request):
     """POST: update saved preferences (default data mode). Returns the refreshed modal body."""
     from django.http import HttpResponse
-    from .services.user_preferences import save_preferences
+    from core.services.user_preferences import save_preferences
     if request.method != 'POST':
         return HttpResponse(status=405)
 

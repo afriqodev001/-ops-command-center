@@ -33,32 +33,22 @@ def ui_context(request):
     """Available in every template:
         - os_user: { 'name': 'owner', 'initials': 'OW' }
         - user_prefs: dict from user_preferences.json (defaults applied)
-        - oncall_banner: active oncall banner, or None
         - installed_features: set of feature-app labels in the active profile
           (drives which sidebar sections render — see ops_portal/profiles.py)
+        - plus anything feature apps contribute via registered context
+          providers (e.g. servicenow's oncall_banner) — see core/extensions.py
     """
-    name = _os_user_name()
+    from core.services.user_preferences import load_preferences
+    from core.extensions import collect_context
 
-    # user_preferences lives in the servicenow app; degrade gracefully when
-    # a profile doesn't include servicenow.
-    try:
-        from servicenow.services.user_preferences import load_preferences
-        prefs = load_preferences()
-    except Exception:
-        prefs = {'default_data_mode': 'demo'}
+    name = _os_user_name()
+    prefs = load_preferences()
 
     # AI config visibility (API key presence from settings, provider from preferences)
     from django.conf import settings as dj_settings
     prefs['ai_configured'] = bool(getattr(dj_settings, 'AI_API_KEY', ''))
     # Don't overwrite ai_model from preferences — settings.AI_MODEL is the fallback,
     # prefs['ai_model'] is the user's override (set in Preferences panel)
-
-    # Oncall banner (servicenow app) — None when servicenow isn't loaded.
-    try:
-        from servicenow.services.oncall_banner import get_active as _oncall_banner_active
-        oncall_banner = _oncall_banner_active()
-    except Exception:
-        oncall_banner = None
 
     # Which feature apps the active profile loaded — the sidebar nav renders
     # an app's section only when its label is in this set.
@@ -71,9 +61,12 @@ def ui_context(request):
         if _django_apps.is_installed(label)
     }
 
-    return {
+    ctx = {
         'os_user':            {'name': name, 'initials': _initials(name)},
         'user_prefs':         prefs,
-        'oncall_banner':      oncall_banner,
         'installed_features': installed_features,
     }
+    # Feature apps inject extra page context (e.g. servicenow's oncall banner)
+    # via providers registered in their AppConfig.ready().
+    ctx.update(collect_context(request))
+    return ctx

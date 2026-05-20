@@ -83,7 +83,7 @@ def _build_session_context():
     # Auto-close the browser after idle to reclaim memory on laptops.
     if browser_alive and last_used:
         try:
-            from servicenow.services.user_preferences import load_preferences
+            from core.services.user_preferences import load_preferences
             idle_min = int(load_preferences().get('browser_idle_timeout_minutes', 30) or 30)
         except Exception:
             idle_min = 30

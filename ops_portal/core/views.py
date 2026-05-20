@@ -7,12 +7,21 @@ from celery.result import AsyncResult
 
 
 # ============================================================
-# FALLBACK DASHBOARD
+# DASHBOARD
 # ============================================================
 
+def dashboard(request):
+    """Landing page (/). Delegates to whichever dashboard view a feature app
+    registered via core.extensions; falls back to the minimal core page when
+    no feature app provides one (e.g. a profile without servicenow)."""
+    from core.extensions import get_dashboard_view
+    return get_dashboard_view()(request)
+
+
 def fallback_dashboard(request):
-    """Minimal landing page used when the servicenow app — which owns the
-    rich dashboard — is not part of the active OPS_PROFILE."""
+    """Minimal landing page used when no feature app has registered a richer
+    dashboard. Kept separate from `dashboard` so it can be the registry's
+    default target without recursing."""
     return render(request, 'core/fallback_dashboard.html')
 
 

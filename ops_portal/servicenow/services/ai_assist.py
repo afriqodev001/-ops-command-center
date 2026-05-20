@@ -295,7 +295,7 @@ AI_PROVIDERS = ('none', 'tachyon', 'copilot', 'claude', 'openai')
 def _get_ai_config() -> Dict:
     """Read the active AI provider config from user preferences."""
     try:
-        from .user_preferences import load_preferences
+        from core.services.user_preferences import load_preferences
         prefs = load_preferences()
     except Exception:
         prefs = {}
