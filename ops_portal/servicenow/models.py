@@ -329,10 +329,11 @@ REPORT_ACTION_CHOICES = (
 REPORT_ACTION_VALUES = [a[0] for a in REPORT_ACTION_CHOICES]
 
 # A report targets one ServiceNow domain; the table is derived from it, so
-# engineers pick Change / Incident rather than typing a table name.
+# engineers pick Change / Incident / CTASK rather than typing a table name.
 REPORT_DOMAIN_CHOICES = (
     ('change',   'Change'),
     ('incident', 'Incident'),
+    ('ctask',    'CTASK'),
 )
 
 REPORT_DOMAIN_VALUES = [d[0] for d in REPORT_DOMAIN_CHOICES]
@@ -340,6 +341,7 @@ REPORT_DOMAIN_VALUES = [d[0] for d in REPORT_DOMAIN_CHOICES]
 REPORT_DOMAIN_TABLE = {
     'change':   'change_request',
     'incident': 'incident',
+    'ctask':    'change_task',
 }
 
 

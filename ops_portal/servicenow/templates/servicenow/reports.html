@@ -4,13 +4,28 @@
 {% block page_subtitle %}Saved ServiceNow queries with one-click actions{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto flex flex-col gap-6">
+<div class="max-w-5xl mx-auto flex flex-col gap-4" x-data="{ tab: '{{ default_tab }}' }">
 
-  {# ── Change reports ───────────────────────────────────────── #}
-  <section>
-    <div class="flex items-center gap-2 mb-3">
-      <span class="w-1.5 h-4 rounded-sm bg-brand-light flex-shrink-0"></span>
-      <h2 class="text-sm font-bold text-ink-primary uppercase tracking-wider">Change reports</h2>
+  {# ── Tab strip ────────────────────────────────────────────── #}
+  <div class="flex items-center gap-1 border-b border-edge pb-2">
+    <button type="button" @click="tab = 'change'"
+            :class="tab === 'change' ? 'tab-active' : 'tab-inactive'">
+      Change<span class="ml-1.5 text-[11px] opacity-70">{{ change_reports|length }}</span>
+    </button>
+    <button type="button" @click="tab = 'incident'"
+            :class="tab === 'incident' ? 'tab-active' : 'tab-inactive'">
+      Incident<span class="ml-1.5 text-[11px] opacity-70">{{ incident_reports|length }}</span>
+    </button>
+    <button type="button" @click="tab = 'ctask'"
+            :class="tab === 'ctask' ? 'tab-active' : 'tab-inactive'">
+      CTASK<span class="ml-1.5 text-[11px] opacity-70">{{ ctask_reports|length }}</span>
+    </button>
+  </div>
+
+  {# ── Change panel ─────────────────────────────────────────── #}
+  <div x-show="tab === 'change'" x-cloak class="flex flex-col gap-3">
+    <div class="flex items-center gap-3">
+      <p class="text-xs text-ink-muted">Reports that query the <code class="text-brand-light">change_request</code> table.</p>
       <a href="/servicenow/reports/new/?domain=change" class="ml-auto btn-primary text-xs px-3 py-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -25,17 +40,16 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="glass-card p-5 text-center">
+    <div class="glass-card p-8 text-center">
       <p class="text-xs text-ink-muted">No change reports yet.</p>
     </div>
     {% endif %}
-  </section>
+  </div>
 
-  {# ── Incident reports ─────────────────────────────────────── #}
-  <section>
-    <div class="flex items-center gap-2 mb-3">
-      <span class="w-1.5 h-4 rounded-sm bg-warn flex-shrink-0"></span>
-      <h2 class="text-sm font-bold text-ink-primary uppercase tracking-wider">Incident reports</h2>
+  {# ── Incident panel ───────────────────────────────────────── #}
+  <div x-show="tab === 'incident'" x-cloak class="flex flex-col gap-3">
+    <div class="flex items-center gap-3">
+      <p class="text-xs text-ink-muted">Reports that query the <code class="text-brand-light">incident</code> table.</p>
       <a href="/servicenow/reports/new/?domain=incident" class="ml-auto btn-primary text-xs px-3 py-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -50,11 +64,35 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="glass-card p-5 text-center">
+    <div class="glass-card p-8 text-center">
       <p class="text-xs text-ink-muted">No incident reports yet.</p>
     </div>
     {% endif %}
-  </section>
+  </div>
+
+  {# ── CTASK panel ──────────────────────────────────────────── #}
+  <div x-show="tab === 'ctask'" x-cloak class="flex flex-col gap-3">
+    <div class="flex items-center gap-3">
+      <p class="text-xs text-ink-muted">Reports that query the <code class="text-brand-light">change_task</code> table.</p>
+      <a href="/servicenow/reports/new/?domain=ctask" class="ml-auto btn-primary text-xs px-3 py-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        New CTASK report
+      </a>
+    </div>
+    {% if ctask_reports %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% for report in ctask_reports %}
+      {% include 'servicenow/partials/report_card.html' %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="glass-card p-8 text-center">
+      <p class="text-xs text-ink-muted">No CTASK reports yet.</p>
+    </div>
+    {% endif %}
+  </div>
 
 </div>
 {% endblock %}

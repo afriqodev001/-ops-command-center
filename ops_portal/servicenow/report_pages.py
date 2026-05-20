@@ -35,6 +35,8 @@ DEFAULT_FIELDS = {
                  'assignment_group,assigned_to,sys_updated_on'),
     'change':   ('number,short_description,state,risk,'
                  'assignment_group,assigned_to,start_date,end_date'),
+    'ctask':    ('number,short_description,state,'
+                 'assignment_group,assigned_to,change_request,sys_updated_on'),
 }
 
 _DOMAIN_LABELS = dict(REPORT_DOMAIN_CHOICES)
@@ -45,6 +47,7 @@ HEADER_LABELS = {
     'opened_at': 'Opened', 'sys_updated_on': 'Updated', 'sla_due': 'SLA Due',
     'start_date': 'Start', 'end_date': 'End', 'risk': 'Risk', 'type': 'Type',
     'cmdb_ci': 'CI', 'category': 'Category', 'sys_id': 'Sys ID',
+    'change_request': 'Change',
 }
 
 
@@ -138,10 +141,22 @@ def _form_from_report(report: Report) -> dict:
 
 @require_GET
 def reports_landing(request):
-    """GET /servicenow/reports/ — saved reports, split by domain."""
+    """GET /servicenow/reports/ — saved reports, split into domain tabs."""
+    change = list(Report.objects.filter(domain='change'))
+    incident = list(Report.objects.filter(domain='incident'))
+    ctask = list(Report.objects.filter(domain='ctask'))
+    # Open on the first tab that actually has reports.
+    default_tab = 'change'
+    if not change:
+        if incident:
+            default_tab = 'incident'
+        elif ctask:
+            default_tab = 'ctask'
     return render(request, 'servicenow/reports.html', {
-        'change_reports': Report.objects.filter(domain='change'),
-        'incident_reports': Report.objects.filter(domain='incident'),
+        'change_reports': change,
+        'incident_reports': incident,
+        'ctask_reports': ctask,
+        'default_tab': default_tab,
     })
 
 
