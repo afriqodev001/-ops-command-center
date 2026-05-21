@@ -38,7 +38,7 @@
           <th class="th">Notify Partners</th>
           <th class="th">Notification Emails</th>
           <th class="th">Suppression</th>
-          <th class="th">Suppression Records</th>
+          <th class="th">Suppression Details</th>
           <th class="th">Banner</th>
           <th class="th text-right">Actions</th>
         </tr>
@@ -67,7 +67,7 @@
           <td class="td text-ink-secondary text-[10px] leading-relaxed max-w-[220px]" title="{{ r.notify_partners }}">{{ r.notify_partners|default:"—"|truncatechars:120 }}</td>
           <td class="td text-[10px] text-ink-muted">{{ r.notification_emails|join:", "|default:"—"|truncatechars:60 }}</td>
           <td class="td text-ink-secondary text-[10px] leading-relaxed max-w-[220px]" title="{{ r.suppression }}">{{ r.suppression|default:"—"|truncatechars:120 }}</td>
-          <td class="td text-[10px] text-ink-muted">{{ r.suppression_records|join:", "|default:"—"|truncatechars:60 }}</td>
+          <td class="td text-ink-secondary text-[10px] leading-relaxed max-w-[220px]" title="{{ r.suppression_details }}">{{ r.suppression_details|default:"—"|truncatechars:120 }}</td>
           <td class="td">{% if r.banner %}<span class="text-warn font-semibold">Yes</span>{% else %}<span class="text-ink-muted">No</span>{% endif %}</td>
           <td class="td text-right whitespace-nowrap">
             <button type="button"

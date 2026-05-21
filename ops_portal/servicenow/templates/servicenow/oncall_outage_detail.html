@@ -67,6 +67,10 @@
           </dd>
         </div>
         <div>
+          <dt class="text-ink-muted">Guidelines / watch-outs</dt>
+          <dd class="text-ink-secondary leading-relaxed">{{ matched.outage_guidelines|default:"—"|linebreaksbr }}</dd>
+        </div>
+        <div>
           <dt class="text-ink-muted">Notify partners (guidance)</dt>
           <dd class="text-ink-secondary leading-relaxed">{{ matched.notify_partners|default:"—"|linebreaksbr }}</dd>
         </div>
@@ -79,8 +83,18 @@
           <dd class="text-ink-secondary leading-relaxed">{{ matched.suppression|default:"—"|linebreaksbr }}</dd>
         </div>
         <div>
-          <dt class="text-ink-muted">Suppression records</dt>
-          <dd class="text-ink-secondary font-mono text-[10px]">{{ matched.suppression_records|join:", "|default:"—" }}</dd>
+          <dt class="text-ink-muted">Suppression details</dt>
+          <dd class="text-ink-secondary leading-relaxed">{{ matched.suppression_details|default:"—"|linebreaksbr }}</dd>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <dt class="text-ink-muted">Notification ID</dt>
+            <dd class="font-mono text-[10px] text-ink-primary">{{ matched.notification_id|default:"—" }}</dd>
+          </div>
+          <div>
+            <dt class="text-ink-muted">Basemon Rule ID</dt>
+            <dd class="font-mono text-[10px] text-ink-primary">{{ matched.basemon_rule_id|default:"—" }}</dd>
+          </div>
         </div>
         <div>
           <dt class="text-ink-muted">Banner</dt>
@@ -298,12 +312,12 @@
                   hx-swap="innerHTML"
                   class="rounded-lg border border-edge bg-surface-3/40 p-3">
               {% csrf_token %}
-              <p class="text-xs font-semibold text-ink-primary mb-1">📧 Draft notification email</p>
-              <p class="text-[10px] text-ink-muted mb-2">Opens an Outlook draft for review. Recipients pulled from matrix.</p>
+              <p class="text-xs font-semibold text-ink-primary mb-1">📅 Draft meeting invite</p>
+              <p class="text-[10px] text-ink-muted mb-2">Opens an Outlook meeting invite for review. Required attendees pulled from the matrix; start/end from the CR.</p>
               <select name="template" class="input-dark text-[11px] mb-2">
                 {% for name, t in templates.items %}<option value="{{ name }}">{{ t.label|default:name }}</option>{% endfor %}
               </select>
-              <button type="submit" class="btn-primary text-[11px] py-1 px-2 w-full">Open Outlook draft</button>
+              <button type="submit" class="btn-primary text-[11px] py-1 px-2 w-full">Open Outlook meeting</button>
               {% if review.email_drafted_at %}<p class="text-[10px] text-ok mt-1.5">✓ drafted {{ review.email_drafted_at|timesince }} ago</p>{% endif %}
             </form>
 

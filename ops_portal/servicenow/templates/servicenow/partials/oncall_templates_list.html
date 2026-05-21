@@ -19,8 +19,18 @@
         <input type="text" name="label" value="{{ t.label }}" placeholder="label" class="input-dark text-xs flex-1">
       </div>
       <input type="text" name="description" value="{{ t.description }}" placeholder="description" class="input-dark text-[11px]">
-      <input type="text" name="subject" value="{{ t.subject }}" placeholder="subject" class="input-dark text-xs font-mono">
-      <textarea name="body" rows="8" class="input-dark text-[11px] font-mono">{{ t.body }}</textarea>
+      <div>
+        <label class="label">Meeting title</label>
+        <input type="text" name="subject" value="{{ t.subject }}" placeholder="Meeting title" class="input-dark text-xs font-mono">
+      </div>
+      <div>
+        <label class="label">Location</label>
+        <textarea name="location" rows="2" class="input-dark text-[11px] font-mono" placeholder="Location field text">{{ t.location }}</textarea>
+      </div>
+      <div>
+        <label class="label">Body</label>
+        <textarea name="body" rows="10" class="input-dark text-[11px] font-mono">{{ t.body }}</textarea>
+      </div>
       <div class="flex items-center justify-end">
         <button type="submit" class="btn-primary text-xs py-1.5 px-3">Save</button>
       </div>

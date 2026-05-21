@@ -414,9 +414,9 @@ def _adapt_live_change(rec):
         'risk':              _dv(rec.get('risk')),
         'assignment_group':  _dv(rec.get('assignment_group')),
         'assigned_to':       _dv(rec.get('assigned_to')),
-        'scheduled':         _dv(rec.get('start_date')),
-        'start_date':        _dv(rec.get('start_date')),
-        'end_date':          _dv(rec.get('end_date')),
+        'scheduled':         _dv(rec.get('planned_start_date')) or _dv(rec.get('start_date')),
+        'start_date':        _dv(rec.get('planned_start_date')) or _dv(rec.get('start_date')),
+        'end_date':          _dv(rec.get('planned_end_date')) or _dv(rec.get('end_date')),
         'description':       _dv(rec.get('description')),
         'justification':     _dv(rec.get('justification')),
         'implementation_plan': _dv(rec.get('implementation_plan')),
@@ -1712,6 +1712,7 @@ def _build_preset_result_context(preset_name, rendered, preset_cfg, columns, raw
     FIELD_MAP = {
         'priority': 'priority_label', 'opened_at': 'opened',
         'sys_updated_on': 'age', 'start_date': 'scheduled', 'end_date': 'scheduled',
+        'planned_start_date': 'scheduled', 'planned_end_date': 'scheduled',
         'sla_due': lambda r: 'Breached' if r.get('sla_warning') else '—',
     }
 
@@ -1733,6 +1734,7 @@ def _build_preset_result_context(preset_name, rendered, preset_cfg, columns, raw
         'state': 'State', 'assignment_group': 'Group', 'assigned_to': 'Assignee',
         'opened_at': 'Opened', 'sys_updated_on': 'Updated', 'sla_due': 'SLA Due',
         'start_date': 'Start', 'end_date': 'End', 'risk': 'Risk', 'type': 'Type',
+        'planned_start_date': 'Planned Start', 'planned_end_date': 'Planned End',
         'sys_id': 'Sys ID',
     }
     display_cols = [(col, header_labels.get(col, col.replace('_', ' ').title()))

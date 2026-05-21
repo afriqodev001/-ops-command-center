@@ -463,6 +463,9 @@ def presets_run_task(self, body: dict):
             display_value=body.get(
                 "display_value", rendered["display_value"]
             ),
+            # Presets don't paginate; suppressing the Link headers lets
+            # long queries through (SN otherwise fails building them).
+            suppress_pagination_header=True,
         )
 
     return with_servicenow_auth_retry(
@@ -833,6 +836,9 @@ def incident_presets_run_task(self, body: dict):
             fields=rendered["fields"],
             limit=int(body.get("limit", rendered["limit"])),
             display_value=rendered["display_value"],
+            # Presets don't paginate; suppressing the Link headers lets
+            # long queries through (SN otherwise fails building them).
+            suppress_pagination_header=True,
         )
 
     return with_servicenow_auth_retry(
@@ -1152,7 +1158,7 @@ def oncall_run_ai_batch_task(self, body: dict):
                 "state,phase,approval,"
                 "assignment_group,assigned_to,opened_by,requested_by,"
                 "cmdb_ci,"
-                "start_date,end_date,"
+                "planned_start_date,planned_end_date,"
                 "justification,implementation_plan,backout_plan,test_plan,"
                 "outage,u_outage,"
                 "u_code_change,code_change,"

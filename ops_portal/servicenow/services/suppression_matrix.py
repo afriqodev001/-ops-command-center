@@ -6,7 +6,7 @@ Tells the oncall workflow:
 - whether to notify partners (Yes/No)
 - per-application outage impact (with optional extra emails for that app)
 - the base notification recipients
-- alert suppression need + the records to apply
+- alert suppression need + details (notification / Basemon rule IDs)
 - whether to put up a portal banner
 
 Storage: oncall_suppression_matrix.json (gitignored, next to the app dir).
@@ -35,13 +35,17 @@ _STORE_FILE = Path(__file__).parent.parent / 'oncall_suppression_matrix.json'
 CANONICAL_COLUMNS = (
     'application',
     'ci',
+    'notes',                   # free text — extra notes / description for the row
     'outage_impact',           # list of {"app": str, "description": str, "additional_emails": [str]}
+    'outage_guidelines',       # free text — things to watch out for; NOT included in emails
     'notify_partners',         # free text (guidance, may include conditions)
     'notification_emails',     # list of str
     'suppression',             # free text (guidance)
-    'suppression_records',     # list of str
+    'suppression_details',     # free text — what gets suppressed, scope, conditions
+    'notification_id',         # str — downstream notification reference
+    'basemon_rule_id',         # str — Basemon monitoring rule reference
     'banner',                  # bool
-    # JSON-only optional sibling — pre-fills the banner message field on Post Banner
+    # JSON-only optional sibling — freeform banner notes (actual banner text is set on Post Banner)
     'banner_message',
 )
 
@@ -56,6 +60,11 @@ HEADER_ALIASES: Dict[str, str] = {
     'ci': 'ci',
     'ci_name': 'ci',
     'cmdb_ci': 'ci',
+    # Notes / description
+    'notes': 'notes',
+    'note': 'notes',
+    'description': 'notes',
+    'extra_notes': 'notes',
     # Outage impact
     'outage_impact': 'outage_impact',
     'impact': 'outage_impact',
@@ -74,11 +83,22 @@ HEADER_ALIASES: Dict[str, str] = {
     'suppression': 'suppression',
     'suppression_required': 'suppression',
     'suppress': 'suppression',
-    # Suppression records (IDs)
-    'suppression_records': 'suppression_records',
-    'suppression_ids': 'suppression_records',
-    'alert_suppression_ids': 'suppression_records',
-    'alert_ids': 'suppression_records',
+    # Suppression details (free text) — replaces the old 'suppression records' list
+    'suppression_details': 'suppression_details',
+    'suppression_records': 'suppression_details',
+    'suppression_ids': 'suppression_details',
+    'alert_suppression_ids': 'suppression_details',
+    'alert_ids': 'suppression_details',
+    # Notification + Basemon rule IDs
+    'notification_id': 'notification_id',
+    'notif_id': 'notification_id',
+    'basemon_rule_id': 'basemon_rule_id',
+    'basemon_id': 'basemon_rule_id',
+    'basemon': 'basemon_rule_id',
+    # Outage guidelines — things to watch out for (not emailed)
+    'outage_guidelines': 'outage_guidelines',
+    'guidelines': 'outage_guidelines',
+    'things_to_watch': 'outage_guidelines',
     # Banner
     'banner': 'banner',
     'banner_required': 'banner',
@@ -86,7 +106,7 @@ HEADER_ALIASES: Dict[str, str] = {
     'banner_message': 'banner_message',
 }
 
-ARRAY_FIELDS = ('notification_emails', 'suppression_records')
+ARRAY_FIELDS = ('notification_emails',)
 BOOL_FIELDS = ('banner',)
 TEXT_GUIDANCE_FIELDS = ('notify_partners', 'suppression')
 
@@ -342,6 +362,18 @@ def _normalise_outage_impact(v: Any) -> List[Dict[str, Any]]:
     return [{'app': '', 'description': s, 'additional_emails': []}]
 
 
+def _suppression_details_text(row: Dict[str, Any]) -> str:
+    """`suppression_details` is free text. Older matrices stored a
+    `suppression_records` list — fold that into the text so curated data
+    survives the first load after the schema change."""
+    v = row.get('suppression_details')
+    if v in (None, ''):
+        v = row.get('suppression_records')
+    if isinstance(v, list):
+        return '; '.join(str(x).strip() for x in v if str(x).strip())
+    return str(v or '').strip()
+
+
 def _normalise_row(row: Dict[str, Any], *, source: str = 'json') -> Dict[str, Any]:
     """Coerce a row dict (from either CSV or JSON) into the canonical shape."""
     out: Dict[str, Any] = {}
@@ -349,12 +381,16 @@ def _normalise_row(row: Dict[str, Any], *, source: str = 'json') -> Dict[str, An
     # Direct field mappings
     out['application'] = str(row.get('application') or '').strip()
     out['ci'] = str(row.get('ci') or '').strip()
+    out['notes'] = str(row.get('notes') or '').strip()
     out['outage_impact'] = _normalise_outage_impact(row.get('outage_impact'))
+    out['outage_guidelines'] = str(row.get('outage_guidelines') or '').strip()
     # free-text guidance fields — preserve whatever the engineer wrote
     out['notify_partners'] = str(row.get('notify_partners') or '').strip()
     out['notification_emails'] = _to_array(row.get('notification_emails'))
     out['suppression'] = str(row.get('suppression') or '').strip()
-    out['suppression_records'] = _to_array(row.get('suppression_records'))
+    out['suppression_details'] = _suppression_details_text(row)
+    out['notification_id'] = str(row.get('notification_id') or '').strip()
+    out['basemon_rule_id'] = str(row.get('basemon_rule_id') or '').strip()
     out['banner'] = _to_bool(row.get('banner'))
     out['banner_message'] = str(row.get('banner_message') or '').strip()
 
@@ -447,17 +483,32 @@ def impact_text_for(row: Dict[str, Any]) -> str:
     return '\n'.join(out_lines)
 
 
+def impact_app_names_for(row: Dict[str, Any]) -> str:
+    """Comma-joined list of distinct downstream app names from the row's
+    outage_impact entries. Skips generic entries that have no app name."""
+    seen: List[str] = []
+    for e in (row.get('outage_impact') or []):
+        app = (e.get('app') or '').strip()
+        if app and app not in seen:
+            seen.append(app)
+    return ', '.join(seen)
+
+
 # ─── Export ────────────────────────────────────────────────
 
 # CSV column order = the user's declared header set.
 CSV_HEADERS = (
     ('Application',                           'application'),
     ('CI',                                    'ci'),
+    ('Notes',                                 'notes'),
     ('Outage Impact',                         'outage_impact'),
+    ('Outage Guidelines',                     'outage_guidelines'),
     ('Notification to Partners for Outage',  'notify_partners'),
     ('Notification Emails',                   'notification_emails'),
     ('Suppression',                           'suppression'),
-    ('Suppression Records',                   'suppression_records'),
+    ('Suppression Details',                   'suppression_details'),
+    ('Notification ID',                       'notification_id'),
+    ('Basemon Rule ID',                       'basemon_rule_id'),
     ('Banner',                                'banner'),
 )
 
@@ -489,7 +540,7 @@ def export_csv() -> str:
             elif key in BOOL_FIELDS:
                 out[header] = 'Yes' if bool(v) else 'No'
             else:
-                # text fields (application, ci, notify_partners, suppression) — preserve verbatim
+                # text fields — preserve verbatim
                 out[header] = '' if v is None else str(v)
         writer.writerow(out)
     return output.getvalue()

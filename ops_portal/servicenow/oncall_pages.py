@@ -263,7 +263,7 @@ def oncall_pull_changes(request):
         from .tasks import changes_bulk_get_by_number_task
         task = changes_bulk_get_by_number_task.delay({
             'numbers': deduped,
-            'fields': 'number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id',
+            'fields': 'number,short_description,state,assignment_group,assigned_to,planned_start_date,planned_end_date,risk,type,cmdb_ci,sys_id',
             'display_value': 'all',
         })
 
@@ -534,12 +534,14 @@ def oncall_draft_email(request, change_number: str):
     if matched:
         recipients_list = matrix.all_recipients_for(matched)
         impact = matrix.impact_text_for(matched)
+        impact_app_names = matrix.impact_app_names_for(matched)
         application = matched.get('application') or ''
     else:
         recipients_list = [
             e.strip() for e in (review.matched_emails or '').split(';') if e.strip()
         ]
         impact = review.matched_impact or ''
+        impact_app_names = ''
         application = review.matched_app or ''
 
     rendered = ntpl.render_template(template_name, {
@@ -550,26 +552,30 @@ def oncall_draft_email(request, change_number: str):
         'scheduled_start': review.scheduled_start.strftime('%Y-%m-%d %H:%M UTC') if review.scheduled_start else 'TBD',
         'scheduled_end': review.scheduled_end.strftime('%Y-%m-%d %H:%M UTC') if review.scheduled_end else 'TBD',
         'application': application or '(no matrix entry)',
+        'impact_app_names': impact_app_names or 'downstream',
         'impact': impact or '(no impact details on file)',
         'recipients_list': recipients_list,
     })
 
-    result = outlook.open_draft(
-        recipients='; '.join(recipients_list),
+    result = outlook.open_appointment(
         subject=rendered['subject'],
         body=rendered['body'],
+        location=rendered['location'],
+        start=review.scheduled_start,
+        end=review.scheduled_end,
+        required_attendees='; '.join(recipients_list),
     )
 
     if result.get('ok'):
         orsvc.advance_stage(review, 'comms_drafted', by=_user_name(request))
         return render(request, 'servicenow/partials/oncall_action_result.html', {
             'review': review,
-            'message': 'Outlook draft opened. Review and send manually.',
+            'message': 'Outlook meeting invite opened. Review the attendees and times, then send.',
             'severity': 'ok',
         })
     return render(request, 'servicenow/partials/oncall_action_result.html', {
         'review': review,
-        'message': result.get('error', 'Outlook draft failed'),
+        'message': result.get('error', 'Outlook meeting draft failed'),
         'severity': 'danger',
     })
 
@@ -742,11 +748,15 @@ def oncall_matrix_row_save(request):
     payload = {
         'application': request.POST.get('application', ''),
         'ci': request.POST.get('ci', ''),
+        'notes': request.POST.get('notes', ''),
         'outage_impact': impact_entries,
+        'outage_guidelines': request.POST.get('outage_guidelines', ''),
         'notify_partners': request.POST.get('notify_partners', ''),
         'notification_emails': request.POST.get('notification_emails', ''),
         'suppression': request.POST.get('suppression', ''),
-        'suppression_records': request.POST.get('suppression_records', ''),
+        'suppression_details': request.POST.get('suppression_details', ''),
+        'notification_id': request.POST.get('notification_id', ''),
+        'basemon_rule_id': request.POST.get('basemon_rule_id', ''),
         'banner': bool(request.POST.get('banner')),
         'banner_message': request.POST.get('banner_message', ''),
         '_original_ci': request.POST.get('_original_ci', ''),
@@ -1432,6 +1442,7 @@ def oncall_template_save(request):
         'label': request.POST.get('label', ''),
         'description': request.POST.get('description', ''),
         'subject': request.POST.get('subject', ''),
+        'location': request.POST.get('location', ''),
         'body': request.POST.get('body', ''),
     })
     return render(request, 'servicenow/partials/oncall_templates_list.html', {

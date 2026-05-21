@@ -8,8 +8,9 @@ Saved *read* queries for ServiceNow. The largest feature surface in the app toda
 
 | File | Role |
 | ---- | ---- |
-| `servicenow/services/query_presets.py`             | Built-in registry, user-preset load/save, merge logic, `render_preset()` |
-| `servicenow/user_presets.json`                     | User-authored preset storage |
+| `servicenow/services/query_presets.py`             | Built-in registry, team/user-preset load/save, merge logic, `render_preset()` |
+| `servicenow/team_presets.json`                     | Committed preset storage — ships with the repo, shared across the team |
+| `servicenow/user_presets.json`                     | Machine-local preset storage (gitignored), authored via the UI |
 | `servicenow/pages.py`                              | Views: page, run UI, save/delete, export/import |
 | `servicenow/templates/servicenow/presets.html`     | Full page + embedded modals |
 | `servicenow/templates/servicenow/partials/`        | Preset result, form errors, import result partials |
@@ -32,15 +33,17 @@ Canonical preset:
 
 Keys:
 - **Built-in presets** live as `BUILT_IN_PRESETS` in `query_presets.py`.
-- **User presets** live in `user_presets.json`, keyed the same way.
-- Merging: `get_all_presets()` returns `{**BUILT_IN_PRESETS, **load_user_presets()}` — user overrides win on name collision.
+- **Team presets** live in `team_presets.json` — committed to the repo so they ship with the app; teammates get them on install with no manual import.
+- **User presets** live in `user_presets.json` (gitignored, machine-local), keyed the same way.
+- Merging: `get_all_presets()` returns `{**BUILT_IN_PRESETS, **load_team_presets(), **load_user_presets()}` — later layers win on a name collision (built-ins < team < user).
 
 ## Service API (`query_presets.py`)
 
 | Function                    | Purpose |
 | --------------------------- | ------- |
-| `get_all_presets()`         | Merged dict (built-in + user) |
-| `load_user_presets()`       | Just the user dict |
+| `get_all_presets()`         | Merged dict (built-in + team + user) |
+| `load_team_presets()`       | Just the committed team dict |
+| `load_user_presets()`       | Just the machine-local user dict |
 | `save_user_preset(name, cfg)` | Write/overwrite one entry |
 | `delete_user_preset(name)`  | Remove user entry (built-ins untouched) |
 | `list_presets()`            | Grouped-by-domain view for menus |

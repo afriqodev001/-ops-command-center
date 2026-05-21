@@ -4,6 +4,12 @@ Editor for a single matrix row. Pass `row` (or None) and `is_new`.
 The 'Outage Impact' control is a multi-entry list — one entry per
 {app, description, additional_emails}. Add/remove entries via Alpine.
 
+`row_json` is interpolated into x-init WITHOUT |safe on purpose: Django
+autoescaping turns quotes/apostrophes into HTML entities so the JSON
+survives intact inside the double-quoted attribute. With |safe, an
+apostrophe in any field value (e.g. "customer's portal") would terminate
+the attribute and break the whole form.
+
 Layout: grouped sections with their own subtle backgrounds so the
 form scans well against the dark modal panel.
 {% endcomment %}
@@ -11,7 +17,7 @@ form scans well against the dark modal panel.
       hx-target="#matrix-table-area"
       hx-swap="innerHTML"
       x-data="matrixRowEditor()"
-      x-init='init({{ row_json|default:"null"|safe }})'
+      x-init="init({{ row_json|default:'null' }})"
       class="space-y-4">
   {% csrf_token %}
   <input type="hidden" name="_original_ci" value="{{ row.ci|default:'' }}">
@@ -21,7 +27,7 @@ form scans well against the dark modal panel.
   {% endif %}
 
   <!-- ── Section 1: Identity ──────────────────────────── -->
-  <fieldset class="rounded-lg border border-edge bg-surface-3 p-3">
+  <fieldset class="rounded-lg border border-edge bg-surface-3 p-3 space-y-3">
     <legend class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider px-1">Identity</legend>
     <div class="grid grid-cols-2 gap-3">
       <div>
@@ -34,6 +40,11 @@ form scans well against the dark modal panel.
         <input type="text" name="ci" value="{{ row.ci|default:'' }}"
                class="input-dark text-xs font-mono" required placeholder="e.g. AUTH-SVC-PROD">
       </div>
+    </div>
+    <div>
+      <label class="label">Notes <span class="text-ink-muted">(optional — description or context)</span></label>
+      <textarea name="notes" rows="2" class="input-dark text-xs"
+                placeholder="Any extra description or context for this CI / application.">{{ row.notes|default:'' }}</textarea>
     </div>
   </fieldset>
 
@@ -64,6 +75,13 @@ form scans well against the dark modal panel.
                class="input-dark text-[11px] font-mono">
       </div>
     </template>
+
+    <div class="pt-1">
+      <label class="label">Guidelines / things to watch out for
+        <span class="text-ink-muted">(not included in notification emails)</span></label>
+      <textarea name="outage_guidelines" rows="3" class="input-dark text-xs"
+                placeholder="e.g. Watch auth latency for the first 30 min; roll back if error rate exceeds 2%.">{{ row.outage_guidelines|default:'' }}</textarea>
+    </div>
   </fieldset>
 
   <!-- ── Section 3: Notify Partners ───────────────────── -->
@@ -92,30 +110,38 @@ form scans well against the dark modal panel.
                 placeholder="e.g. No — Active/Active masks alerts. Yes if BCP event.">{{ row.suppression|default:'' }}</textarea>
     </div>
     <div>
-      <label class="label">Suppression Records <span class="text-ink-muted">(semicolon-separated)</span></label>
-      <input type="text" name="suppression_records"
-             value="{{ row.suppression_records|join:'; '|default:'' }}"
-             class="input-dark text-xs font-mono"
-             placeholder="ALRT-1234; ALRT-5678">
+      <label class="label">Suppression Details</label>
+      <textarea name="suppression_details" rows="3" class="input-dark text-xs"
+                placeholder="What gets suppressed, scope, and any conditions.">{{ row.suppression_details|default:'' }}</textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="label">Notification ID</label>
+        <input type="text" name="notification_id" value="{{ row.notification_id|default:'' }}"
+               class="input-dark text-xs font-mono" placeholder="e.g. NOTIF-0012">
+      </div>
+      <div>
+        <label class="label">Basemon Rule ID</label>
+        <input type="text" name="basemon_rule_id" value="{{ row.basemon_rule_id|default:'' }}"
+               class="input-dark text-xs font-mono" placeholder="e.g. 00678">
+      </div>
     </div>
   </fieldset>
 
   <!-- ── Section 5: Banner ────────────────────────────── -->
-  <fieldset class="rounded-lg border border-edge bg-surface-3 p-3">
+  <fieldset class="rounded-lg border border-edge bg-surface-3 p-3 space-y-3">
     <legend class="text-[10px] font-semibold text-ink-muted uppercase tracking-wider px-1">Banner</legend>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input type="checkbox" name="banner" value="true"
-               {% if row.banner %}checked{% endif %}
-               class="rounded border-edge bg-surface-2">
-        <span class="text-xs text-ink-secondary">Banner required</span>
-      </label>
-      <div class="md:col-span-2">
-        <label class="label">Banner Message <span class="text-ink-muted">(optional)</span></label>
-        <input type="text" name="banner_message" value="{{ row.banner_message|default:'' }}"
-               class="input-dark text-xs"
-               placeholder="Auth deploy in progress — login may be intermittent">
-      </div>
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" name="banner" value="true"
+             {% if row.banner %}checked{% endif %}
+             class="rounded border-edge bg-surface-2">
+      <span class="text-xs text-ink-secondary">Banner required</span>
+    </label>
+    <div>
+      <label class="label">Banner
+        <span class="text-ink-muted">(notes — the actual banner text is set when posting the banner)</span></label>
+      <textarea name="banner_message" rows="3" class="input-dark text-xs"
+                placeholder="Context and extra info about the banner.">{{ row.banner_message|default:'' }}</textarea>
     </div>
   </fieldset>
 

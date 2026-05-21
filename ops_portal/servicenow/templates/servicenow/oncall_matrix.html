@@ -83,9 +83,10 @@
           <p class="font-semibold text-ink-primary mb-1">CSV columns (in any order, case-insensitive)</p>
           <pre class="font-mono text-[10px] bg-surface-2 border border-edge rounded p-2 leading-relaxed">{{ columns|join:", " }}</pre>
           <ul class="list-disc pl-5 mt-1 space-y-0.5">
-            <li><code class="font-mono">Notification Emails</code> and <code class="font-mono">Suppression Records</code> — semicolon-separated lists.</li>
+            <li><code class="font-mono">Notification Emails</code> — semicolon-separated list.</li>
             <li><code class="font-mono">Banner</code> — Yes/No.</li>
-            <li><code class="font-mono">Notification to Partners for Outage</code> and <code class="font-mono">Suppression</code> — <strong>free text</strong> guidance, often with conditions. Examples: <em>"PMT is Active/Active, do not send communication. Yes for BCP event."</em> The AI review reads the full text and judges based on the change context.</li>
+            <li><code class="font-mono">Notification to Partners for Outage</code>, <code class="font-mono">Suppression</code>, <code class="font-mono">Suppression Details</code> and <code class="font-mono">Outage Guidelines</code> — <strong>free text</strong>. Notify / Suppression hold guidance, often with conditions (<em>"PMT is Active/Active, do not send communication. Yes for BCP event."</em>); the AI review reads the full text and judges based on the change context.</li>
+            <li><code class="font-mono">Notification ID</code> and <code class="font-mono">Basemon Rule ID</code> — free-form reference IDs.</li>
             <li><code class="font-mono">Outage Impact</code> — single text cell. Can be a generic statement (e.g. "Logins blocked during deploy window") OR a per-app split. CSV cannot encode per-app additional emails — use JSON for that.</li>
           </ul>
         </div>
@@ -97,6 +98,7 @@
     {
       "application": "Auth Service",
       "ci": "AUTH-SVC-PROD",
+      "notes": "Customer-facing auth; deploys are high-visibility.",
       "outage_impact": [
         {
           "app": "Customer Portal",
@@ -108,10 +110,13 @@
           "description": "App start fails for unauthenticated users"
         }
       ],
+      "outage_guidelines": "Watch auth latency for the first 30 min; roll back if error rate exceeds 2%.",
       "notify_partners": "Yes — notify within 24h of deploy window",
       "notification_emails": ["app-owners@x.com"],
       "suppression": "Suppress all Auth alerts during the window",
-      "suppression_records": ["ALRT-1234", "ALRT-5678"],
+      "suppression_details": "Mute the Auth health monitors for the full window.",
+      "notification_id": "NOTIF-0012",
+      "basemon_rule_id": "00678",
       "banner": true,
       "banner_message": "Auth deploy in progress — login may be intermittent"
     },
@@ -124,7 +129,7 @@
       "notify_partners": "PMT is Active/Active and we should not send communication. Yes for BCP event.",
       "notification_emails": ["pmt-oncall@x.com"],
       "suppression": "No — Active/Active masks alerts. Yes if BCP event.",
-      "suppression_records": [],
+      "suppression_details": "",
       "banner": false
     }
   ]

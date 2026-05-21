@@ -1,9 +1,10 @@
 """
-Outlook desktop draft helper (Windows-only, pywin32).
+Outlook desktop helper (Windows-only, pywin32).
 
-Used by both the existing ServiceNow preset CSV email and the new oncall
-notification draft. Creates a draft and opens it in Outlook for the user
-to review and send manually — never auto-sends.
+Two entry points, both open an item in Outlook for the user to review and
+send manually — never auto-send:
+  - open_draft       a plain mail draft (preset CSV email, oncall window report)
+  - open_appointment a meeting invite (oncall outage notification)
 """
 from __future__ import annotations
 
@@ -56,6 +57,72 @@ def open_draft(
     finally:
         if attachment_path and cleanup_attachment:
             _schedule_cleanup(attachment_path)
+
+    return {'ok': True}
+
+
+def open_appointment(
+    *,
+    subject: str = '',
+    body: str = '',
+    location: str = '',
+    start=None,
+    end=None,
+    required_attendees: str = '',
+) -> Dict[str, object]:
+    """
+    Open an Outlook meeting invite (AppointmentItem) — does NOT send.
+
+    Args:
+        subject: meeting title.
+        body: plain-text body.
+        location: text for the Location field.
+        start / end: datetimes for the meeting window. A timezone-aware
+            value is reduced to its wall-clock time (Outlook applies the
+            local zone) — the authoritative time is also in the body text.
+        required_attendees: semicolon/comma-separated email addresses; when
+            present the appointment becomes a meeting request (olMeeting).
+
+    Returns:
+        {'ok': True} on success, {'error': '<message>'} on failure.
+    """
+    try:
+        import win32com.client  # type: ignore
+    except ImportError:
+        return {'error': 'Outlook not available (pywin32 not installed).'}
+
+    def _naive(dt):
+        if dt is not None and getattr(dt, 'tzinfo', None) is not None:
+            return dt.replace(tzinfo=None)
+        return dt
+
+    try:
+        outlook = win32com.client.Dispatch('Outlook.Application')
+        appt = outlook.CreateItem(1)  # olAppointmentItem = 1
+        appt.Subject = subject or ''
+        appt.Body = body or ''
+        if location:
+            appt.Location = location
+        if start is not None:
+            appt.Start = _naive(start)
+        if end is not None:
+            appt.End = _naive(end)
+
+        attendees = [
+            a.strip()
+            for a in (required_attendees or '').replace(',', ';').split(';')
+            if a.strip()
+        ]
+        if attendees:
+            appt.MeetingStatus = 1  # olMeeting — turns the appointment into an invite
+            for addr in attendees:
+                recipient = appt.Recipients.Add(addr)
+                recipient.Type = 1  # olRequired
+            appt.Recipients.ResolveAll()
+
+        appt.Display()  # opens the invite window; does NOT send
+    except Exception as e:
+        return {'error': f'Outlook error: {e}'}
 
     return {'ok': True}
 

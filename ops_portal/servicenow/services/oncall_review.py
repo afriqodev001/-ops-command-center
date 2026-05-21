@@ -212,8 +212,8 @@ def upsert_pulled_changes(
         review.risk = _val(row.get('risk'))
         review.assignment_group = _val(row.get('assignment_group'))[:128]
         review.cmdb_ci = _val(row.get('cmdb_ci'))[:128]
-        review.scheduled_start = _iso_to_dt(row.get('start_date'))
-        review.scheduled_end = _iso_to_dt(row.get('end_date'))
+        review.scheduled_start = _iso_to_dt(row.get('planned_start_date'))
+        review.scheduled_end = _iso_to_dt(row.get('planned_end_date'))
         review.window_label = window_label or review.window_label
 
         # Purpose merge: same row, second pull with the other track → 'both'.
@@ -254,7 +254,7 @@ def apply_matrix_match(
         review.matched_app = (match.get('application') or '')[:256]
         review.matched_impact = matrix.impact_text_for(match)
         review.matched_emails = '; '.join(matrix.all_recipients_for(match))
-        review.matched_suppr_ids = '; '.join(match.get('suppression_records') or [])
+        review.matched_suppr_ids = match.get('suppression_details') or ''
         review.matched_banner = bool(match.get('banner'))
         review.matched_banner_msg = match.get('banner_message') or ''
         review.matched_notify_partners = match.get('notify_partners') or ''

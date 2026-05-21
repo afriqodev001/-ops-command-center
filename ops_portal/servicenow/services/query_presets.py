@@ -6,22 +6,41 @@ from pathlib import Path
 """
 Preset registry for ServiceNow list/search operations.
 
-Built-in presets live in BUILT_IN_PRESETS below.
-User-defined presets are stored in user_presets.json next to this package
-and override built-ins of the same name.
+Presets resolve in three layers — later layers override earlier ones on a
+name collision:
+  1. BUILT_IN_PRESETS below       — ship with the code.
+  2. team_presets.json            — committed to the repo, shared with the team.
+  3. user_presets.json            — machine-local (gitignored), created via the UI.
+
+To share presets with teammates, edit team_presets.json and commit it: it
+ships with the app, so teammates get the presets on install — no manual import.
 
 Use get_all_presets() to get the merged registry at runtime.
 """
 
-# Path to the user-editable preset store (sibling of the servicenow app dir)
+# team_presets.json is committed to the repo so curated presets ship with the
+# app. user_presets.json is machine-local (gitignored) — per-user UI presets.
+_TEAM_PRESETS_FILE = Path(__file__).parent.parent / 'team_presets.json'
 _USER_PRESETS_FILE = Path(__file__).parent.parent / 'user_presets.json'
+
+
+def load_team_presets() -> Dict[str, Dict[str, Any]]:
+    """Curated presets committed to the repo and shared across the team."""
+    if not _TEAM_PRESETS_FILE.exists():
+        return {}
+    try:
+        data = json.loads(_TEAM_PRESETS_FILE.read_text(encoding='utf-8'))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
 
 def load_user_presets() -> Dict[str, Dict[str, Any]]:
     if not _USER_PRESETS_FILE.exists():
         return {}
     try:
-        return json.loads(_USER_PRESETS_FILE.read_text(encoding='utf-8'))
+        data = json.loads(_USER_PRESETS_FILE.read_text(encoding='utf-8'))
+        return data if isinstance(data, dict) else {}
     except Exception:
         return {}
 
@@ -40,9 +59,10 @@ def delete_user_preset(name: str) -> None:
 
 
 def get_all_presets() -> Dict[str, Dict[str, Any]]:
-    """Return built-in presets merged with user-defined presets.
-    User presets take precedence when names collide."""
-    return {**BUILT_IN_PRESETS, **load_user_presets()}
+    """Return built-in, team, and user presets merged into one registry.
+    Later layers win on a name collision:
+    built-ins < team_presets.json < user_presets.json."""
+    return {**BUILT_IN_PRESETS, **load_team_presets(), **load_user_presets()}
 
 
 # =========================================================
@@ -79,10 +99,10 @@ BUILT_IN_PRESETS: Dict[str, Dict[str, Any]] = {
         "description": "Approved or scheduled changes starting in the next 24 hours.",
         "table": "change_request",
         "query": (
-            "state=scheduled^ORstart_dateBETWEENjavascript:gs.beginningOfToday()"
-            "@javascript:gs.endOfTomorrow()^ORDERBYstart_date"
+            "state=scheduled^ORplanned_start_dateBETWEENjavascript:gs.beginningOfToday()"
+            "@javascript:gs.endOfTomorrow()^ORDERBYplanned_start_date"
         ),
-        "fields": "number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,sys_id",
+        "fields": "number,short_description,state,assignment_group,assigned_to,planned_start_date,planned_end_date,risk,sys_id",
         "defaults": {"limit": 25, "display_value": True},
         "required_params": [],
         "domain": "change",
@@ -93,10 +113,10 @@ BUILT_IN_PRESETS: Dict[str, Dict[str, Any]] = {
         "description": "Oncall: changes scheduled to start today.",
         "table": "change_request",
         "query": (
-            "start_dateBETWEENjavascript:gs.beginningOfToday()"
-            "@javascript:gs.endOfToday()^ORDERBYstart_date"
+            "planned_start_dateBETWEENjavascript:gs.beginningOfToday()"
+            "@javascript:gs.endOfToday()^ORDERBYplanned_start_date"
         ),
-        "fields": "number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id",
+        "fields": "number,short_description,state,assignment_group,assigned_to,planned_start_date,planned_end_date,risk,type,cmdb_ci,sys_id",
         "defaults": {"limit": 100, "display_value": True},
         "required_params": [],
         "domain": "change",
@@ -106,10 +126,10 @@ BUILT_IN_PRESETS: Dict[str, Dict[str, Any]] = {
         "description": "Oncall: changes scheduled to start this week (default).",
         "table": "change_request",
         "query": (
-            "start_dateBETWEENjavascript:gs.beginningOfWeek()"
-            "@javascript:gs.endOfWeek()^ORDERBYstart_date"
+            "planned_start_dateBETWEENjavascript:gs.beginningOfWeek()"
+            "@javascript:gs.endOfWeek()^ORDERBYplanned_start_date"
         ),
-        "fields": "number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id",
+        "fields": "number,short_description,state,assignment_group,assigned_to,planned_start_date,planned_end_date,risk,type,cmdb_ci,sys_id",
         "defaults": {"limit": 250, "display_value": True},
         "required_params": [],
         "domain": "change",
@@ -119,10 +139,10 @@ BUILT_IN_PRESETS: Dict[str, Dict[str, Any]] = {
         "description": "Oncall: changes scheduled to start this month.",
         "table": "change_request",
         "query": (
-            "start_dateBETWEENjavascript:gs.beginningOfMonth()"
-            "@javascript:gs.endOfMonth()^ORDERBYstart_date"
+            "planned_start_dateBETWEENjavascript:gs.beginningOfMonth()"
+            "@javascript:gs.endOfMonth()^ORDERBYplanned_start_date"
         ),
-        "fields": "number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id",
+        "fields": "number,short_description,state,assignment_group,assigned_to,planned_start_date,planned_end_date,risk,type,cmdb_ci,sys_id",
         "defaults": {"limit": 500, "display_value": True},
         "required_params": [],
         "domain": "change",
@@ -132,10 +152,10 @@ BUILT_IN_PRESETS: Dict[str, Dict[str, Any]] = {
         "description": "Oncall: changes scheduled to start next week (default for CR approval review).",
         "table": "change_request",
         "query": (
-            "start_dateBETWEENjavascript:gs.beginningOfNextWeek()"
-            "@javascript:gs.endOfNextWeek()^ORDERBYstart_date"
+            "planned_start_dateBETWEENjavascript:gs.beginningOfNextWeek()"
+            "@javascript:gs.endOfNextWeek()^ORDERBYplanned_start_date"
         ),
-        "fields": "number,short_description,state,assignment_group,assigned_to,start_date,end_date,risk,type,cmdb_ci,sys_id",
+        "fields": "number,short_description,state,assignment_group,assigned_to,planned_start_date,planned_end_date,risk,type,cmdb_ci,sys_id",
         "defaults": {"limit": 250, "display_value": True},
         "required_params": [],
         "domain": "change",
