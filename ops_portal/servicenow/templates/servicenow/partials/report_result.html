@@ -11,7 +11,7 @@
 </div>
 
 {% elif rows %}
-<div class="flex flex-col gap-3" x-data="reportActions()">
+<div class="flex flex-col gap-3" x-data="reportActions()" x-init="initPaging()">
 
   <div class="glass-card overflow-hidden">
     <div class="px-4 py-3 border-b border-edge-subtle">
@@ -67,6 +67,23 @@
           {% endfor %}
         </tbody>
       </table>
+    </div>
+    <div x-show="totalPages > 1" x-cloak
+         class="flex items-center gap-3 px-4 py-2.5 border-t border-edge-subtle">
+      <button type="button" @click="prevPage()" :disabled="page <= 1"
+              class="btn-ghost text-[11px] px-2 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+        Prev
+      </button>
+      <span class="text-[11px] text-ink-muted">
+        Page <span x-text="page" class="text-ink-primary font-medium"></span> of <span x-text="totalPages"></span>
+      </span>
+      <button type="button" @click="nextPage()" :disabled="page >= totalPages"
+              class="btn-ghost text-[11px] px-2 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+        Next
+      </button>
+      <span class="ml-auto text-[10px] text-ink-muted">
+        Showing <span x-text="rangeStart"></span>–<span x-text="rangeEnd"></span> of <span x-text="totalRows"></span>
+      </span>
     </div>
   </div>
 
@@ -161,6 +178,27 @@
       body: "{{ report.email_body|escapejs }}",
       emailing: false,
       emailResult: '',
+
+      // ── pagination (client-side; rows are already in the DOM) ──
+      page: 1,
+      pageSize: 25,
+      totalRows: 0,
+      get totalPages() { return Math.max(1, Math.ceil(this.totalRows / this.pageSize)); },
+      get rangeStart() { return this.totalRows ? (this.page - 1) * this.pageSize + 1 : 0; },
+      get rangeEnd() { return Math.min(this.page * this.pageSize, this.totalRows); },
+      initPaging() {
+        this.totalRows = document.querySelectorAll('#report-result tbody tr').length;
+        this.applyPaging();
+      },
+      applyPaging() {
+        const start = (this.page - 1) * this.pageSize;
+        const end = this.page * this.pageSize;
+        document.querySelectorAll('#report-result tbody tr').forEach((tr, i) => {
+          tr.style.display = (i >= start && i < end) ? '' : 'none';
+        });
+      },
+      prevPage() { if (this.page > 1) { this.page--; this.applyPaging(); } },
+      nextPage() { if (this.page < this.totalPages) { this.page++; this.applyPaging(); } },
 
       _filename() {
         return REPORT_SLUG + '_' + new Date().toISOString().slice(0, 10) + '.csv';
