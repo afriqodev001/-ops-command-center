@@ -9,16 +9,22 @@
   {# ── Tab strip ────────────────────────────────────────────── #}
   <div class="flex items-center gap-1 border-b border-edge pb-2">
     <button type="button" @click="tab = 'change'"
-            :class="tab === 'change' ? 'tab-active' : 'tab-inactive'">
-      Change<span class="ml-1.5 text-[11px] opacity-70">{{ change_reports|length }}</span>
+            :class="tab === 'change' ? 'tab-active' : 'tab-inactive'"
+            class="inline-flex items-center gap-2">
+      <span>Change</span>
+      <span class="badge badge-muted">{{ change_reports|length }}</span>
     </button>
     <button type="button" @click="tab = 'incident'"
-            :class="tab === 'incident' ? 'tab-active' : 'tab-inactive'">
-      Incident<span class="ml-1.5 text-[11px] opacity-70">{{ incident_reports|length }}</span>
+            :class="tab === 'incident' ? 'tab-active' : 'tab-inactive'"
+            class="inline-flex items-center gap-2">
+      <span>Incident</span>
+      <span class="badge badge-muted">{{ incident_reports|length }}</span>
     </button>
     <button type="button" @click="tab = 'ctask'"
-            :class="tab === 'ctask' ? 'tab-active' : 'tab-inactive'">
-      CTASK<span class="ml-1.5 text-[11px] opacity-70">{{ ctask_reports|length }}</span>
+            :class="tab === 'ctask' ? 'tab-active' : 'tab-inactive'"
+            class="inline-flex items-center gap-2">
+      <span>CTASK</span>
+      <span class="badge badge-muted">{{ ctask_reports|length }}</span>
     </button>
   </div>
 
