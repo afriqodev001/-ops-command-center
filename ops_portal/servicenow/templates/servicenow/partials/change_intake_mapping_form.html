@@ -55,13 +55,11 @@
       {% regroup proposal_rows by group as group_list %}
       {% for section in group_list %}
         {% if section.grouper == 'Identity' %}
-          <!-- ── Identity (no umbrella header — these render flat) ── -->
-          <div class="border border-edge rounded-lg overflow-hidden">
-            <div class="divide-y divide-edge">
-              {% for row in section.list %}
-                {% include 'servicenow/partials/change_intake_row_group.html' with row=row intake=intake change_categories=change_categories change_reasons=change_reasons %}
-              {% endfor %}
-            </div>
+          <!-- ── Identity (renders flat — no umbrella header) ── -->
+          <div class="flex flex-col gap-2">
+            {% for row in section.list %}
+              {% include 'servicenow/partials/change_intake_row_group.html' with row=row intake=intake change_categories=change_categories change_reasons=change_reasons %}
+            {% endfor %}
           </div>
 
         {% elif section.grouper == 'Planning' %}
@@ -77,7 +75,7 @@
               <span class="text-xs font-bold text-ink-primary uppercase tracking-wider">Planning</span>
               <span class="text-[10px] text-ink-muted">{{ group_field_counts.Planning }} field{{ group_field_counts.Planning|pluralize }}</span>
             </button>
-            <div x-show="open" x-cloak class="divide-y divide-edge">
+            <div x-show="open" x-cloak class="flex flex-col gap-2 p-2.5">
               {% for row in section.list %}
                 {% include 'servicenow/partials/change_intake_row_group.html' with row=row intake=intake change_categories=change_categories change_reasons=change_reasons %}
               {% endfor %}
@@ -97,7 +95,7 @@
               <span class="text-xs font-bold text-ink-primary uppercase tracking-wider">Schedule</span>
               <span class="text-[10px] text-ink-muted">{{ group_field_counts.Schedule }} field{{ group_field_counts.Schedule|pluralize }}</span>
             </button>
-            <div x-show="open" x-cloak class="divide-y divide-edge">
+            <div x-show="open" x-cloak class="flex flex-col gap-2 p-2.5">
               {% for row in section.list %}
                 {% include 'servicenow/partials/change_intake_row_group.html' with row=row intake=intake change_categories=change_categories change_reasons=change_reasons %}
               {% endfor %}
@@ -110,7 +108,7 @@
             <div class="bg-surface-3/60 px-3 py-1.5 border-b border-edge">
               <span class="text-[10px] font-bold text-ink-muted uppercase tracking-wider">{{ section.grouper|default:"Other" }}</span>
             </div>
-            <div class="divide-y divide-edge">
+            <div class="flex flex-col gap-2 p-2.5">
               {% for row in section.list %}
                 {% include 'servicenow/partials/change_intake_row_group.html' with row=row intake=intake change_categories=change_categories change_reasons=change_reasons %}
               {% endfor %}

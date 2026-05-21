@@ -1,4 +1,10 @@
-<div class="p-3" id="row-{{ p.target_field }}">
+{# One field as a soft tile — a left accent stripe encodes its kind
+   (green = auto, blue = ai-candidate, amber = human-input) so the long
+   form scans by colour instead of a wall of identical white rows. #}
+<div id="row-{{ p.target_field }}"
+     class="h-full rounded-lg bg-surface-3/30 hover:bg-surface-3/50 transition-colors
+            px-3 py-2.5 border-l-2
+            {% if p.kind == 'auto' %}border-ok/50{% elif p.kind == 'ai-candidate' %}border-info/50{% else %}border-warn/50{% endif %}">
   <div class="flex items-start gap-3">
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 mb-1">
@@ -6,7 +12,7 @@
         <code class="text-[10px] text-ink-muted">{{ p.target_field }}</code>
         {% if p.kind == 'auto' %}<span class="badge badge-ok">auto</span>{% endif %}
         {% if p.kind == 'ai-candidate' %}<span class="badge badge-info">ai-candidate</span>{% endif %}
-        {% if p.kind == 'human-input' %}<span class="badge badge-muted">human-input</span>{% endif %}
+        {% if p.kind == 'human-input' %}<span class="badge badge-warn">human-input</span>{% endif %}
       </div>
       <p class="text-[10px] text-ink-muted mb-1.5">Source: {{ p.source_rule }}</p>
       <div id="field-{{ p.target_field }}-value">
